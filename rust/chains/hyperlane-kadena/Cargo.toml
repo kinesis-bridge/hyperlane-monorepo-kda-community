@@ -1,0 +1,12 @@
+cargo-features = ["workspace-inheritance"]
+
+[package]
+name = "hyperlane-kadena"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-trait.workspace = true
+hyperlane-core = { path = "../../hyperlane-core"}
+tracing-futures.workspace = true
+tracing.workspace = true

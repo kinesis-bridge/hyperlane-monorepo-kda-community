@@ -3717,6 +3717,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "hyperlane-kadena"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "hyperlane-core",
+ "tracing",
+ "tracing-futures",
+]
+
+[[package]]
 name = "hyperlane-sealevel"
 version = "0.1.0"
 dependencies = [
