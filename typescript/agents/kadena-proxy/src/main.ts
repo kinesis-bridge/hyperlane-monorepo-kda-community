@@ -8,7 +8,7 @@ async function bootstrap() {
   const config = new DocumentBuilder()
     .setTitle('Kadena proxy')
     .setDescription('The kadena-proxy API description')
-    .setVersion('0.1')
+    .setVersion('0.1.0')
     .addTag('kadena')
     .build();
   const document = SwaggerModule.createDocument(app, config);
