@@ -1,6 +1,6 @@
 {
-  "name": "kadena-proxy-poc",
-  "version": "0.0.1",
+  "name": "kadena-proxy",
+  "version": "0.1.0",
   "description": "",
   "author": "",
   "private": true,

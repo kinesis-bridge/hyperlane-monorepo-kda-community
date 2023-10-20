@@ -11,6 +11,7 @@ members = [
     "hyperlane-base",
     "hyperlane-core",
     "hyperlane-test",
+    "kadena/kadena-client",
     "sealevel/client",
     "sealevel/libraries/access-control",
     "sealevel/libraries/account-utils",

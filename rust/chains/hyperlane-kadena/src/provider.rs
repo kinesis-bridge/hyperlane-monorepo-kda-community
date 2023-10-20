@@ -32,15 +32,15 @@ impl HyperlaneChain for KadenaProvider {
 #[async_trait]
 impl HyperlaneProvider for KadenaProvider {
     async fn get_block_by_hash(&self, _hash: &H256) -> ChainResult<BlockInfo> {
-        todo!() // FIXME
+        todo!() // FIXME: required by Scraper, it's out of the current scope
     }
 
     async fn get_txn_by_hash(&self, _hash: &H256) -> ChainResult<TxnInfo> {
-        todo!() // FIXME
+        todo!() // FIXME: required by Scraper, it's out of the current scope
     }
 
     async fn is_contract(&self, _address: &H256) -> ChainResult<bool> {
-        // FIXME
+        // FIXME: check whether the address is a module or not
         Ok(true)
     }
 }

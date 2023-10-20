@@ -1,44 +1,144 @@
 import { Injectable } from '@nestjs/common';
 import chainweb from '@kadena/chainwebjs';
-import { IBlockHeader, ICutResponse } from '@kadena/chainwebjs/lib/types';
-import { createSignWithKeypair, Pact } from '@kadena/client';
-
-const API = {
-  network: 'testnet04',
-  host: 'https://api.testnet.chainweb.com',
-} as const;
+import {
+  IBlockHeader,
+  IBlockPayloads,
+  ITransactionElement,
+  IEventData,
+} from '@kadena/chainwebjs/lib/types';
+import { ChainId, IUnsignedCommand, Pact } from '@kadena/client';
 
 @Injectable()
 export class AppService {
-  async getCurrentCut(): Promise<ICutResponse> {
-    return chainweb.cut.current(API.network, API.host);
+  async getBlocks(
+    host: string,
+    network: string,
+    chainId: number | string,
+    from: number,
+    to: number,
+  ): Promise<IBlockPayloads<ITransactionElement>[]> {
+    return chainweb.block.range(chainId, from, to, network, host);
   }
 
-  async getBlockHeader(): Promise<IBlockHeader[]> {
-    return chainweb.header.recent(1, 100, undefined, API.network, API.host);
+  async getBlockByHash(
+    host: string,
+    network: string,
+    chainId: number | string,
+    hash: string,
+  ): Promise<IBlockPayloads<ITransactionElement>> {
+    return chainweb.block.blockHash(chainId, hash, network, host);
   }
 
-  async buildTx() {
+  async getBlockByHeight(
+    host: string,
+    network: string,
+    chainId: number | string,
+    height: number,
+  ): Promise<IBlockPayloads<ITransactionElement>> {
+    return chainweb.block.height(chainId, height, network, host);
+  }
+
+  async getEvents(
+    host: string,
+    network: string,
+    chainId: number | string,
+    from: number,
+    to: number,
+  ): Promise<IEventData[]> {
+    return chainweb.event.range(chainId, from, to, network, host);
+  }
+
+  async getEventByHash(
+    host: string,
+    network: string,
+    chainId: number | string,
+    hash: string,
+  ): Promise<IEventData[]> {
+    return chainweb.event.blockHash(chainId, hash, network, host);
+  }
+
+  async getEventByHeight(
+    host: string,
+    network: string,
+    chainId: number | string,
+    height: number,
+  ): Promise<IEventData[]> {
+    return chainweb.event.height(chainId, height, network, host);
+  }
+
+  async getHeaders(
+    host: string,
+    network: string,
+    chainId: number | string,
+    from: number,
+    to: number,
+  ): Promise<IBlockHeader[]> {
+    return chainweb.header.range(chainId, from, to, network, host);
+  }
+
+  async getHeaderByHash(
+    host: string,
+    network: string,
+    chainId: number | string,
+    hash: string,
+  ): Promise<IBlockHeader> {
+    return chainweb.header.blockHash(chainId, hash, network, host);
+  }
+
+  async getHeaderByHeight(
+    host: string,
+    network: string,
+    chainId: number | string,
+    height: number,
+  ): Promise<IBlockHeader> {
+    return chainweb.header.height(chainId, height, network, host);
+  }
+
+  async getTxs(
+    host: string,
+    network: string,
+    chainId: number | string,
+    from: number,
+    to: number,
+  ): Promise<ITransactionElement[]> {
+    return chainweb.transaction.range(chainId, from, to, network, host);
+  }
+
+  async getTxByHash(
+    host: string,
+    network: string,
+    chainId: number | string,
+    hash: string,
+  ): Promise<ITransactionElement[]> {
+    return chainweb.transaction.blockHash(chainId, hash, network, host);
+  }
+
+  async getTxByHeight(
+    host: string,
+    network: string,
+    chainId: number | string,
+    height: number,
+  ): Promise<ITransactionElement[]> {
+    return chainweb.transaction.height(chainId, height, network, host);
+  }
+
+  async buildPactTx(
+    host: string,
+    network: string,
+    chainId: number | string,
+    pactCode: string,
+    signer: string,
+    senderAccount: string,
+  ): Promise<IUnsignedCommand> {
     const builder = Pact.builder
-      .execution('(format "Hello {}!" [(read-msg "person")])')
-      .addSigner(
-        '2FAC76CF704FBB1E0FBA6B75685A9F67BB757472D86E454BFEC3D83710AB64F0',
-      )
+      .execution(pactCode)
+      .addSigner(signer)
       .setMeta({
-        chainId: '8',
-        senderAccount:
-          '2FAC76CF704FBB1E0FBA6B75685A9F67BB757472D86E454BFEC3D83710AB64F0',
+        chainId: chainId as ChainId,
+        senderAccount: senderAccount,
       })
-      .setNetworkId(API.network)
+      .setNetworkId(network)
       .createTransaction();
-
-    const signer = createSignWithKeypair({
-      publicKey:
-        '2FAC76CF704FBB1E0FBA6B75685A9F67BB757472D86E454BFEC3D83710AB64F0',
-      secretKey:
-        '8030E7DBD31C5EA04E5E2A03A5AF132F5890DF4BBC9DA12992B5D9F52E15A2AA',
-    });
-
-    return signer(builder);
+    return builder;
   }
 }
