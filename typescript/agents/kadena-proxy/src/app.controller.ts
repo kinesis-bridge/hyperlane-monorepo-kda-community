@@ -1,156 +1,238 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Query } from '@nestjs/common';
 import { ApiResponse } from '@nestjs/swagger';
 import { AppService } from './app.service';
-import {
-  IBlockHeader,
-  IBlockPayloads,
-  IEventData,
-  ITransactionElement,
-} from '@kadena/chainwebjs/lib/types';
 import { IUnsignedCommand } from '@kadena/client';
-import { BuildPactTxDto } from './dto';
+import { BlockHeaderDto } from './dto/out/block-header.dto';
+import { BlockPayloadsDto } from './dto/out/block-payloads.dto';
+import { BuildPactTxDto } from './dto/in/build-pact-tx.dto';
+import { EventDataDto } from './dto/out/event-data.dto';
+import { TransactionElementDto } from './dto/out/transaction-element.dto';
+import { GetItemByHeightDto } from './dto/in/get-item-by-height.dto';
+import { GetItemsDto } from './dto/in/get-items.dto';
+import { GetItemByHashDto } from './dto/in/get-item-by-hash.dto';
+import { GetHeightDto } from './dto/in/get-height.dto';
 
 @Controller()
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
+  @ApiResponse({
+    isArray: true,
+    type: BlockPayloadsDto,
+  })
   @Get('blocks')
   async getBlocks(
-    @Query('host') host: string,
-    @Query('network') network: string,
-    @Query('chain_id') chainId: number,
-    @Query('from') from: number,
-    @Query('to') to: number,
-  ): Promise<IBlockPayloads<ITransactionElement>[]> {
-    return this.appService.getBlocks(host, network, chainId, from, to);
+    @Query() queryParams: GetItemsDto,
+  ): Promise<BlockPayloadsDto[]> {
+    return this.appService.getBlocks(
+      queryParams.host,
+      queryParams.network,
+      queryParams.chain_id,
+      queryParams.from,
+      queryParams.to,
+    );
   }
 
+  @ApiResponse({
+    type: BlockPayloadsDto,
+  })
   @Get('block_by_hash')
   async getBlockByHash(
-    @Query('host') host: string,
-    @Query('network') network: string,
-    @Query('chain_id') chainId: number,
-    @Query('hash') hash: string,
-  ): Promise<IBlockPayloads<ITransactionElement>> {
-    return this.appService.getBlockByHash(host, network, chainId, hash);
+    @Query() queryParams: GetItemByHashDto,
+  ): Promise<BlockPayloadsDto> {
+    return this.appService.getBlockByHash(
+      queryParams.host,
+      queryParams.network,
+      queryParams.chain_id,
+      queryParams.hash,
+    );
   }
 
+  @ApiResponse({
+    type: BlockPayloadsDto,
+  })
   @Get('block_by_height')
   async getBlockByHeight(
-    @Query('host') host: string,
-    @Query('network') network: string,
-    @Query('chain_id') chainId: number,
-    @Query('height') height: number,
-  ): Promise<IBlockPayloads<ITransactionElement>> {
-    return this.appService.getBlockByHeight(host, network, chainId, height);
+    @Query() queryParams: GetItemByHeightDto,
+  ): Promise<BlockPayloadsDto> {
+    return this.appService.getBlockByHeight(
+      queryParams.host,
+      queryParams.network,
+      queryParams.chain_id,
+      queryParams.height,
+    );
   }
+
   @ApiResponse({
     status: 200,
   })
   @Post('build_pact_tx')
+  @HttpCode(200)
   async buildTx(
     @Body() buildPactTxDto: BuildPactTxDto,
   ): Promise<IUnsignedCommand> {
     return this.appService.buildPactTx(
       buildPactTxDto.host,
       buildPactTxDto.network,
-      buildPactTxDto.chainId,
+      buildPactTxDto.chain_id,
       buildPactTxDto.pactCode,
       buildPactTxDto.signer,
       buildPactTxDto.senderAccount,
     );
   }
 
+  @ApiResponse({
+    isArray: true,
+    type: EventDataDto,
+  })
   @Get('events')
-  async getEvents(
-    @Query('host') host: string,
-    @Query('network') network: string,
-    @Query('chain_id') chainId: number,
-    @Query('from') from: number,
-    @Query('to') to: number,
-  ): Promise<IEventData[]> {
-    return this.appService.getEvents(host, network, chainId, from, to);
+  async getEvents(@Query() queryParams: GetItemsDto): Promise<EventDataDto[]> {
+    return this.appService.getEvents(
+      queryParams.host,
+      queryParams.network,
+      queryParams.chain_id,
+      queryParams.from,
+      queryParams.to,
+    );
   }
 
+  @ApiResponse({
+    isArray: true,
+    type: EventDataDto,
+  })
   @Get('event_by_hash')
   async getEventByHash(
-    @Query('host') host: string,
-    @Query('network') network: string,
-    @Query('chain_id') chainId: number,
-    @Query('hash') hash: string,
-  ): Promise<IEventData[]> {
-    return this.appService.getEventByHash(host, network, chainId, hash);
+    @Query() queryParams: GetItemByHashDto,
+  ): Promise<EventDataDto[]> {
+    return this.appService.getEventByHash(
+      queryParams.host,
+      queryParams.network,
+      queryParams.chain_id,
+      queryParams.hash,
+    );
   }
 
+  @ApiResponse({
+    isArray: true,
+    type: EventDataDto,
+  })
   @Get('event_by_height')
   async getEventByHeight(
-    @Query('host') host: string,
-    @Query('network') network: string,
-    @Query('chain_id') chainId: number,
-    @Query('height') height: number,
-  ): Promise<IEventData[]> {
-    return this.appService.getEventByHeight(host, network, chainId, height);
+    @Query() queryParams: GetItemByHeightDto,
+  ): Promise<EventDataDto[]> {
+    return this.appService.getEventByHeight(
+      queryParams.host,
+      queryParams.network,
+      queryParams.chain_id,
+      queryParams.height,
+    );
   }
 
+  @ApiResponse({
+    isArray: true,
+    type: BlockHeaderDto,
+  })
   @Get('headers')
   async getHeaders(
-    @Query('host') host: string,
-    @Query('network') network: string,
-    @Query('chain_id') chainId: number,
-    @Query('from') from: number,
-    @Query('to') to: number,
-  ): Promise<IBlockHeader[]> {
-    return this.appService.getHeaders(host, network, chainId, from, to);
+    @Query() queryParams: GetItemsDto,
+  ): Promise<BlockHeaderDto[]> {
+    return this.appService.getHeaders(
+      queryParams.host,
+      queryParams.network,
+      queryParams.chain_id,
+      queryParams.from,
+      queryParams.to,
+    );
   }
 
+  @ApiResponse({
+    type: BlockHeaderDto,
+  })
   @Get('header_by_hash')
   async getHeaderByHash(
-    @Query('host') host: string,
-    @Query('network') network: string,
-    @Query('chain_id') chainId: number,
-    @Query('hash') hash: string,
-  ): Promise<IBlockHeader> {
-    return this.appService.getHeaderByHash(host, network, chainId, hash);
+    @Query() queryParams: GetItemByHashDto,
+  ): Promise<BlockHeaderDto> {
+    return this.appService.getHeaderByHash(
+      queryParams.host,
+      queryParams.network,
+      queryParams.chain_id,
+      queryParams.hash,
+    );
   }
 
+  @ApiResponse({
+    type: BlockHeaderDto,
+  })
   @Get('header_by_height')
   async getHeaderByHeight(
-    @Query('host') host: string,
-    @Query('network') network: string,
-    @Query('chain_id') chainId: number,
-    @Query('height') height: number,
-  ): Promise<IBlockHeader> {
-    return this.appService.getHeaderByHeight(host, network, chainId, height);
+    @Query() queryParams: GetItemByHeightDto,
+  ): Promise<BlockHeaderDto> {
+    return this.appService.getHeaderByHeight(
+      queryParams.host,
+      queryParams.network,
+      queryParams.chain_id,
+      queryParams.height,
+    );
   }
 
+  @ApiResponse({
+    schema: { type: 'integer', format: 'int64' },
+  })
+  @Get('height')
+  async getHeight(@Query() queryParams: GetHeightDto): Promise<number> {
+    return this.appService.getHeightWithDepth(
+      queryParams.host,
+      queryParams.network,
+      queryParams.depth,
+    );
+  }
+
+  @ApiResponse({
+    isArray: true,
+    type: TransactionElementDto,
+  })
   @Get('txs')
   async getTxs(
-    @Query('host') host: string,
-    @Query('network') network: string,
-    @Query('chain_id') chainId: string | number,
-    @Query('from') from: number,
-    @Query('to') to: number,
-  ): Promise<ITransactionElement[]> {
-    return this.appService.getTxs(host, network, chainId, from, to);
+    @Query() queryParams: GetItemsDto,
+  ): Promise<TransactionElementDto[]> {
+    return this.appService.getTxs(
+      queryParams.host,
+      queryParams.network,
+      queryParams.chain_id,
+      queryParams.from,
+      queryParams.to,
+    );
   }
 
+  @ApiResponse({
+    isArray: true,
+    type: TransactionElementDto,
+  })
   @Get('tx_by_hash')
   async getTxByHash(
-    @Query('host') host: string,
-    @Query('network') network: string,
-    @Query('chain_id') chainId: number,
-    @Query('hash') hash: string,
-  ): Promise<ITransactionElement[]> {
-    return this.appService.getTxByHash(host, network, chainId, hash);
+    @Query() queryParams: GetItemByHashDto,
+  ): Promise<TransactionElementDto[]> {
+    return this.appService.getTxByHash(
+      queryParams.host,
+      queryParams.network,
+      queryParams.chain_id,
+      queryParams.hash,
+    );
   }
 
+  @ApiResponse({
+    isArray: true,
+    type: TransactionElementDto,
+  })
   @Get('tx_by_height')
   async getTxByHeight(
-    @Query('host') host: string,
-    @Query('network') network: string,
-    @Query('chain_id') chainId: number,
-    @Query('height') height: number,
-  ): Promise<ITransactionElement[]> {
-    return this.appService.getTxByHeight(host, network, chainId, height);
+    @Query() queryParams: GetItemByHeightDto,
+  ): Promise<TransactionElementDto[]> {
+    return this.appService.getTxByHeight(
+      queryParams.host,
+      queryParams.network,
+      queryParams.chain_id,
+      queryParams.height,
+    );
   }
 }

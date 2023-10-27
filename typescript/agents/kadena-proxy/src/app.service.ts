@@ -94,6 +94,15 @@ export class AppService {
     return chainweb.header.height(chainId, height, network, host);
   }
 
+  async getHeightWithDepth(
+    host: string,
+    network: string,
+    depth: number,
+  ): Promise<number> {
+    const cut = await chainweb.cut.current(network, host);
+    return cut.hashes['0'].height - depth;
+  }
+
   async getTxs(
     host: string,
     network: string,
@@ -130,15 +139,16 @@ export class AppService {
     signer: string,
     senderAccount: string,
   ): Promise<IUnsignedCommand> {
-    const builder = Pact.builder
+    let builder = Pact.builder
       .execution(pactCode)
-      .addSigner(signer)
       .setMeta({
-        chainId: chainId as ChainId,
+        chainId: chainId.toString() as ChainId,
         senderAccount: senderAccount,
       })
-      .setNetworkId(network)
-      .createTransaction();
-    return builder;
+      .setNetworkId(network);
+    if (signer.trim().length != 0) {
+      builder = builder.addSigner(signer);
+    }
+    return builder.createTransaction();
   }
 }

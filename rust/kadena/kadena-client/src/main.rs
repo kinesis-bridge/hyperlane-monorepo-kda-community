@@ -8,6 +8,6 @@ use anyhow::Result;
 async fn main() -> Result<()> {
     let config = Configuration::new();
     let block_str = get_block_by_height(&config, "https://api.testnet.chainweb.com", "testnet04", 1, 3_000_000).await?;
-    println!("{}", block_str);
+    println!("{:?}", block_str);
     Ok(())
 }
