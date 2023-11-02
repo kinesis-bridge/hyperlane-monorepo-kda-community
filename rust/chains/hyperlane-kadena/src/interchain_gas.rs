@@ -1,7 +1,7 @@
 #![allow(warnings)]
 
 use std::sync::Arc;
-use crate::contracts::i_multisig_ism::IMultisigIsm;
+use crate::contracts::i_interchain_gas_paymaster::IInterchainGasPaymaster;
 
 use async_trait::async_trait;
 use tracing::{info, instrument, warn};
@@ -15,18 +15,18 @@ use hyperlane_core::{
 
 use crate::provider::KadenaProvider;
 
-/// A reference to a KadenaMultisigIsm contract on some Kadena chain
+/// A reference to a KadenaInterchainGasPaymaster contract on some Kadena chain
 #[derive(Debug)]
-pub struct KadenaMultisigIsm {
+pub struct KadenaInterchainGasPaymaster {
     pub(crate) provider: Arc<KadenaProvider>,
-    pub(crate) contract: Arc<IMultisigIsm>,
+    pub(crate) contract: Arc<IInterchainGasPaymaster>,
     pub(crate) domain: HyperlaneDomain,
 }
 
-impl KadenaMultisigIsm {
-    /// Create a new KadenaMultisigIsm
+impl KadenaInterchainGasPaymaster {
+    /// Create a new KadenaInterchainGasPaymaster
     pub fn new(provider: Arc<KadenaProvider>, locator: &ContractLocator) -> Self {
-        let contract = Arc::new(IMultisigIsm::new(provider.clone()));
+        let contract = Arc::new(IInterchainGasPaymaster::new(provider.clone()));
         Self {
             provider,
             contract,
@@ -35,7 +35,7 @@ impl KadenaMultisigIsm {
     }
 }
 
-impl HyperlaneContract for KadenaMultisigIsm {
+impl HyperlaneContract for KadenaInterchainGasPaymaster {
     fn address(&self) -> H256 {
         // TODO: Implement when the contract and encoding are ready
         let mut addr_vec = self.contract.module_name().as_bytes().to_vec();
@@ -45,7 +45,7 @@ impl HyperlaneContract for KadenaMultisigIsm {
     }
 }
 
-impl HyperlaneChain for KadenaMultisigIsm {
+impl HyperlaneChain for KadenaInterchainGasPaymaster {
     fn domain(&self) -> &HyperlaneDomain {
         &self.domain
     }

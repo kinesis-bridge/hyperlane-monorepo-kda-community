@@ -1,5 +1,6 @@
 use std::error;
 use std::fmt;
+use thiserror::Error;
 
 #[derive(Debug, Clone)]
 pub struct ResponseContent<T> {

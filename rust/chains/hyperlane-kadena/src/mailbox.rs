@@ -1,7 +1,13 @@
 use async_trait::async_trait;
-use tracing::instrument;
+use hyperlane_core::{ChainCommunicationError, Indexer, LogMeta};
+use tracing::{instrument, info};
+use crate::KadenaProvider;
+use crate::contracts::i_mailbox::IMailbox;
 
 use std::num::NonZeroU64;
+use std::ops::RangeInclusive;
+use std::sync::Arc;
+use std::vec;
 
 use hyperlane_core::{
     accumulator::incremental::IncrementalMerkle, ChainResult, Checkpoint,
@@ -10,7 +16,10 @@ use hyperlane_core::{
     TxCostEstimate, TxOutcome, H256, U256,
 };
 
+use kadena_client::{apis::kadena_proxy_api, contract::Contract};
+
 /// The Kadena mailbox contract.
+#[derive(Clone)]
 pub struct KadenaMailbox {
     domain: HyperlaneDomain,
 }
@@ -98,4 +107,73 @@ impl Mailbox for KadenaMailbox {
         fn process_calldata(&self, _message: &HyperlaneMessage, _metadata: &[u8]) -> Vec<u8> {
             todo!()
         } 
+}
+
+/// Struct that retrieves event data for a Kadena Mailbox contract
+#[derive(Debug, Clone)]
+pub struct KadenaMailboxIndexer {
+    provider: Arc<KadenaProvider>,
+    contract: Arc<IMailbox>,
+}
+
+impl KadenaMailboxIndexer {
+    /// The number of blocks to wait for before considering a block finalized.
+    const FINALIZED_BLOCK_DEPTH: u64 = 3;
+
+    /// Creates a new instance of the Kadena mailbox indexer.
+    pub fn new(provider: Arc<KadenaProvider>) -> Self {
+        let contract = Arc::new(IMailbox::new(provider.clone()));
+        Self {
+            provider,
+            contract,
+        }
+    }
+    
+    #[instrument(level = "debug", err, ret, skip(self))]
+    async fn get_finalized_block_number(&self) -> ChainResult<u32> {
+        let conn_conf = self.provider.connection_conf();
+        let block_number = kadena_proxy_api::get_height(
+            &self.provider.kadena_proxy_config(),
+            &conn_conf.url.to_string(),
+            &conn_conf.network_id,
+            Some(Self::FINALIZED_BLOCK_DEPTH),
+        )
+        .await
+        .map_err(ChainCommunicationError::from_other)?;
+        Ok(block_number as u32)
+    }
+}
+
+#[async_trait]
+impl Indexer<HyperlaneMessage> for KadenaMailboxIndexer {
+    #[instrument(level = "debug", err, ret, skip(self))]
+    async fn fetch_logs(
+        &self,
+        range: RangeInclusive<u32>,
+    ) -> ChainResult<Vec<(HyperlaneMessage, LogMeta)>> {
+        info!(
+            ?range,
+            "Fetching KadenaMailboxIndexer HyperlaneMessage logs"
+        );
+
+        let _events = self
+            .contract
+            .query_events_range(
+                "Dispatch", // TODO: get the event name from the contract
+                *range.start() as u64,
+                *range.end() as u64,
+            )
+            .await
+            .map_err(ChainCommunicationError::from_other)?;
+        // TODO: Convert events to HyperlaneMessage logs when the Kadena mailbox contract is ready.
+
+        let events = vec![];
+
+        Ok(events)
+    }
+
+    #[instrument(level = "debug", err, ret, skip(self))]
+    async fn get_finalized_block_number(&self) -> ChainResult<u32> {
+        self.get_finalized_block_number().await
+    }
 }

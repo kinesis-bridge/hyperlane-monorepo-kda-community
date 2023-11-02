@@ -10,3 +10,9 @@ async-trait.workspace = true
 hyperlane-core = { path = "../../hyperlane-core"}
 tracing-futures.workspace = true
 tracing.workspace = true
+kadena-client.workspace = true
+url.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true

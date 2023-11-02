@@ -3720,10 +3720,16 @@ dependencies = [
 name = "hyperlane-kadena"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-trait",
  "hyperlane-core",
+ "kadena-client",
+ "serde",
+ "serde_json",
+ "thiserror",
  "tracing",
  "tracing-futures",
+ "url",
 ]
 
 [[package]]
@@ -4415,10 +4421,12 @@ name = "kadena-client"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "reqwest",
  "serde",
  "serde_derive",
  "serde_json",
+ "thiserror",
  "tokio",
  "url",
 ]

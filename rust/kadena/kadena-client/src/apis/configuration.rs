@@ -1,3 +1,5 @@
+use url::Url;
+
 #[derive(Debug, Clone)]
 pub struct Configuration {
     pub base_path: String,
@@ -35,4 +37,15 @@ impl Default for Configuration {
             api_key: None,
         }
     }
+}
+
+/// Kadena connection configuration
+#[derive(Debug, Clone)]
+pub struct ConnectionConf {
+    /// Fully qualified string to connect to
+    pub url: Url,
+    /// Network ID
+    pub network_id: String,
+    /// Chain ID
+    pub chain_id: u8,
 }
