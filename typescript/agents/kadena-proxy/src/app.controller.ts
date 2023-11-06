@@ -1,7 +1,6 @@
 import { Body, Controller, Get, HttpCode, Post, Query } from '@nestjs/common';
 import { ApiResponse } from '@nestjs/swagger';
 import { AppService } from './app.service';
-import { IUnsignedCommand } from '@kadena/client';
 import { BlockHeaderDto } from './dto/out/block-header.dto';
 import { BlockPayloadsDto } from './dto/out/block-payloads.dto';
 import { BuildPactTxDto } from './dto/in/build-pact-tx.dto';
@@ -11,6 +10,7 @@ import { GetItemByHeightDto } from './dto/in/get-item-by-height.dto';
 import { GetItemsDto } from './dto/in/get-items.dto';
 import { GetItemByHashDto } from './dto/in/get-item-by-hash.dto';
 import { GetHeightDto } from './dto/in/get-height.dto';
+import { UnsignedCommandDto } from './dto/out/unsigned-command.dto';
 
 @Controller()
 export class AppController {
@@ -65,12 +65,13 @@ export class AppController {
 
   @ApiResponse({
     status: 200,
+    type: UnsignedCommandDto,
   })
   @Post('build_pact_tx')
   @HttpCode(200)
   async buildTx(
     @Body() buildPactTxDto: BuildPactTxDto,
-  ): Promise<IUnsignedCommand> {
+  ): Promise<UnsignedCommandDto> {
     return this.appService.buildPactTx(
       buildPactTxDto.host,
       buildPactTxDto.network,

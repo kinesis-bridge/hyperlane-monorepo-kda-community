@@ -18,3 +18,4 @@ mod provider;
 mod validator_announce;
 mod trait_builder;
 mod contracts;
+mod signers;

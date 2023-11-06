@@ -103,7 +103,7 @@ pub enum GetTxsError {
 pub async fn build_tx(
     configuration: &configuration::Configuration,
     build_pact_tx_dto: crate::models::BuildPactTxDto,
-) -> Result<(), Error<BuildTxError>> {
+) -> Result<crate::models::UnsignedCommandDto, Error<BuildTxError>> {
     let configuration = configuration;
 
     let client = &configuration.client;
@@ -123,7 +123,7 @@ pub async fn build_tx(
     let content = resp.text().await?;
 
     if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
+        serde_json::from_str(&content).map_err(Error::from)
     } else {
         let entity: Option<BuildTxError> = serde_json::from_str(&content).ok();
         let error = ResponseContent {
@@ -203,8 +203,6 @@ pub async fn get_block_by_height(
 
     let status = resp.status();
     let content = resp.text().await?;
-
-    println!("content: {}", content);
 
     if !status.is_client_error() && !status.is_server_error() {
         serde_json::from_str(&content).map_err(Error::from)
