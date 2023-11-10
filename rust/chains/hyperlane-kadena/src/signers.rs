@@ -15,8 +15,8 @@ use hyperlane_core::{
 pub enum Signers {
     /// A wallet instantiated with a locally stored private key
     Local(LocalWallet),
-    /// A signer using a key stored in aws kms
-    Aws(AwsSigner),
+    /// A signer using a key stored in hashicorp vault
+    Vault(VaultSigner),
 }
 
 impl From<LocalWallet> for Signers {

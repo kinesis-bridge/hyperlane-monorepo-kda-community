@@ -7,6 +7,14 @@ import {
   IEventData,
 } from '@kadena/chainwebjs/lib/types';
 import { ChainId, IUnsignedCommand, Pact } from '@kadena/client';
+import {
+  poll,
+  IPollRequestBody,
+  IPollResponse,
+  send,
+  IRequestKeys,
+  ISendRequestBody,
+} from '@kadena/chainweb-node-client';
 
 @Injectable()
 export class AppService {
@@ -150,5 +158,19 @@ export class AppService {
       builder = builder.addSigner(signer);
     }
     return builder.createTransaction();
+  }
+
+  async poll(
+    requestBody: IPollRequestBody,
+    apiHost: string,
+  ): Promise<IPollResponse> {
+    return poll(requestBody, apiHost);
+  }
+
+  async send(
+    requestBody: ISendRequestBody,
+    apiHost: string,
+  ): Promise<IRequestKeys> {
+    return send(requestBody, apiHost);
   }
 }

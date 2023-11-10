@@ -12,6 +12,11 @@ import { GetItemByHashDto } from './dto/in/get-item-by-hash.dto';
 import { GetHeightDto } from './dto/in/get-height.dto';
 import { UnsignedCommandDto } from './dto/out/unsigned-command.dto';
 
+import { PollRequestBodyDto } from './dto/in/poll-request-body.dto';
+import { SendRequestBodyDto } from './dto/in/send-request-body';
+import { RequestKeysDto } from './dto/out/request-keys.dto';
+import { PollResponseDto } from './dto/out/poll-response.dto';
+
 @Controller()
 export class AppController {
   constructor(private readonly appService: AppService) {}
@@ -235,5 +240,15 @@ export class AppController {
       queryParams.chain_id,
       queryParams.height,
     );
+  }
+
+  @Post('poll')
+  async poll(@Body() body: PollRequestBodyDto): Promise<PollResponseDto> {
+    return this.appService.poll(body, body.hostapi);
+  }
+
+  @Post('send')
+  async send(@Body() body: SendRequestBodyDto): Promise<RequestKeysDto> {
+    return this.appService.send(body, body.hostapi);
   }
 }
