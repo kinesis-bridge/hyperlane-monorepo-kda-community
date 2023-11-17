@@ -1,5 +1,5 @@
-import { Body, Controller, Get, HttpCode, Post, Query } from '@nestjs/common';
-import { ApiResponse } from '@nestjs/swagger';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { ApiExtraModels, ApiResponse, getSchemaPath } from '@nestjs/swagger';
 import { AppService } from './app.service';
 import { BlockHeaderDto } from './dto/out/block-header.dto';
 import { BlockPayloadsDto } from './dto/out/block-payloads.dto';
@@ -10,12 +10,14 @@ import { GetItemByHeightDto } from './dto/in/get-item-by-height.dto';
 import { GetItemsDto } from './dto/in/get-items.dto';
 import { GetItemByHashDto } from './dto/in/get-item-by-hash.dto';
 import { GetHeightDto } from './dto/in/get-height.dto';
-import { UnsignedCommandDto } from './dto/out/unsigned-command.dto';
+import { CommandDto } from './dto/out/command.dto';
 
 import { PollRequestBodyDto } from './dto/in/poll-request-body.dto';
 import { SendRequestBodyDto } from './dto/in/send-request-body';
 import { RequestKeysDto } from './dto/out/request-keys.dto';
 import { PollResponseDto } from './dto/out/poll-response.dto';
+import { CommandResultDto } from './dto/out/command-result.dto';
+import { LocalRequestBodyDto } from './dto/in/local-request-body.dto';
 
 @Controller()
 export class AppController {
@@ -69,14 +71,10 @@ export class AppController {
   }
 
   @ApiResponse({
-    status: 200,
-    type: UnsignedCommandDto,
+    type: CommandDto,
   })
   @Post('build_pact_tx')
-  @HttpCode(200)
-  async buildTx(
-    @Body() buildPactTxDto: BuildPactTxDto,
-  ): Promise<UnsignedCommandDto> {
+  async buildTx(@Body() buildPactTxDto: BuildPactTxDto): Promise<CommandDto> {
     return this.appService.buildPactTx(
       buildPactTxDto.host,
       buildPactTxDto.network,
@@ -242,13 +240,36 @@ export class AppController {
     );
   }
 
+  @ApiExtraModels(CommandResultDto)
+  @ApiResponse({
+    schema: {
+      type: 'object',
+      additionalProperties: { $ref: getSchemaPath(CommandResultDto) },
+    },
+  })
   @Post('poll')
   async poll(@Body() body: PollRequestBodyDto): Promise<PollResponseDto> {
     return this.appService.poll(body, body.hostapi);
   }
 
+  @ApiResponse({
+    type: RequestKeysDto,
+  })
   @Post('send')
   async send(@Body() body: SendRequestBodyDto): Promise<RequestKeysDto> {
     return this.appService.send(body, body.hostapi);
+  }
+
+  @ApiResponse({
+    type: CommandResultDto,
+  })
+  @Post('local')
+  async local(@Body() body: LocalRequestBodyDto): Promise<CommandResultDto> {
+    return this.appService.local(
+      body.cmd,
+      body.hostapi,
+      body.preflight,
+      body.signatureVerification,
+    );
   }
 }

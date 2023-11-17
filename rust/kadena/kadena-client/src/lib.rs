@@ -10,3 +10,4 @@ pub mod apis;
 pub mod models;
 pub mod contract;
 pub mod signer;
+pub mod tx;

@@ -5,15 +5,7 @@ edition.workspace = true
 homepage.workspace = true
 license-file.workspace = true
 publish.workspace = true
-version.workspace = true
-
-[[bin]]
-name = "kadena-client"
-path = "src/main.rs"
-
-[lib]
-name = "kadena_client"
-path = "src/lib.rs"
+version = "0.1.0"
 
 [dependencies]
 tokio = { workspace = true, features = ["full"] }
@@ -28,4 +20,9 @@ url.workspace = true
 ed25519-dalek = "2"
 hex.workspace = true
 base64.workspace = true
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["fmt", "env-filter"] }
 hyperlane-core = { path = "../../hyperlane-core"}
+
+[dev-dependencies]
+more-asserts = "0.3"

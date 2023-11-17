@@ -6,6 +6,7 @@ use crate::apis::ResponseContent;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum BuildTxError {
+    DefaultResponse(crate::models::CommandDto),
     UnknownValue(serde_json::Value),
 }
 
@@ -100,10 +101,31 @@ pub enum GetTxsError {
     UnknownValue(serde_json::Value),
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum LocalError {
+    DefaultResponse(crate::models::CommandResultDto),
+    UnknownValue(serde_json::Value),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum PollError {
+    DefaultResponse(::std::collections::HashMap<String, crate::models::CommandResultDto>),
+    UnknownValue(serde_json::Value),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum SendError {
+    DefaultResponse(crate::models::RequestKeysDto),
+    UnknownValue(serde_json::Value),
+}
+
 pub async fn build_tx(
     configuration: &configuration::Configuration,
     build_pact_tx_dto: crate::models::BuildPactTxDto,
-) -> Result<crate::models::UnsignedCommandDto, Error<BuildTxError>> {
+) -> Result<crate::models::CommandDto, Error<BuildTxError>> {
     let configuration = configuration;
 
     let client = &configuration.client;
@@ -667,6 +689,112 @@ pub async fn get_txs(
         serde_json::from_str(&content).map_err(Error::from)
     } else {
         let entity: Option<GetTxsError> = serde_json::from_str(&content).ok();
+        let error = ResponseContent {
+            status: status,
+            content: content,
+            entity: entity,
+        };
+        Err(Error::ResponseError(error))
+    }
+}
+
+pub async fn local(
+    configuration: &configuration::Configuration,
+    local_request_body_dto: crate::models::LocalRequestBodyDto,
+) -> Result<crate::models::CommandResultDto, Error<LocalError>> {
+    let configuration = configuration;
+
+    let client = &configuration.client;
+
+    let uri_str = format!("{}/local", configuration.base_path);
+    let mut req_builder = client.request(reqwest::Method::POST, uri_str.as_str());
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    req_builder = req_builder.json(&local_request_body_dto);
+
+    let req = req_builder.build()?;
+    let resp = client.execute(req).await?;
+
+    let status = resp.status();
+    let content = resp.text().await?;
+
+    if !status.is_client_error() && !status.is_server_error() {
+        serde_json::from_str(&content).map_err(Error::from)
+    } else {
+        let entity: Option<LocalError> = serde_json::from_str(&content).ok();
+        let error = ResponseContent {
+            status: status,
+            content: content,
+            entity: entity,
+        };
+        Err(Error::ResponseError(error))
+    }
+}
+
+pub async fn poll(
+    configuration: &configuration::Configuration,
+    poll_request_body_dto: crate::models::PollRequestBodyDto,
+) -> Result<::std::collections::HashMap<String, crate::models::CommandResultDto>, Error<PollError>>
+{
+    let configuration = configuration;
+
+    let client = &configuration.client;
+
+    let uri_str = format!("{}/poll", configuration.base_path);
+    let mut req_builder = client.request(reqwest::Method::POST, uri_str.as_str());
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    req_builder = req_builder.json(&poll_request_body_dto);
+
+    let req = req_builder.build()?;
+    let resp = client.execute(req).await?;
+
+    let status = resp.status();
+    let content = resp.text().await?;
+
+    if !status.is_client_error() && !status.is_server_error() {
+        serde_json::from_str(&content).map_err(Error::from)
+    } else {
+        let entity: Option<PollError> = serde_json::from_str(&content).ok();
+        let error = ResponseContent {
+            status: status,
+            content: content,
+            entity: entity,
+        };
+        Err(Error::ResponseError(error))
+    }
+}
+
+pub async fn send(
+    configuration: &configuration::Configuration,
+    send_request_body_dto: crate::models::SendRequestBodyDto,
+) -> Result<crate::models::RequestKeysDto, Error<SendError>> {
+    let configuration = configuration;
+
+    let client = &configuration.client;
+
+    let uri_str = format!("{}/send", configuration.base_path);
+    let mut req_builder = client.request(reqwest::Method::POST, uri_str.as_str());
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    req_builder = req_builder.json(&send_request_body_dto);
+
+    let req = req_builder.build()?;
+    let resp = client.execute(req).await?;
+
+    let status = resp.status();
+    let content = resp.text().await?;
+
+    if !status.is_client_error() && !status.is_server_error() {
+        serde_json::from_str(&content).map_err(Error::from)
+    } else {
+        let entity: Option<SendError> = serde_json::from_str(&content).ok();
         let error = ResponseContent {
             status: status,
             content: content,

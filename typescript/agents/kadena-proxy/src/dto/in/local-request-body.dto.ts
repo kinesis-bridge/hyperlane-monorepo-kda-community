@@ -2,11 +2,17 @@ import { ApiProperty } from '@nestjs/swagger';
 import { CommandDto } from '../out/command.dto';
 import { IsNotEmpty } from 'class-validator';
 
-export class SendRequestBodyDto {
-  @ApiProperty({ isArray: true, type: CommandDto })
+export class LocalRequestBodyDto {
+  @ApiProperty()
   @IsNotEmpty()
-  cmds: Array<CommandDto>;
+  cmd: CommandDto;
   @ApiProperty()
   @IsNotEmpty()
   hostapi: string;
+  @ApiProperty()
+  @IsNotEmpty()
+  preflight: boolean;
+  @ApiProperty()
+  @IsNotEmpty()
+  signatureVerification: boolean;
 }

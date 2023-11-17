@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MetaDataDto } from './meta-data.dto';
 
 export class ChainwebResponseMetaDataDto {
-  @ApiProperty()
+  @ApiPropertyOptional()
   blockHash: string;
   @ApiProperty()
   blockTime: number;

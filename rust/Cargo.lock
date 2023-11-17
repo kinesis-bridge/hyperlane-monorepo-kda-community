@@ -4493,12 +4493,15 @@ dependencies = [
  "ed25519-dalek 2.0.0",
  "hex 0.4.3",
  "hyperlane-core",
+ "more-asserts",
  "reqwest",
  "serde",
  "serde_derive",
  "serde_json",
  "thiserror",
  "tokio",
+ "tracing",
+ "tracing-subscriber",
  "url",
 ]
 
@@ -4875,6 +4878,12 @@ dependencies = [
  "quote 1.0.32",
  "syn 1.0.109",
 ]
+
+[[package]]
+name = "more-asserts"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1fafa6961cabd9c63bcd77a45d7e3b7f3b552b70417831fb0f56db717e72407e"
 
 [[package]]
 name = "multer"

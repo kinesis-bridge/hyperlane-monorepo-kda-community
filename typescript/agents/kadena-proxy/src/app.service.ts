@@ -12,8 +12,11 @@ import {
   IPollRequestBody,
   IPollResponse,
   send,
+  localRaw,
   IRequestKeys,
   ISendRequestBody,
+  LocalRequestBody,
+  ICommandResult,
 } from '@kadena/chainweb-node-client';
 
 @Injectable()
@@ -172,5 +175,21 @@ export class AppService {
     apiHost: string,
   ): Promise<IRequestKeys> {
     return send(requestBody, apiHost);
+  }
+
+  async local(
+    requestBody: LocalRequestBody,
+    apiHost: string,
+    preflight: boolean,
+    signatureVerification: boolean,
+  ): Promise<ICommandResult> {
+    const rsp = await localRaw(requestBody, apiHost, {
+      signatureVerification: signatureVerification,
+      preflight: preflight,
+    });
+    if ('preflightResult' in rsp) {
+      return rsp.preflightResult;
+    }
+    return rsp;
   }
 }

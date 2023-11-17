@@ -29,7 +29,7 @@ impl Default for Configuration {
     fn default() -> Self {
         Configuration {
             base_path: "http://localhost:3000".to_owned(),
-            user_agent: Some("kadena-proxy-client/0.1/rust".to_owned()),
+            user_agent: Some("kadena-proxy-client/0.1.0/rust".to_owned()),
             client: reqwest::Client::new(),
             basic_auth: None,
             oauth_access_token: None,
@@ -48,4 +48,20 @@ pub struct ConnectionConf {
     pub network_id: String,
     /// Chain ID
     pub chain_id: u8,
+}
+
+impl ConnectionConf {
+    pub fn get_hostapi(&self) -> String {
+        format!("{}chainweb/0.0/{}/chain/{}/pact", self.url, self.network_id, self.chain_id)
+    }    
+}
+
+impl Default for ConnectionConf {
+    fn default() -> Self {
+        ConnectionConf {
+            url: Url::parse("https://api.testnet.chainweb.com").unwrap(),
+            network_id: "testnet04".to_string(),
+            chain_id: 1,
+        }
+    }
 }

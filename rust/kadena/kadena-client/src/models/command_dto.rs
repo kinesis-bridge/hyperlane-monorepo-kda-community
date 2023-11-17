@@ -1,5 +1,5 @@
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct UnsignedCommandDto {
+pub struct CommandDto {
     #[serde(rename = "cmd")]
     pub cmd: String,
     #[serde(rename = "hash")]
@@ -8,12 +8,12 @@ pub struct UnsignedCommandDto {
     pub sigs: Vec<crate::models::SignatureJsonDto>,
 }
 
-impl UnsignedCommandDto {
+impl CommandDto {
     pub fn new(
         cmd: String,
         hash: String,
         sigs: Vec<crate::models::SignatureJsonDto>,
-    ) -> UnsignedCommandDto {
-        UnsignedCommandDto { cmd, hash, sigs }
+    ) -> CommandDto {
+        CommandDto { cmd, hash, sigs }
     }
 }

@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { SignatureJsonDto } from './signature-json.dto';
 
-export class UnsignedCommandDto {
+export class CommandDto {
   @ApiProperty()
   cmd: string;
   @ApiProperty()
