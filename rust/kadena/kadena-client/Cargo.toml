@@ -1,28 +1,29 @@
 [package]
-name = "kadena-client"
 documentation.workspace = true
 edition.workspace = true
 homepage.workspace = true
 license-file.workspace = true
+name = "kadena-client"
 publish.workspace = true
 version = "0.1.0"
 
 [dependencies]
-tokio = { workspace = true, features = ["full"] }
-reqwest= { workspace = true, features = ["json", "multipart"] }
 anyhow.workspace = true
-thiserror.workspace = true
+async-trait.workspace = true
+base64.workspace = true
+ed25519-dalek = "2"
+hex.workspace = true
+hyperlane-core = { path = "../../hyperlane-core" }
+reqwest = { workspace = true, features = ["json", "multipart"] }
 serde.workspace = true
 serde_derive.workspace = true
 serde_json.workspace = true
-async-trait.workspace = true
-url.workspace = true
-ed25519-dalek = "2"
-hex.workspace = true
-base64.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["full"] }
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 tracing.workspace = true
-tracing-subscriber = { workspace = true, features = ["fmt", "env-filter"] }
-hyperlane-core = { path = "../../hyperlane-core"}
+url.workspace = true
+vaultrs = "0.7"
 
 [dev-dependencies]
 more-asserts = "0.3"

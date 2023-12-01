@@ -16,3 +16,5 @@ thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true
+ethers.workspace = true
+ethers-core.workspace = true

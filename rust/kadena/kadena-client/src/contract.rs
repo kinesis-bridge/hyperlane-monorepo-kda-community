@@ -13,7 +13,19 @@ pub trait KadenaProxyPovider {
 
 #[async_trait]
 pub trait Contract {
-    fn module_name(&self) -> &str;
+    const MODULE_NAME: &'static str;
+
+    /// The default namespace of the contract
+    const NAMESPACE: &'static str = "free";
+
+    fn module_name(&self) -> &'static str {
+        Self::MODULE_NAME
+    }
+
+    fn namespace(&self) -> &'static str {
+        Self::NAMESPACE
+    }
+
     fn provider(&self) -> Arc<dyn KadenaProxyPovider + Send + Sync>;
     async fn query_events_range(&self, event_name: &str, from: u64, to: u64) -> Result<Vec<EventDataDto>, Error<GetEventsError>> {
         let provider = self.provider();

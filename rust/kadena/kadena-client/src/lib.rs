@@ -9,5 +9,6 @@ extern crate url;
 pub mod apis;
 pub mod models;
 pub mod contract;
-pub mod signer;
 pub mod tx;
+pub mod contract_call;
+pub mod signers;

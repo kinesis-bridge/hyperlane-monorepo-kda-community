@@ -3789,6 +3789,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "ethers",
+ "ethers-core",
  "hyperlane-core",
  "kadena-client",
  "serde",
@@ -4503,6 +4505,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "url",
+ "vaultrs",
 ]
 
 [[package]]
@@ -6564,6 +6567,40 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "faf0c4a6ece9950b9abdb62b1cfcf2a68b3b67a10ba445b3bb85be2a293d0632"
 dependencies = [
  "nom",
+]
+
+[[package]]
+name = "rustify"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e9c02e25271068de581e03ac3bb44db60165ff1a10d92b9530192ccb898bc706"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "http",
+ "reqwest",
+ "rustify_derive",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "thiserror",
+ "tracing",
+ "url",
+]
+
+[[package]]
+name = "rustify_derive"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "58135536c18c04f4634bedad182a3f41baf33ef811cc38a3ec7b7061c57134c8"
+dependencies = [
+ "proc-macro2 1.0.66",
+ "quote 1.0.32",
+ "regex",
+ "serde_urlencoded",
+ "syn 1.0.109",
+ "synstructure",
 ]
 
 [[package]]
@@ -9324,6 +9361,26 @@ name = "valuable"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "830b7e5d4d90034032940e4ace0d9a9a057e7a45cd94e6c007832e39edb82f6d"
+
+[[package]]
+name = "vaultrs"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "28084ac780b443e7f3514df984a2933bd3ab39e71914d951cdf8e4d298a7c9bc"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "derive_builder",
+ "http",
+ "reqwest",
+ "rustify",
+ "rustify_derive",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tracing",
+ "url",
+]
 
 [[package]]
 name = "vcpkg"
