@@ -1,4 +1,5 @@
 use url::Url;
+use anyhow::Result;
 
 #[derive(Debug, Clone)]
 pub struct Configuration {
@@ -22,6 +23,14 @@ pub struct ApiKey {
 impl Configuration {
     pub fn new() -> Configuration {
         Configuration::default()
+    }
+
+    pub fn new_with_base_path(base_path: String) -> Result<Configuration> {
+        Url::parse(&base_path)?; // Ensure base_path is a valid URL
+        Ok(Configuration {
+            base_path,
+            ..Configuration::default()
+        })
     }
 }
 
@@ -51,6 +60,14 @@ pub struct ConnectionConf {
 }
 
 impl ConnectionConf {
+    pub fn new(url: Url, network_id: String, chain_id: u8) -> Self {
+        ConnectionConf {
+            url,
+            network_id,
+            chain_id,
+        }
+    }
+
     pub fn get_hostapi(&self) -> String {
         format!("{}chainweb/0.0/{}/chain/{}/pact", self.url, self.network_id, self.chain_id)
     }    

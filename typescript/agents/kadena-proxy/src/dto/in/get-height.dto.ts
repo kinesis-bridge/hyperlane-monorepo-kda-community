@@ -10,7 +10,7 @@ import {
 } from 'class-validator';
 
 export class GetHeightDto {
-  @IsUrl()
+  @IsUrl({ require_tld: false })
   @ApiProperty()
   host: string;
   @IsString()

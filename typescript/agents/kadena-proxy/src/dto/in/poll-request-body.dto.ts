@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty } from 'class-validator';
+import { IsNotEmpty, IsUrl } from 'class-validator';
 
 export class PollRequestBodyDto {
   @ApiProperty({ isArray: true, type: String })
@@ -7,5 +7,6 @@ export class PollRequestBodyDto {
   requestKeys: Array<string>;
   @ApiProperty()
   @IsNotEmpty()
+  @IsUrl({ require_tld: false })
   hostapi: string;
 }

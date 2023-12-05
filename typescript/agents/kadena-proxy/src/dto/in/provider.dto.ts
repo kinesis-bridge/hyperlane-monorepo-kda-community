@@ -3,7 +3,7 @@ import { Type } from 'class-transformer';
 import { Min, IsUrl, IsNotEmpty, IsInt, IsString } from 'class-validator';
 
 export class ProviderDto {
-  @IsUrl()
+  @IsUrl({ require_tld: false })
   @ApiProperty()
   host: string;
   @IsString()

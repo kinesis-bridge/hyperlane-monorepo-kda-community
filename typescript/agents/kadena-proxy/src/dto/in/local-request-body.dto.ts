@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { CommandDto } from '../out/command.dto';
-import { IsNotEmpty } from 'class-validator';
+import { IsNotEmpty, IsUrl } from 'class-validator';
 
 export class LocalRequestBodyDto {
   @ApiProperty()
@@ -8,6 +8,7 @@ export class LocalRequestBodyDto {
   cmd: CommandDto;
   @ApiProperty()
   @IsNotEmpty()
+  @IsUrl({ require_tld: false })
   hostapi: string;
   @ApiProperty()
   @IsNotEmpty()
