@@ -1,6 +1,6 @@
 import { JsonRpcProvider } from '@ethersproject/providers';
 
-import { MultiProvider, TestChains } from '@hyperlane-xyz/sdk';
+import { MultiProvider } from '@hyperlane-xyz/sdk';
 
 import { EnvironmentConfig } from '../../../src/config';
 
@@ -8,7 +8,6 @@ import { agents } from './agent';
 import { testConfigs } from './chains';
 import { core } from './core';
 import { storageGasOracleConfig } from './gas-oracle';
-import { hooks } from './hooks';
 import { igp } from './igp';
 import { infra } from './infra';
 import { owners } from './owners';
@@ -18,7 +17,6 @@ export const environment: EnvironmentConfig = {
   chainMetadataConfigs: testConfigs,
   agents,
   core,
-  hooks,
   igp,
   owners,
   infra,

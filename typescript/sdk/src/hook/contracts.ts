@@ -1,18 +1,23 @@
 import {
-  AbstractMessageIdAuthHook__factory,
-  AbstractMessageIdAuthorizedIsm__factory,
+  DomainRoutingHook__factory,
+  FallbackDomainRoutingHook__factory,
+  InterchainGasPaymaster__factory,
+  MerkleTreeHook__factory,
   OPStackHook__factory,
-  OPStackIsm__factory,
+  StaticAggregationHook__factory,
+  StaticProtocolFee__factory,
 } from '@hyperlane-xyz/core';
 
-export type HookFactories = {
-  hook: AbstractMessageIdAuthHook__factory;
-  ism: AbstractMessageIdAuthorizedIsm__factory;
+import { HookType } from './types';
+
+export const hookFactories = {
+  [HookType.MERKLE_TREE]: new MerkleTreeHook__factory(),
+  [HookType.PROTOCOL_FEE]: new StaticProtocolFee__factory(),
+  [HookType.INTERCHAIN_GAS_PAYMASTER]: new InterchainGasPaymaster__factory(), // unused
+  [HookType.AGGREGATION]: new StaticAggregationHook__factory(), // unused
+  [HookType.OP_STACK]: new OPStackHook__factory(),
+  [HookType.ROUTING]: new DomainRoutingHook__factory(),
+  [HookType.FALLBACK_ROUTING]: new FallbackDomainRoutingHook__factory(),
 };
 
-export const optimismHookFactories = {
-  hook: new OPStackHook__factory(),
-  ism: new OPStackIsm__factory(),
-};
-
-export type OptimismHookFactories = typeof optimismHookFactories;
+export type HookFactories = typeof hookFactories;

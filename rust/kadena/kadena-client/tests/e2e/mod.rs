@@ -1,8 +1,10 @@
 pub mod common;
 
+use std::sync::Arc;
+
 use kadena_client::{
     models::CommandResultDtoResult,
-    signers::{LocalWallet, VaultSigner, Signer}, tx, contract_call::ContractCall,
+    signers::{LocalWallet, VaultSigner}, tx, contract_call::ContractCall,
 };
 use common::prelude::*;
 
@@ -10,20 +12,11 @@ use common::prelude::*;
 pub async fn test_add_two_numbers_local_tx() {
     let a = 1;
     let b = 2;
-    let pact_expr = format!("(+ {} {})", a, b);
-
-    let mut tx = build_tx_with_pact_expr(&pact_expr).await;
-
-    let local_wallet = LocalWallet::new(CONTEXT.default_privkey.clone());
-    let sig = local_wallet.sign_transaction(&mut tx).await.unwrap();
-
-    println!(
-        "tx: {:?}, sig: {:?}",
-        serde_json::to_string(&tx).unwrap(),
-        sig
-    );
     
-    let call = ContractCall::new(CONTEXT.conf.clone(), CONTEXT.proxy_conf.clone(), tx);
+    let test_contract = TestContract::new(Arc::new(
+        LocalWallet::new(CONTEXT.default_privkey.clone()))
+    );
+    let call = test_contract.add_two_numbers(a, b).await;
     let rep_res = tx::report_tx(call).await.unwrap();
     println!("res: {:?}", rep_res);
 
@@ -41,18 +34,11 @@ pub async fn test_add_two_numbers_local_tx() {
 pub async fn test_estimate_gas() {
     const GAS_BUFFER: u64 = 500;
 
-    let mut tx = build_tx_with_pact_expr("(+ 1 2)").await;
+    let test_contract = TestContract::new(Arc::new(
+        LocalWallet::new(CONTEXT.default_privkey.clone())
+    ));
 
-    let local_wallet = LocalWallet::new(CONTEXT.default_privkey.clone());
-    let sig = local_wallet.sign_transaction(&mut tx).await.unwrap();
-
-    println!(
-        "tx: {:?}, sig: {:?}",
-        serde_json::to_string(&tx).unwrap(),
-        sig
-    );
-
-    let call = ContractCall::new(CONTEXT.conf.clone(), CONTEXT.proxy_conf.clone(), tx);
+    let call = test_contract.add_two_numbers(1, 2).await;
 
     let estimated_gas = call.estimate_gas().await.unwrap();
     println!("estimate_gas: {:?}", estimated_gas);
@@ -70,9 +56,6 @@ pub async fn test_add_two_numbers_vault_tx() {
 
     let a = 1;
     let b = 2;
-    let pact_expr = format!("(+ {} {})", a, b);
-
-    let mut tx = build_tx_with_pact_expr(&pact_expr).await;
 
     // Create a client
     let client = VaultClient::new(
@@ -90,15 +73,12 @@ pub async fn test_add_two_numbers_vault_tx() {
         None as Option<u64>,
         None as Option<&str>,
     ).await.unwrap();
-    let sig = vault_signer.sign_transaction(&mut tx).await.unwrap();
 
-    println!(
-        "tx: {:?}, sig: {:?}",
-        serde_json::to_string(&tx).unwrap(),
-        sig
-    );
-    
-    let call = ContractCall::new(CONTEXT.conf.clone(), CONTEXT.proxy_conf.clone(), tx);
+    let test_contract = TestContract::new(Arc::new(
+        vault_signer
+    ));
+
+    let call = test_contract.add_two_numbers(a, b).await;
     let rep_res = tx::report_tx(call).await.unwrap();
     println!("res: {:?}", rep_res);
 

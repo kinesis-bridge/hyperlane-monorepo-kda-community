@@ -12,7 +12,7 @@ const POLL_RETRY_COUNT: u8 = 10;
 /// Polling interval in seconds
 const POLL_RETRY_INTERVAL: u8 = 30;
 
-pub async fn report_tx(tx: ContractCall) -> Result<HashMap<String, CommandResultDto>> {
+pub async fn report_tx<C: ContractCall>(tx: C) -> Result<HashMap<String, CommandResultDto>> {
     info!("Dispatching transaction");
     let send_rsp = tx.send().await?;
 

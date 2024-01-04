@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::thread::sleep;
@@ -51,8 +52,7 @@ const SOLANA_KEYPAIR: &str = "config/test-sealevel-keys/test_deployer-keypair.js
 const SOLANA_DEPLOYER_ACCOUNT: &str = "config/test-sealevel-keys/test_deployer-account.json";
 const SOLANA_WARPROUTE_TOKEN_CONFIG_FILE: &str =
     "sealevel/environments/local-e2e/warp-routes/testwarproute/token-config.json";
-const SOLANA_CHAIN_CONFIG_FILE: &str =
-    "sealevel/environments/local-e2e/warp-routes/chain-config.json";
+const SOLANA_CHAIN_CONFIG_FILE: &str = "sealevel/environments/local-e2e/chain-config.json";
 const SOLANA_ENVS_DIR: &str = "sealevel/environments";
 
 const SOLANA_ENV_NAME: &str = "local-e2e";
@@ -282,7 +282,7 @@ pub fn start_solana_test_validator(
 }
 
 #[apply(as_task)]
-pub fn initiate_solana_hyperlane_transfer(
+pub fn _initiate_solana_hyperlane_transfer(
     solana_cli_tools_path: PathBuf,
     solana_config_path: PathBuf,
 ) {
@@ -309,19 +309,21 @@ pub fn initiate_solana_hyperlane_transfer(
         .run_with_output()
         .join();
 
-    let message_id = get_message_id_from_logs(output);
+    let message_id = _get_message_id_from_logs(output);
     if let Some(message_id) = message_id {
         sealevel_client(&solana_cli_tools_path, &solana_config_path)
             .cmd("igp")
             .cmd("pay-for-gas")
-            .cmd("GwHaw8ewMyzZn9vvrZEnTEAAYpLdkGYs195XWcLDCN4U")
-            .cmd(message_id)
+            .arg("program-id", "GwHaw8ewMyzZn9vvrZEnTEAAYpLdkGYs195XWcLDCN4U")
+            .arg("message-id", message_id)
+            .arg("destination-domain", SOLANA_REMOTE_CHAIN_ID)
+            .arg("gas", "100000")
             .run()
             .join();
     }
 }
 
-fn get_message_id_from_logs(logs: Vec<String>) -> Option<String> {
+fn _get_message_id_from_logs(logs: Vec<String>) -> Option<String> {
     let message_id_regex = Regex::new(r"Dispatched message to \d+, ID 0x([0-9a-fA-F]+)").unwrap();
     for log in logs {
         // Use the regular expression to capture the ID
@@ -335,7 +337,7 @@ fn get_message_id_from_logs(logs: Vec<String>) -> Option<String> {
     None
 }
 
-pub fn solana_termination_invariants_met(
+pub fn _solana_termination_invariants_met(
     solana_cli_tools_path: &Path,
     solana_config_path: &Path,
 ) -> bool {

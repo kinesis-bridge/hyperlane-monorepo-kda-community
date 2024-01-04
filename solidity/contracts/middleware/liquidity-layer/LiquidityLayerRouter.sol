@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.13;
 
-import {Router} from "../../Router.sol";
+import {Router} from "../../client/Router.sol";
 
 import {ILiquidityLayerRouter} from "../../interfaces/ILiquidityLayerRouter.sol";
 import {ICircleMessageTransmitter} from "./interfaces/circle/ICircleMessageTransmitter.sol";
@@ -121,19 +121,17 @@ contract LiquidityLayerRouter is Router, ILiquidityLayerRouter {
         }
     }
 
-    function setLiquidityLayerAdapter(string calldata _bridge, address _adapter)
-        external
-        onlyOwner
-    {
+    function setLiquidityLayerAdapter(
+        string calldata _bridge,
+        address _adapter
+    ) external onlyOwner {
         liquidityLayerAdapters[_bridge] = _adapter;
         emit LiquidityLayerAdapterSet(_bridge, _adapter);
     }
 
-    function _getAdapter(string memory _bridge)
-        internal
-        view
-        returns (ILiquidityLayerAdapter _adapter)
-    {
+    function _getAdapter(
+        string memory _bridge
+    ) internal view returns (ILiquidityLayerAdapter _adapter) {
         _adapter = ILiquidityLayerAdapter(liquidityLayerAdapters[_bridge]);
         // Require the adapter to have been set
         require(address(_adapter) != address(0), "No adapter found for bridge");

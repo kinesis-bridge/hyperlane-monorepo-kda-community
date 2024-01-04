@@ -15,8 +15,10 @@ pragma solidity >=0.8.0;
 
 // ============ Internal Imports ============
 import {Message} from "../libs/Message.sol";
-import {StandardHookMetadata} from "../libs/hooks/StandardHookMetadata.sol";
-import {AbstractPostDispatchHook} from "./AbstractPostDispatchHook.sol";
+import {StandardHookMetadata} from "./libs/StandardHookMetadata.sol";
+import {AbstractPostDispatchHook} from "./libs/AbstractPostDispatchHook.sol";
+import {IPostDispatchHook} from "../interfaces/hooks/IPostDispatchHook.sol";
+
 // ============ External Imports ============
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
@@ -58,6 +60,11 @@ contract StaticProtocolFee is AbstractPostDispatchHook, Ownable {
 
     // ============ External Functions ============
 
+    /// @inheritdoc IPostDispatchHook
+    function hookType() external pure override returns (uint8) {
+        return uint8(IPostDispatchHook.Types.PROTOCOL_FEE);
+    }
+
     /**
      * @notice Sets the protocol fee.
      * @param _protocolFee The new protocol fee.
@@ -84,10 +91,10 @@ contract StaticProtocolFee is AbstractPostDispatchHook, Ownable {
     // ============ Internal Functions ============
 
     /// @inheritdoc AbstractPostDispatchHook
-    function _postDispatch(bytes calldata metadata, bytes calldata message)
-        internal
-        override
-    {
+    function _postDispatch(
+        bytes calldata metadata,
+        bytes calldata message
+    ) internal override {
         require(
             msg.value >= protocolFee,
             "StaticProtocolFee: insufficient protocol fee"
@@ -102,12 +109,10 @@ contract StaticProtocolFee is AbstractPostDispatchHook, Ownable {
     }
 
     /// @inheritdoc AbstractPostDispatchHook
-    function _quoteDispatch(bytes calldata, bytes calldata)
-        internal
-        view
-        override
-        returns (uint256)
-    {
+    function _quoteDispatch(
+        bytes calldata,
+        bytes calldata
+    ) internal view override returns (uint256) {
         return protocolFee;
     }
 

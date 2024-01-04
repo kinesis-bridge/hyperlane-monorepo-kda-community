@@ -19,9 +19,9 @@ import {IInterchainSecurityModule} from "../../interfaces/IInterchainSecurityMod
 import {Message} from "../../libs/Message.sol";
 import {TypeCasts} from "../../libs/TypeCasts.sol";
 import {AbstractMessageIdAuthorizedIsm} from "./AbstractMessageIdAuthorizedIsm.sol";
-import {CrossChainEnabledOptimism} from "./crossChainEnabled/optimism/CrossChainEnabledOptimism.sol";
 
 // ============ External Imports ============
+import {CrossChainEnabledOptimism} from "@openzeppelin/contracts/crosschain/optimism/CrossChainEnabledOptimism.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
 /**
@@ -52,6 +52,7 @@ contract OPStackIsm is
      * @notice Check if sender is authorized to message `verifyMessageId`.
      */
     function _isAuthorized() internal view override returns (bool) {
-        return _crossChainSender() == authorizedHook;
+        return
+            _crossChainSender() == TypeCasts.bytes32ToAddress(authorizedHook);
     }
 }

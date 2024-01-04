@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 pragma solidity >=0.8.0;
 
-import {AbstractPostDispatchHook} from "../hooks/AbstractPostDispatchHook.sol";
+import {IPostDispatchHook} from "../interfaces/hooks/IPostDispatchHook.sol";
+import {AbstractPostDispatchHook} from "../hooks/libs/AbstractPostDispatchHook.sol";
 
 contract TestPostDispatchHook is AbstractPostDispatchHook {
     // ============ Public Storage ============
@@ -9,12 +10,16 @@ contract TestPostDispatchHook is AbstractPostDispatchHook {
     // test fees for quoteDispatch
     uint256 public fee = 0;
 
-    function supportsMetadata(bytes calldata)
-        public
-        pure
-        override
-        returns (bool)
-    {
+    // ============ External Functions ============
+
+    /// @inheritdoc IPostDispatchHook
+    function hookType() external pure override returns (uint8) {
+        return uint8(IPostDispatchHook.Types.UNUSED);
+    }
+
+    function supportsMetadata(
+        bytes calldata
+    ) public pure override returns (bool) {
         return true;
     }
 

@@ -68,11 +68,9 @@ abstract contract MailboxClient is OwnableUpgradeable {
      * @notice Sets the address of the application's custom interchain security module.
      * @param _module The address of the interchain security module contract.
      */
-    function setInterchainSecurityModule(address _module)
-        public
-        onlyContractOrNull(_module)
-        onlyOwner
-    {
+    function setInterchainSecurityModule(
+        address _module
+    ) public onlyContractOrNull(_module) onlyOwner {
         interchainSecurityModule = IInterchainSecurityModule(_module);
     }
 
@@ -98,19 +96,23 @@ abstract contract MailboxClient is OwnableUpgradeable {
         return "";
     }
 
-    function _msgValue(
-        uint32 /*_destinationDomain*/
-    ) internal view virtual returns (uint256) {
-        return msg.value;
-    }
-
     function _dispatch(
         uint32 _destinationDomain,
         bytes32 _recipient,
         bytes memory _messageBody
     ) internal virtual returns (bytes32) {
         return
-            mailbox.dispatch{value: _msgValue(_destinationDomain)}(
+            _dispatch(_destinationDomain, _recipient, msg.value, _messageBody);
+    }
+
+    function _dispatch(
+        uint32 _destinationDomain,
+        bytes32 _recipient,
+        uint256 _value,
+        bytes memory _messageBody
+    ) internal virtual returns (bytes32) {
+        return
+            mailbox.dispatch{value: _value}(
                 _destinationDomain,
                 _recipient,
                 _messageBody,

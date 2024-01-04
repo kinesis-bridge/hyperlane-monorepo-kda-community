@@ -2,15 +2,17 @@ use std::sync::Arc;
 
 use crate::{provider, KadenaProvider};
 
-use kadena_client::contract::{Contract, KadenaProxyPovider};
+use kadena_client::contract::{Contract, KadenaProxyProvider};
 
 #[derive(Clone, Debug)]
-pub(crate) struct IMailbox {
+pub struct IMailbox {
     provider: Arc<KadenaProvider>,
 }
 
 impl IMailbox {
-    pub(crate) fn new(provider: Arc<KadenaProvider>) -> Self {
+    const MODULE_NAME: &'static str = "mailbox";
+
+    pub fn new(provider: Arc<KadenaProvider>) -> Self {
         Self {
             provider,
         }
@@ -18,9 +20,11 @@ impl IMailbox {
 }
 
 impl Contract for IMailbox {
-    const MODULE_NAME: &'static str = "mailbox";
+    fn get_module_name(&self) ->  &'static str {
+        Self::MODULE_NAME
+    }
 
-    fn provider(&self) ->  Arc<dyn KadenaProxyPovider + Send + Sync> {
+    fn provider(&self) ->  Arc<dyn KadenaProxyProvider + Send + Sync> {
         self.provider.clone()
     }
 }

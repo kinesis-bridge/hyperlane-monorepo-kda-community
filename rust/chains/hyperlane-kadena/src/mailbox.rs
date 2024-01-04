@@ -10,7 +10,7 @@ use std::sync::Arc;
 use std::vec;
 
 use hyperlane_core::{
-    accumulator::incremental::IncrementalMerkle, ChainResult, Checkpoint,
+    ChainResult,
     HyperlaneChain, HyperlaneContract,
     HyperlaneDomain, HyperlaneMessage, HyperlaneProvider, Mailbox,
     TxCostEstimate, TxOutcome, H256, U256,
@@ -64,7 +64,7 @@ impl Mailbox for KadenaMailbox {
         async fn delivered(&self, _id: H256) -> ChainResult<bool> {
             todo!("Return whether the message has been delivered")
         }
-    
+    /* 
         #[instrument(err, ret, skip(self))]
         async fn tree(&self, _lag: Option<NonZeroU64>) -> ChainResult<IncrementalMerkle> {
             todo!("Return the inbox tree")
@@ -74,6 +74,8 @@ impl Mailbox for KadenaMailbox {
         async fn latest_checkpoint(&self, _lag: Option<NonZeroU64>) -> ChainResult<Checkpoint> {
             todo!("Return the latest checkpoint")
         }
+
+    */
     
         #[instrument(err, ret, skip(self))]
         async fn default_ism(&self) -> ChainResult<H256> {
@@ -118,7 +120,7 @@ pub struct KadenaMailboxIndexer {
 
 impl KadenaMailboxIndexer {
     /// The number of blocks to wait for before considering a block finalized.
-    const FINALIZED_BLOCK_DEPTH: u64 = 3;
+    const FINALIZED_BLOCK_DEPTH: u64 = 6;
 
     /// Creates a new instance of the Kadena mailbox indexer.
     pub fn new(provider: Arc<KadenaProvider>) -> Self {

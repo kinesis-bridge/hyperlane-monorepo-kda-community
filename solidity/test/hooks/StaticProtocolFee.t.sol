@@ -4,7 +4,8 @@ pragma solidity ^0.8.13;
 import {Test} from "forge-std/Test.sol";
 import {TypeCasts} from "../../contracts/libs/TypeCasts.sol";
 import {MessageUtils} from "../isms/IsmTestUtils.sol";
-import {StandardHookMetadata} from "../../contracts/libs/hooks/StandardHookMetadata.sol";
+import {StandardHookMetadata} from "../../contracts/hooks/libs/StandardHookMetadata.sol";
+import {IPostDispatchHook} from "../../contracts/interfaces/hooks/IPostDispatchHook.sol";
 
 import {StaticProtocolFee} from "../../contracts/hooks/StaticProtocolFee.sol";
 
@@ -33,6 +34,10 @@ contract StaticProtocolFeeTest is Test {
 
     function testConstructor() public {
         assertEq(fees.protocolFee(), FEE);
+    }
+
+    function testHookType() public {
+        assertEq(fees.hookType(), uint8(IPostDispatchHook.Types.PROTOCOL_FEE));
     }
 
     function testSetProtocolFee(uint256 fee) public {
@@ -117,12 +122,7 @@ contract StaticProtocolFeeTest is Test {
         uint256 feeRequired,
         uint256 feeSent
     ) public {
-        bytes memory metadata = StandardHookMetadata.formatMetadata(
-            0,
-            0,
-            bob,
-            ""
-        );
+        bytes memory metadata = StandardHookMetadata.overrideRefundAddress(bob);
 
         feeRequired = bound(feeRequired, 1, fees.MAX_PROTOCOL_FEE());
         feeSent = bound(feeSent, feeRequired, 10 * feeRequired);

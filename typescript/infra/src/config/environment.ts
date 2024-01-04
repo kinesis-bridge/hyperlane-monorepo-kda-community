@@ -1,14 +1,13 @@
 import {
-  AgentConnectionType,
   BridgeAdapterConfig,
   ChainMap,
   ChainMetadata,
   ChainName,
   CoreConfig,
-  HookConfig,
   HyperlaneEnvironment,
+  IgpConfig,
   MultiProvider,
-  OverheadIgpConfig,
+  RpcConsensusType,
 } from '@hyperlane-xyz/sdk';
 import { Address } from '@hyperlane-xyz/utils';
 
@@ -20,14 +19,15 @@ import { Role } from '../roles';
 import { RootAgentConfig } from './agent';
 import { KeyFunderConfig } from './funding';
 import { AllStorageGasOracleConfigs } from './gas-oracle';
-import { HelloWorldConfig } from './helloworld';
+import { HelloWorldConfig } from './helloworld/types';
 import { InfrastructureConfig } from './infrastructure';
 import { LiquidityLayerRelayerConfig } from './middleware';
 
-export const EnvironmentNames = Object.keys(environments);
+// TODO: fix this?
+export const EnvironmentNames = ['test', 'testnet4', 'mainnet3'];
 export type DeployEnvironment = keyof typeof environments;
 export type EnvironmentChain<E extends DeployEnvironment> = Extract<
-  keyof typeof environments[E],
+  keyof (typeof environments)[E],
   ChainName
 >;
 
@@ -37,14 +37,13 @@ export type EnvironmentConfig = {
   // Each AgentConfig, keyed by the context
   agents: Partial<Record<Contexts, RootAgentConfig>>;
   core: ChainMap<CoreConfig>;
-  hooks: ChainMap<HookConfig>;
-  igp: ChainMap<OverheadIgpConfig>;
+  igp: ChainMap<IgpConfig>;
   owners: ChainMap<Address>;
   infra: InfrastructureConfig;
   getMultiProvider: (
     context?: Contexts,
     role?: Role,
-    connectionType?: AgentConnectionType,
+    connectionType?: RpcConsensusType,
   ) => Promise<MultiProvider>;
   getKeys: (
     context?: Contexts,
@@ -64,6 +63,6 @@ export const deployEnvToSdkEnv: Record<
   HyperlaneEnvironment
 > = {
   test: 'testnet', // TODO: remove this
-  mainnet2: 'mainnet',
-  testnet3: 'testnet',
+  mainnet3: 'mainnet',
+  testnet4: 'testnet',
 };

@@ -2,15 +2,17 @@ use std::sync::Arc;
 
 use crate::{provider, KadenaProvider};
 
-use kadena_client::contract::{Contract, KadenaProxyPovider};
+use kadena_client::contract::{Contract, KadenaProxyProvider};
 
 #[derive(Clone, Debug)]
-pub(crate) struct IInterchainGasPaymaster {
+pub struct IInterchainGasPaymaster {
     provider: Arc<KadenaProvider>,
 }
 
 impl IInterchainGasPaymaster {
-    pub(crate) fn new(provider: Arc<KadenaProvider>) -> Self {
+    const MODULE_NAME: &'static str = "igp";
+    
+    pub fn new(provider: Arc<KadenaProvider>) -> Self {
         Self {
             provider,
         }
@@ -18,9 +20,11 @@ impl IInterchainGasPaymaster {
 }
 
 impl Contract for IInterchainGasPaymaster {
-    const MODULE_NAME: &str = "igp";
+    fn get_module_name(&self) ->  &'static str {
+        Self::MODULE_NAME
+    }
 
-    fn provider(&self) ->  Arc<dyn KadenaProxyPovider + Send + Sync> {
+    fn provider(&self) ->  Arc<dyn KadenaProxyProvider + Send + Sync> {
         self.provider.clone()
     }
 }

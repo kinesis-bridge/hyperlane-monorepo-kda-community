@@ -11,9 +11,10 @@ import { Chains } from '../../consts/chains';
 import { HyperlaneContractsMap } from '../../contracts/types';
 import { TestCoreApp } from '../../core/TestCoreApp';
 import { TestCoreDeployer } from '../../core/TestCoreDeployer';
+import { HyperlaneProxyFactoryDeployer } from '../../deploy/HyperlaneProxyFactoryDeployer';
+import { HyperlaneIsmFactory } from '../../ism/HyperlaneIsmFactory';
 import { MultiProvider } from '../../providers/MultiProvider';
 import { RouterConfig } from '../../router/types';
-import { deployTestIgpsAndGetRouterConfig } from '../../test/testUtils';
 import { ChainMap } from '../../types';
 
 import { InterchainAccount } from './InterchainAccount';
@@ -35,20 +36,20 @@ describe.skip('InterchainAccounts', async () => {
 
   before(async () => {
     [signer] = await ethers.getSigners();
-
     multiProvider = MultiProvider.createTestMultiProvider({ signer });
-
-    coreApp = await new TestCoreDeployer(multiProvider).deployApp();
-    config = await deployTestIgpsAndGetRouterConfig(
+    const ismFactoryDeployer = new HyperlaneProxyFactoryDeployer(multiProvider);
+    const ismFactory = new HyperlaneIsmFactory(
+      await ismFactoryDeployer.deploy(multiProvider.mapKnownChains(() => ({}))),
       multiProvider,
-      signer.address,
-      coreApp.contractsMap,
     );
+    coreApp = await new TestCoreDeployer(multiProvider, ismFactory).deployApp();
+    config = coreApp.getRouterConfig(signer.address);
   });
 
   beforeEach(async () => {
-    const deployer = new InterchainAccountDeployer(multiProvider);
-    contracts = await deployer.deploy(config);
+    contracts = await new InterchainAccountDeployer(multiProvider).deploy(
+      config,
+    );
     local = contracts[localChain].interchainAccountRouter;
     remote = contracts[remoteChain].interchainAccountRouter;
   });

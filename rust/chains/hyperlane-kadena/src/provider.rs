@@ -1,27 +1,34 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
 
 use hyperlane_core::{
     BlockInfo, ChainResult, HyperlaneChain, HyperlaneDomain, HyperlaneProvider, TxnInfo, H256,
 };
 
-use kadena_client::{apis::configuration::{Configuration as KadenaProxyConf, ConnectionConf}, contract::KadenaProxyPovider};
+use kadena_client::{apis::configuration::{Configuration as KadenaProxyConf, ConnectionConf}, contract::KadenaProxyProvider, signers::Signer};
 
 
 /// A wrapper around a Kadena provider to get generic blockchain information.
 #[derive(Debug)]
 pub struct KadenaProvider {
     domain: HyperlaneDomain,
-    connection_conf: ConnectionConf,
-    kadena_proxy_config: KadenaProxyConf,
+    connection_conf: Arc<ConnectionConf>,
+    kadena_proxy_config: Arc<KadenaProxyConf>,
+    signer: Arc<dyn Signer>,
 }
 
-impl KadenaProxyPovider for KadenaProvider {
-    fn connection_conf(&self) -> &ConnectionConf {
-        &self.connection_conf
+impl KadenaProxyProvider for KadenaProvider {
+    fn connection_conf(&self) -> Arc<ConnectionConf> {
+        self.connection_conf.clone()
     }
 
-    fn kadena_proxy_config(&self) -> &KadenaProxyConf {
-        &self.kadena_proxy_config
+    fn kadena_proxy_config(&self) -> Arc<KadenaProxyConf> {
+        self.kadena_proxy_config.clone()
+    }
+
+    fn signer(&self) -> Arc<dyn Signer> {
+        self.signer.clone()
     }
 }
 
@@ -29,20 +36,21 @@ impl KadenaProvider {
     /// Create a new Kadena provider.
     pub fn new(
         domain: HyperlaneDomain,
-        connection_conf: ConnectionConf,
-        kadena_proxy_config: KadenaProxyConf,
+        connection_conf: Arc<ConnectionConf>,
+        kadena_proxy_config: Arc<KadenaProxyConf>,
+        signer: Arc<dyn Signer>,
     ) -> Self {
-        KadenaProvider { domain, connection_conf, kadena_proxy_config }
+        KadenaProvider { domain, connection_conf, kadena_proxy_config, signer }
     }
 
     /// Get the connection configuration.
-    pub fn connection_conf(&self) -> &ConnectionConf {
-        &self.connection_conf
+    pub fn connection_conf(&self) -> Arc<ConnectionConf> {
+        self.connection_conf.clone()
     }
 
     /// Get the Kadena proxy configuration.
-    pub fn kadena_proxy_config(&self) -> &KadenaProxyConf {
-        &self.kadena_proxy_config
+    pub fn kadena_proxy_config(&self) -> Arc<KadenaProxyConf> {
+        self.kadena_proxy_config.clone()
     }
 
     /// Get the domain of the provider.
@@ -61,6 +69,7 @@ impl HyperlaneChain for KadenaProvider {
             domain: self.domain.clone(),
             connection_conf: self.connection_conf.clone(),
             kadena_proxy_config: self.kadena_proxy_config.clone(),
+            signer: self.signer.clone(),
         })
     }
 }

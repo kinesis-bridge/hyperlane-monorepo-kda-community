@@ -2,9 +2,99 @@ pub mod prelude {
     pub use more_asserts::*;
     use once_cell::sync::Lazy;
     use ed25519_dalek::SigningKey;
-    use std::path::Path;
+    use std::{path::Path, sync::Arc};
     use url::Url;
-    use kadena_client::apis::{configuration::{Configuration as ProxyConf, ConnectionConf}, kadena_proxy_api};
+    use kadena_client::{apis::configuration::{Configuration as ProxyConf, ConnectionConf}, contract::{Contract, KadenaProxyProvider}, contract_call::ContractCall, models::CommandDto, signers::Signer};
+
+    pub struct TestProvider {
+        connection_conf: Arc<ConnectionConf>,
+        proxy_conf: Arc<ProxyConf>,
+        signer: Arc<dyn Signer>,
+    }
+
+    impl KadenaProxyProvider for TestProvider {
+        fn connection_conf(&self) -> Arc<ConnectionConf> {
+            self.connection_conf.clone()
+        }
+
+        fn kadena_proxy_config(&self) -> Arc<ProxyConf> {
+            self.proxy_conf.clone()
+        }
+
+        fn signer(&self) -> Arc<dyn Signer> {
+            self.signer.clone()
+        }
+    }
+
+    pub struct AddTwoNumbersCall<'a> {
+        contract: &'a TestContract,
+        #[allow(dead_code)]
+        a: u64,
+        #[allow(dead_code)]
+        b: u64,
+        cmd: CommandDto,
+    }
+
+    impl AddTwoNumbersCall<'_> {
+        pub async fn new(
+            contract: &TestContract,
+            a: u64,
+            b: u64,
+        ) -> AddTwoNumbersCall {
+            let cmd = contract.build_pact_tx_with_expr(&format!("(+ {} {})", a, b)).await.unwrap();
+            AddTwoNumbersCall {
+                contract,
+                a,
+                b,
+                cmd,
+            }
+        }
+    }
+
+    impl ContractCall for AddTwoNumbersCall<'_> {
+        fn get_contract(&self) -> &dyn Contract {
+            self.contract
+        }
+
+        fn get_cmd(&self) -> &CommandDto {
+            &self.cmd
+        }
+    }
+
+
+    pub struct TestContract {
+        provider: Arc<dyn KadenaProxyProvider + Sync + Send>,
+    }
+
+    impl TestContract {
+        const MODULE_NAME: &'static str = "test";
+
+        pub fn new(signer: Arc<dyn Signer>) -> Self {
+            let provider = Arc::new(TestProvider {
+                connection_conf: Arc::new(CONTEXT.conf.clone()),
+                proxy_conf: Arc::new(CONTEXT.proxy_conf.clone()),
+                signer,
+            });
+            TestContract {
+                provider
+            }
+        }
+
+        pub async fn add_two_numbers(&self, a: u64, b: u64) -> AddTwoNumbersCall {
+            AddTwoNumbersCall::new(self, a, b).await
+        }
+    }
+
+    impl Contract for TestContract {
+        fn get_module_name(&self) ->  &'static str {
+            Self::MODULE_NAME
+        }
+
+        fn provider(&self) ->  Arc<dyn KadenaProxyProvider + Send + Sync> {
+            self.provider.clone()
+        }
+    }
+
 
     #[derive(Debug)]
     pub struct Context {
@@ -45,20 +135,5 @@ pub mod prelude {
             conf,
         }
     });
-
-    pub async fn build_tx_with_pact_expr(pact_expr: &str) -> kadena_client::models::CommandDto {
-        let build_tx_dto = kadena_client::models::BuildPactTxDto::new(
-            CONTEXT.conf.url.to_string(),
-            CONTEXT.conf.network_id.clone(),
-            CONTEXT.conf.chain_id as u32,
-            pact_expr.to_owned(),
-            CONTEXT.default_pubkey_str.clone(),
-            format!("k:{}", CONTEXT.default_pubkey_str),
-        );
-
-        kadena_proxy_api::build_tx(&CONTEXT.proxy_conf, build_tx_dto)
-            .await
-            .unwrap()
-    }
 }
 

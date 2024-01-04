@@ -2,15 +2,13 @@
 pragma solidity ^0.8.13;
 
 // ============ Internal Imports ============
-import {OwnableMulticall} from "../OwnableMulticall.sol";
-import {IRouter} from "../interfaces/IRouter.sol";
-import {IInterchainAccountRouter} from "../interfaces/middleware/IInterchainAccountRouter.sol";
-import {InterchainAccountMessage} from "../libs/middleware/InterchainAccountMessage.sol";
+import {OwnableMulticall} from "./libs/OwnableMulticall.sol";
+import {InterchainAccountMessage} from "./libs/InterchainAccountMessage.sol";
+import {CallLib} from "./libs/Call.sol";
 import {MinimalProxy} from "../libs/MinimalProxy.sol";
-import {CallLib} from "../libs/Call.sol";
 import {TypeCasts} from "../libs/TypeCasts.sol";
 import {EnumerableMapExtended} from "../libs/EnumerableMapExtended.sol";
-import {Router, MailboxClient} from "../Router.sol";
+import {Router} from "../client/Router.sol";
 
 // ============ External Imports ============
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
@@ -21,7 +19,7 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
  * @title A contract that allows accounts on chain A to call contracts via a
  * proxy contract on chain B.
  */
-contract InterchainAccountRouter is Router, IInterchainAccountRouter {
+contract InterchainAccountRouter is Router {
     // ============ Libraries ============
 
     using TypeCasts for address;
@@ -182,10 +180,10 @@ contract InterchainAccountRouter is Router, IInterchainAccountRouter {
      * @param _calls The sequence of calls to make
      * @return The Hyperlane message ID
      */
-    function callRemote(uint32 _destination, CallLib.Call[] calldata _calls)
-        external
-        returns (bytes32)
-    {
+    function callRemote(
+        uint32 _destination,
+        CallLib.Call[] calldata _calls
+    ) external returns (bytes32) {
         bytes32 _router = routers(_destination);
         bytes32 _ism = isms[_destination];
         return callRemoteWithOverrides(_destination, _router, _ism, _calls);
@@ -253,11 +251,10 @@ contract InterchainAccountRouter is Router, IInterchainAccountRouter {
      * @param _owner The local owner of the interchain account
      * @return The remote address of the interchain account
      */
-    function getRemoteInterchainAccount(uint32 _destination, address _owner)
-        external
-        view
-        returns (address)
-    {
+    function getRemoteInterchainAccount(
+        uint32 _destination,
+        address _owner
+    ) external view returns (address) {
         address _router = routers(_destination).bytes32ToAddress();
         address _ism = isms[_destination].bytes32ToAddress();
         return getRemoteInterchainAccount(_owner, _router, _ism);
@@ -412,11 +409,7 @@ contract InterchainAccountRouter is Router, IInterchainAccountRouter {
     /**
      * @dev Required for use of Router, compiler will not include this function in the bytecode
      */
-    function _handle(
-        uint32,
-        bytes32,
-        bytes calldata
-    ) internal pure override {
+    function _handle(uint32, bytes32, bytes calldata) internal pure override {
         assert(false);
     }
 
@@ -426,10 +419,10 @@ contract InterchainAccountRouter is Router, IInterchainAccountRouter {
      * @param _address The address of the remote InterchainAccountRouter
      * @dev Sets the default ISM to the zero address
      */
-    function _enrollRemoteRouter(uint32 _destination, bytes32 _address)
-        internal
-        override
-    {
+    function _enrollRemoteRouter(
+        uint32 _destination,
+        bytes32 _address
+    ) internal override {
         _enrollRemoteRouterAndIsm(_destination, _address, bytes32(0));
     }
 
@@ -506,11 +499,9 @@ contract InterchainAccountRouter is Router, IInterchainAccountRouter {
      * @param _salt The CREATE2 salt used for deploying the interchain account
      * @return The address of the interchain account
      */
-    function _getLocalInterchainAccount(bytes32 _salt)
-        private
-        view
-        returns (address payable)
-    {
+    function _getLocalInterchainAccount(
+        bytes32 _salt
+    ) private view returns (address payable) {
         return payable(Create2.computeAddress(_salt, bytecodeHash));
     }
 }

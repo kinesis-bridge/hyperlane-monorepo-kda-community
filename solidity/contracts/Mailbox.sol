@@ -3,7 +3,7 @@ pragma solidity >=0.8.0;
 
 // ============ Internal Imports ============
 import {Versioned} from "./upgrade/Versioned.sol";
-import {Indexed} from "./Indexed.sol";
+import {Indexed} from "./libs/Indexed.sol";
 import {Message} from "./libs/Message.sol";
 import {TypeCasts} from "./libs/TypeCasts.sol";
 import {IInterchainSecurityModule, ISpecifiesInterchainSecurityModule} from "./interfaces/IInterchainSecurityModule.sol";
@@ -191,11 +191,10 @@ contract Mailbox is IMailbox, Indexed, Versioned, OwnableUpgradeable {
      * @param _metadata Metadata used by the ISM to verify `_message`.
      * @param _message Formatted Hyperlane message (refer to Message.sol).
      */
-    function process(bytes calldata _metadata, bytes calldata _message)
-        external
-        payable
-        override
-    {
+    function process(
+        bytes calldata _metadata,
+        bytes calldata _message
+    ) external payable override {
         /// CHECKS ///
 
         // Check that the message was intended for this mailbox.
@@ -297,6 +296,10 @@ contract Mailbox is IMailbox, Indexed, Versioned, OwnableUpgradeable {
 
         /// INTERACTIONS ///
         uint256 requiredValue = requiredHook.quoteDispatch(metadata, message);
+        // if underpaying, defer to required hook's reverting behavior
+        if (msg.value < requiredValue) {
+            requiredValue = msg.value;
+        }
         requiredHook.postDispatch{value: requiredValue}(metadata, message);
         hook.postDispatch{value: msg.value - requiredValue}(metadata, message);
 
@@ -387,25 +390,26 @@ contract Mailbox is IMailbox, Indexed, Versioned, OwnableUpgradeable {
      * @param _recipient The message recipient whose ISM should be returned.
      * @return The ISM to use for `_recipient`.
      */
-    function recipientIsm(address _recipient)
-        public
-        view
-        returns (IInterchainSecurityModule)
-    {
-        // Use a default interchainSecurityModule if one is not specified by the
-        // recipient.
-        // This is useful for backwards compatibility and for convenience as
-        // recipients are not mandated to specify an ISM.
-        try
-            ISpecifiesInterchainSecurityModule(_recipient)
-                .interchainSecurityModule()
-        returns (IInterchainSecurityModule _val) {
-            // If the recipient specifies a zero address, use the default ISM.
-            if (address(_val) != address(0)) {
-                return _val;
+    function recipientIsm(
+        address _recipient
+    ) public view returns (IInterchainSecurityModule) {
+        // use low-level staticcall in case of revert or empty return data
+        (bool success, bytes memory returnData) = _recipient.staticcall(
+            abi.encodeCall(
+                ISpecifiesInterchainSecurityModule.interchainSecurityModule,
+                ()
+            )
+        );
+        // check if call was successful and returned data
+        if (success && returnData.length != 0) {
+            // check if returnData is a valid address
+            address ism = abi.decode(returnData, (address));
+            // check if the ISM is a contract
+            if (ism != address(0)) {
+                return IInterchainSecurityModule(ism);
             }
-            // solhint-disable-next-line no-empty-blocks
-        } catch {}
+        }
+        // Use the default if a valid one is not specified by the recipient.
         return defaultIsm;
     }
 

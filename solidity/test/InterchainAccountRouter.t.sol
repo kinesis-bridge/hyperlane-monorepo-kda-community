@@ -8,10 +8,8 @@ import "../contracts/mock/MockHyperlaneEnvironment.sol";
 import {TypeCasts} from "../contracts/libs/TypeCasts.sol";
 import {IInterchainSecurityModule} from "../contracts/interfaces/IInterchainSecurityModule.sol";
 import {IInterchainGasPaymaster} from "../contracts/interfaces/IInterchainGasPaymaster.sol";
-import {InterchainAccountRouter} from "../contracts/middleware/InterchainAccountRouter.sol";
+import {CallLib, OwnableMulticall, InterchainAccountRouter} from "../contracts/middleware/InterchainAccountRouter.sol";
 import {InterchainAccountIsm} from "../contracts/isms/routing/InterchainAccountIsm.sol";
-import {OwnableMulticall} from "../contracts/OwnableMulticall.sol";
-import {CallLib} from "../contracts/libs/Call.sol";
 
 contract Callable {
     mapping(address => bytes32) public data;
@@ -29,11 +27,10 @@ contract FailingIsm is IInterchainSecurityModule {
         failureMessage = _failureMessage;
     }
 
-    function verify(bytes calldata, bytes calldata)
-        external
-        view
-        returns (bool)
-    {
+    function verify(
+        bytes calldata,
+        bytes calldata
+    ) external view returns (bool) {
         revert(failureMessage);
     }
 }
@@ -244,11 +241,9 @@ contract InterchainAccountRouterTest is Test {
         originRouter.enrollRemoteRouterAndIsm(destination, router, ism);
     }
 
-    function getCalls(bytes32 data)
-        private
-        view
-        returns (CallLib.Call[] memory)
-    {
+    function getCalls(
+        bytes32 data
+    ) private view returns (CallLib.Call[] memory) {
         vm.assume(data != bytes32(0));
         CallLib.Call memory call = CallLib.Call(
             TypeCasts.addressToBytes32(address(target)),

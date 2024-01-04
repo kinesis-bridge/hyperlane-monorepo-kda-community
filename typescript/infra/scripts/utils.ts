@@ -1,30 +1,18 @@
-import { Keypair } from '@solana/web3.js';
-import { Wallet } from 'ethers';
 import path from 'path';
 import yargs from 'yargs';
 
 import {
-  AgentConnectionType,
   AllChains,
   ChainMap,
   ChainMetadata,
-  ChainMetadataManager,
   ChainName,
   Chains,
   CoreConfig,
-  HyperlaneCore,
-  HyperlaneIgp,
   MultiProvider,
-  ProxiedRouterConfig,
-  RouterConfig,
+  RpcConsensusType,
   collectValidators,
 } from '@hyperlane-xyz/sdk';
-import {
-  ProtocolType,
-  objMap,
-  promiseObjAll,
-  strip0x,
-} from '@hyperlane-xyz/utils';
+import { ProtocolType, objMap, promiseObjAll } from '@hyperlane-xyz/utils';
 
 import { Contexts } from '../config/contexts';
 import { environments } from '../config/environments';
@@ -39,16 +27,11 @@ import {
 import { fetchProvider } from '../src/config/chain';
 import { EnvironmentNames, deployEnvToSdkEnv } from '../src/config/environment';
 import { Role } from '../src/roles';
-import { impersonateAccount, useLocalProvider } from '../src/utils/fork';
-import {
-  assertContext,
-  assertRole,
-  readJSON,
-  readJSONAtPath,
-} from '../src/utils/utils';
+import { assertContext, assertRole, readJSON } from '../src/utils/utils';
 
 export enum Modules {
-  ISM_FACTORY = 'ism',
+  // TODO: change
+  PROXY_FACTORY = 'ism',
   CORE = 'core',
   HOOK = 'hook',
   INTERCHAIN_GAS_PAYMASTER = 'igp',
@@ -58,10 +41,11 @@ export enum Modules {
   TEST_QUERY_SENDER = 'testquerysender',
   TEST_RECIPIENT = 'testrecipient',
   HELLO_WORLD = 'helloworld',
+  WARP = 'warp',
 }
 
 export const SDK_MODULES = [
-  Modules.ISM_FACTORY,
+  Modules.PROXY_FACTORY,
   Modules.CORE,
   Modules.INTERCHAIN_GAS_PAYMASTER,
   Modules.INTERCHAIN_ACCOUNTS,
@@ -172,7 +156,7 @@ export function getAgentConfig(
   return agentConfig;
 }
 
-function getKeyForRole(
+export function getKeyForRole(
   environment: DeployEnvironment,
   context: Contexts,
   chain: ChainName,
@@ -190,12 +174,12 @@ export async function getMultiProviderForRole(
   context: Contexts,
   role: Role,
   index?: number,
-  connectionType?: AgentConnectionType,
+  // TODO: rename to consensusType?
+  connectionType?: RpcConsensusType,
 ): Promise<MultiProvider> {
   if (process.env.CI === 'true') {
     return new MultiProvider(); // use default RPCs
   }
-
   const multiProvider = new MultiProvider(txConfigs);
   await promiseObjAll(
     objMap(txConfigs, async (chain, _) => {
@@ -206,6 +190,7 @@ export async function getMultiProviderForRole(
       multiProvider.setSigner(chain, signer);
     }),
   );
+
   return multiProvider;
 }
 
@@ -223,32 +208,11 @@ export async function getKeysForRole(
   }
 
   const keys = await promiseObjAll(
-    objMap(txConfigs, async (chain, _) => {
-      const key = getKeyForRole(environment, context, chain, role, index);
-      if (!key.privateKey)
-        throw new Error(`Key for ${chain} does not have private key`);
-      return key;
-    }),
+    objMap(txConfigs, async (chain, _) =>
+      getKeyForRole(environment, context, chain, role, index),
+    ),
   );
   return keys;
-}
-
-// Note: this will only work for keystores that allow key's to be extracted.
-export function getAddressesForKey(
-  keys: ChainMap<CloudAgentKey>,
-  chain: ChainName,
-  manager: ChainMetadataManager<any>,
-) {
-  const protocol = manager.getChainMetadata(chain).protocol;
-  if (protocol === ProtocolType.Ethereum) {
-    return new Wallet(keys[chain]).address;
-  } else if (protocol === ProtocolType.Sealevel) {
-    return Keypair.fromSeed(
-      Buffer.from(strip0x(keys[chain].privateKey), 'hex'),
-    ).publicKey.toBase58();
-  } else {
-    throw Error(`Protocol ${protocol} not supported`);
-  }
 }
 
 export function getContractAddressesSdkFilepath() {
@@ -319,55 +283,6 @@ export async function assertCorrectKubeContext(coreConfig: EnvironmentConfig) {
   }
 }
 
-export async function getRouterConfig(
-  environment: DeployEnvironment,
-  multiProvider: MultiProvider,
-  useMultiProviderOwners = false,
-): Promise<ChainMap<RouterConfig>> {
-  const core = HyperlaneCore.fromEnvironment(
-    deployEnvToSdkEnv[environment],
-    multiProvider,
-  );
-  const igp = HyperlaneIgp.fromEnvironment(
-    deployEnvToSdkEnv[environment],
-    multiProvider,
-  );
-
-  const owners = getEnvironmentConfig(environment).owners;
-  const config: ChainMap<RouterConfig> = {};
-  const knownChains = multiProvider.intersect(
-    core.chains().concat(igp.chains()),
-  ).intersection;
-
-  for (const chain of knownChains) {
-    config[chain] = {
-      owner: useMultiProviderOwners
-        ? await multiProvider.getSignerAddress(chain)
-        : owners[chain],
-      mailbox: core.getContracts(chain).mailbox.address,
-      interchainGasPaymaster:
-        igp.getContracts(chain).defaultIsmInterchainGasPaymaster.address,
-    };
-  }
-  return config;
-}
-
-export async function getProxiedRouterConfig(
-  environment: DeployEnvironment,
-  multiProvider: MultiProvider,
-  useMultiProviderOwners = false,
-): Promise<ChainMap<ProxiedRouterConfig>> {
-  const config = await getRouterConfig(
-    environment,
-    multiProvider,
-    useMultiProviderOwners,
-  );
-  return objMap(config, (chain, routerConfig) => ({
-    timelock: environments[environment].core[chain].upgrade?.timelock,
-    ...routerConfig,
-  }));
-}
-
 export function getValidatorsByChain(
   config: ChainMap<CoreConfig>,
 ): ChainMap<Set<string>> {
@@ -385,25 +300,4 @@ export function getValidatorsByChain(
     });
   }
   return validators;
-}
-
-export async function getHooksProvider(
-  multiProvider: MultiProvider,
-  environment: DeployEnvironment,
-): Promise<MultiProvider> {
-  const hooksProvider = new MultiProvider();
-  const hooksConfig = getEnvironmentConfig(environment).hooks;
-  if (!hooksConfig) {
-    return hooksProvider;
-  }
-  for (const chain of Object.keys(hooksConfig)) {
-    // need to use different url for two forks simultaneously
-    // need another rpc param
-    await useLocalProvider(multiProvider, chain);
-  }
-  const signer = await impersonateAccount(
-    '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-  );
-  hooksProvider.setSharedSigner(signer);
-  return hooksProvider;
 }

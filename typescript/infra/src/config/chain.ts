@@ -1,10 +1,10 @@
 import { providers } from 'ethers';
 
 import {
-  AgentConnectionType,
   ChainName,
   RetryJsonRpcProvider,
   RetryProviderOptions,
+  RpcConsensusType,
 } from '@hyperlane-xyz/sdk';
 
 import { getSecretRpcEndpoint } from '../agents';
@@ -29,20 +29,20 @@ function buildProvider(config?: {
 export async function fetchProvider(
   environment: DeployEnvironment,
   chainName: ChainName,
-  connectionType: AgentConnectionType = AgentConnectionType.Http,
+  connectionType: RpcConsensusType = RpcConsensusType.Single,
 ): Promise<providers.Provider> {
-  const single = connectionType === AgentConnectionType.Http;
+  const single = connectionType === RpcConsensusType.Single;
   const rpcData = await getSecretRpcEndpoint(environment, chainName, !single);
   switch (connectionType) {
-    case AgentConnectionType.Http: {
+    case RpcConsensusType.Single: {
       return buildProvider({ url: rpcData[0], retry: defaultRetry });
     }
-    case AgentConnectionType.HttpQuorum: {
+    case RpcConsensusType.Quorum: {
       return new providers.FallbackProvider(
         (rpcData as string[]).map((url) => buildProvider({ url })), // disable retry for quorum
       );
     }
-    case AgentConnectionType.HttpFallback: {
+    case RpcConsensusType.Fallback: {
       return new providers.FallbackProvider(
         (rpcData as string[]).map((url, index) => {
           const fallbackProviderConfig: providers.FallbackProviderConfig = {
@@ -53,7 +53,6 @@ export async function fetchProvider(
             // and are ordered randomly for each RPC.
             priority: index,
           };
-          console.log('fallbackProviderConfig', fallbackProviderConfig);
           return fallbackProviderConfig;
         }),
         1, // a single provider is "quorum", but failure will cause failover to the next provider

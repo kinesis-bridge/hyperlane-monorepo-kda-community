@@ -4,7 +4,7 @@ pragma solidity >=0.8.0;
 // ============ Internal Imports ============
 import {IInterchainSecurityModule} from "../../interfaces/IInterchainSecurityModule.sol";
 import {AbstractMultisigIsm} from "./AbstractMultisigIsm.sol";
-import {MessageIdMultisigIsmMetadata} from "../../libs/isms/MessageIdMultisigIsmMetadata.sol";
+import {MessageIdMultisigIsmMetadata} from "../libs/MessageIdMultisigIsmMetadata.sol";
 import {Message} from "../../libs/Message.sol";
 import {CheckpointLib} from "../../libs/CheckpointLib.sol";
 
@@ -31,12 +31,10 @@ abstract contract AbstractMessageIdMultisigIsm is AbstractMultisigIsm {
     /**
      * @inheritdoc AbstractMultisigIsm
      */
-    function digest(bytes calldata _metadata, bytes calldata _message)
-        internal
-        pure
-        override
-        returns (bytes32)
-    {
+    function digest(
+        bytes calldata _metadata,
+        bytes calldata _message
+    ) internal pure override returns (bytes32) {
         return
             CheckpointLib.digest(
                 _message.origin(),
@@ -50,13 +48,10 @@ abstract contract AbstractMessageIdMultisigIsm is AbstractMultisigIsm {
     /**
      * @inheritdoc AbstractMultisigIsm
      */
-    function signatureAt(bytes calldata _metadata, uint256 _index)
-        internal
-        pure
-        virtual
-        override
-        returns (bytes calldata)
-    {
+    function signatureAt(
+        bytes calldata _metadata,
+        uint256 _index
+    ) internal pure virtual override returns (bytes calldata) {
         return _metadata.signatureAt(_index);
     }
 }

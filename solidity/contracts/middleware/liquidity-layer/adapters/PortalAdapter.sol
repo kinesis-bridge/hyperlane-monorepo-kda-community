@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.13;
 
-import {Router} from "../../../Router.sol";
+import {Router} from "../../../client/Router.sol";
 
 import {IPortalTokenBridge} from "../interfaces/portal/IPortalTokenBridge.sol";
 import {ILiquidityLayerAdapter} from "../interfaces/ILiquidityLayerAdapter.sol";
@@ -189,10 +189,10 @@ contract PortalAdapter is ILiquidityLayerAdapter, Router {
         revert("No messages expected");
     }
 
-    function addDomain(uint32 _hyperlaneDomain, uint16 _wormholeDomain)
-        external
-        onlyOwner
-    {
+    function addDomain(
+        uint32 _hyperlaneDomain,
+        uint16 _wormholeDomain
+    ) external onlyOwner {
         hyperlaneDomainToWormholeDomain[_hyperlaneDomain] = _wormholeDomain;
 
         emit DomainAdded(_hyperlaneDomain, _wormholeDomain);
@@ -203,11 +203,10 @@ contract PortalAdapter is ILiquidityLayerAdapter, Router {
      * @param _hyperlaneDomain The hyperlane of the origin
      * @param _nonce The nonce of the adapter on the origin
      */
-    function transferId(uint32 _hyperlaneDomain, uint224 _nonce)
-        public
-        pure
-        returns (bytes32)
-    {
+    function transferId(
+        uint32 _hyperlaneDomain,
+        uint224 _nonce
+    ) public pure returns (bytes32) {
         return bytes32(abi.encodePacked(_hyperlaneDomain, _nonce));
     }
 }

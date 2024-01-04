@@ -5,7 +5,7 @@ use crate::contracts::i_interchain_gas_paymaster::IInterchainGasPaymaster;
 
 use async_trait::async_trait;
 use tracing::{info, instrument, warn};
-use kadena_client::contract::{Contract, KadenaProxyPovider};
+use kadena_client::contract::{Contract, KadenaProxyProvider};
 
 use hyperlane_core::{
     Announcement, ChainCommunicationError, ChainResult, ContractLocator, HyperlaneChain,
@@ -18,9 +18,9 @@ use crate::provider::KadenaProvider;
 /// A reference to a KadenaInterchainGasPaymaster contract on some Kadena chain
 #[derive(Debug)]
 pub struct KadenaInterchainGasPaymaster {
-    pub(crate) provider: Arc<KadenaProvider>,
-    pub(crate) contract: Arc<IInterchainGasPaymaster>,
-    pub(crate) domain: HyperlaneDomain,
+    pub provider: Arc<KadenaProvider>,
+    pub contract: Arc<IInterchainGasPaymaster>,
+    pub domain: HyperlaneDomain,
 }
 
 impl KadenaInterchainGasPaymaster {
@@ -38,7 +38,7 @@ impl KadenaInterchainGasPaymaster {
 impl HyperlaneContract for KadenaInterchainGasPaymaster {
     fn address(&self) -> H256 {
         // TODO: Implement when the contract and encoding are ready
-        let mut addr_vec = self.contract.module_name().as_bytes().to_vec();
+        let mut addr_vec = self.contract.get_module_name().as_bytes().to_vec();
         addr_vec.resize(32, 0);
         let addr_vec: [u8;32] = addr_vec.try_into().unwrap_or([0;32]);
         H256::from(addr_vec)
@@ -56,6 +56,7 @@ impl HyperlaneChain for KadenaInterchainGasPaymaster {
                 self.provider.domain().clone(),
                 self.provider.connection_conf().clone(),
                 self.provider.kadena_proxy_config().clone(),
+                self.provider.signer().clone(),
             )
         )
     }
