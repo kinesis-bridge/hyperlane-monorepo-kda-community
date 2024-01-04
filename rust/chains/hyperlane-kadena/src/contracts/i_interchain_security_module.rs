@@ -41,6 +41,50 @@ impl ContractCall for ModuleTypeCall<'_> {
     }
 }
 
+pub struct VerifyCall<'a> {
+    contract: &'a IInterchainSecurityModule,
+    metadata: String,
+    message: String,
+    cmd: CommandDto,
+}
+
+impl VerifyCall<'_> {
+    const METHOD_NAME: &'static str = "verify";
+    pub async fn new(
+        contract: &IInterchainSecurityModule,
+        metadata: String,
+        message: String,
+    ) -> Result<VerifyCall> {
+        let cmd = contract.build_pact_tx_with_expr(
+            &format!(
+                "({}.{}.{} \"{}\",\"{}\")",
+                contract.get_namespace(),
+                contract.get_module_name(),
+                Self::METHOD_NAME,
+                metadata,
+                message,
+            ),
+        ).await?;
+
+        Ok(VerifyCall {
+            contract,
+            metadata,
+            message,
+            cmd,
+        })
+    }
+}
+
+impl ContractCall for VerifyCall<'_> {
+    fn get_contract(&self) -> &dyn Contract {
+        self.contract
+    }
+
+    fn get_cmd(&self) -> &CommandDto {
+        &self.cmd
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct IInterchainSecurityModule {
     provider: Arc<KadenaProvider>,
@@ -59,7 +103,15 @@ impl IInterchainSecurityModule {
         ModuleTypeCall::new(
             self,
         ).await
-    }    
+    }
+
+    pub async fn verify(&self, metadata: String, message: String) -> Result<VerifyCall> {
+        VerifyCall::new(
+            self,
+            metadata,
+            message,
+        ).await
+    }
 }
 
 impl Contract for IInterchainSecurityModule {
