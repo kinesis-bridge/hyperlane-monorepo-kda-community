@@ -18,6 +18,7 @@ COPY hyperlane-test ./hyperlane-test
 COPY ethers-prometheus ./ethers-prometheus
 COPY utils ./utils
 COPY sealevel ./sealevel
+COPY kadena ./kadena
 
 COPY Cargo.toml .
 COPY Cargo.lock .

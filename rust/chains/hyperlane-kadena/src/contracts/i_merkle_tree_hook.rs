@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use crate::{provider, KadenaProvider};
 
-use kadena_client::contract::{Contract, KadenaProxyProvider};
-
+use kadena_client::{contract::{Contract, KadenaProxyProvider}, models::CommandDto, contract_call::ContractCall};
+use anyhow::Result;
 
 pub struct CountCall<'a> {
     contract: &'a IMerlkeTreeHook,
@@ -131,19 +131,19 @@ impl IMerlkeTreeHook {
     pub async fn count(&self) -> Result<CountCall> {
         CountCall::new(
             self,
-        ).await?
+        ).await
     }
 
     pub async fn latest_checkpoint(&self) -> Result<LatestCheckpointCall> {
         LatestCheckpointCall::new(
             self,
-        ).await?
+        ).await
     }
 
     pub async fn tree(&self) -> Result<TreeCall> {
         TreeCall::new(
             self,
-        ).await?
+        ).await
     }
 }
 
