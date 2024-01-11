@@ -1,3 +1,7 @@
+use anyhow::{Result, Ok};
+use serde_json::Value;
+use crate::models::CommandResultDtoResult;
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CommandResultDto {
     #[serde(rename = "reqKey")]
@@ -5,7 +9,7 @@ pub struct CommandResultDto {
     #[serde(rename = "txId", deserialize_with = "Option::deserialize")]
     pub tx_id: Option<u64>,
     #[serde(rename = "result")]
-    pub result: Box<crate::models::CommandResultDtoResult>,
+    pub result: Box<CommandResultDtoResult>,
     #[serde(rename = "gas")]
     pub gas: u64,
     #[serde(rename = "logs", deserialize_with = "Option::deserialize")]
@@ -22,7 +26,7 @@ impl CommandResultDto {
     pub fn new(
         req_key: String,
         tx_id: Option<u64>,
-        result: crate::models::CommandResultDtoResult,
+        result: CommandResultDtoResult,
         gas: u64,
         logs: Option<String>,
         continuation: Option<crate::models::PactExecDto>,
@@ -47,4 +51,11 @@ impl CommandResultDto {
             events: None,
         }
     }
+
+    pub fn result(&self) -> Result<Value> {
+        match self.result.as_ref() {
+            CommandResultDtoResult::Success(res) => Ok(res.data.clone()),
+            CommandResultDtoResult::Error(err) => Err(anyhow::anyhow!("tx error: {}", err.status)),
+        }
+    }    
 }

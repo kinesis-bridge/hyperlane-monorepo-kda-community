@@ -1,19 +1,27 @@
-//use std::net;
-
-use hyperlane_core::config::{ConfigPath, ConfigResult, FromRawConf, ConfigErrResultExt};
-use kadena_client::apis::configuration::ConnectionConf;
+use hyperlane_core::ChainCommunicationError;
 use url::Url;
 use std::num::ParseIntError;
 
-/// Raw Kadena connection configuration used for better deserialization errors.
-#[derive(Debug, serde::Deserialize)]
-pub struct DeprecatedRawConnectionConf {
+use kadena_client::apis::configuration::ConnectionConf as ApiConf;
+use kadena_client::apis::configuration::Configuration as ProxyConf;
+
+/// Kadena connection configuration
+#[derive(Debug, Clone)]
+pub struct ConnectionConf {
+    /// Fully qualified string to connect to
+    pub url: Url,
+
+    /// Network ID
     #[allow(dead_code)]
-    url: Option<String>,
+    pub network_id: String,
+
+    /// Chain ID
     #[allow(dead_code)]
-    network_id: Option<String>,
-    #[allow(dead_code)]
-    chain_id: Option<String>,
+    pub chain_id: u8,
+
+    /// Chain ID
+    #[allow(dead_code)]    
+    pub kadena_proxy_url: String, // TODO: change to Url
 }
 
 /// An error type when parsing a connection configuration.
@@ -36,41 +44,21 @@ pub enum ConnectionConfError {
     InvalidChainId(String, ParseIntError),
 }
 
-impl FromRawConf<DeprecatedRawConnectionConf> for ConnectionConf {
-    fn from_config_filtered(
-        raw: DeprecatedRawConnectionConf,
-        cwp: &ConfigPath,
-        _filter: (),
-    ) -> ConfigResult<Self> {
-        use ConnectionConfError::*;
+#[derive(thiserror::Error, Debug)]
+#[error(transparent)]
+struct KadenaNewConnectionError(#[from] anyhow::Error);
 
-        let url: Url = raw
-            .url
-            .as_ref()
-            .ok_or(MissingConnectionUrl)
-            .into_config_result(|| cwp.join("url"))?
-            .parse()
-            .map_err(|e| InvalidConnectionUrl(raw.url.unwrap().clone(), e))
-            .into_config_result(|| cwp.join("url"))?;
+impl From<KadenaNewConnectionError> for ChainCommunicationError {
+    fn from(err: KadenaNewConnectionError) -> Self {
+        ChainCommunicationError::from_other(err)
+    }
+}
 
-        let network_id = raw
-            .network_id
-            .ok_or(MissingNetworkId)
-            .into_config_result(|| cwp.join("network_id"))?;
-            
-        let chain_id: u8 = raw
-            .chain_id
-            .as_ref()
-            .ok_or(MissingChainId)
-            .into_config_result(|| cwp.join("chain_id"))?
-            .parse()
-            .map_err(|e| InvalidChainId(raw.chain_id.unwrap().clone(), e))
-            .into_config_result(|| cwp.join("chain_id"))?;
-     
-        Ok(Self {
-            url,
-            network_id,
-            chain_id,
-        })
+impl Into<(ApiConf, ProxyConf)> for &ConnectionConf {
+    fn into(self) -> (ApiConf, ProxyConf) {
+        (
+            ApiConf::new(self.url.clone(), self.network_id.clone(), self.chain_id), 
+            ProxyConf::new_with_base_path(self.kadena_proxy_url.clone()).unwrap()
+        )
     }
 }

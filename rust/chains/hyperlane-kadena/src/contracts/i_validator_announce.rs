@@ -2,92 +2,109 @@ use std::sync::Arc;
 use crate::{provider, KadenaProvider};
 use kadena_client::{contract::{Contract, KadenaProxyProvider}, contract_call::ContractCall, models::CommandDto};
 use anyhow::Result;
+use async_trait::async_trait;
 
 pub struct AnnounceCall<'a> {
     contract: &'a IValidatorAnnounce,
-    validator: String,
+    validator: [u8; 20],
     storage_location: String,
-    signature: String,
-    cmd: CommandDto,
+    signature: [u8; 65],
+    gas_limit: Option<u64>,
 }
 
 impl AnnounceCall<'_> {
     const METHOD_NAME: &'static str = "announce";
-    pub async fn new(
+    pub fn new(
         contract: &IValidatorAnnounce,
-        validator: String,
+        validator: [u8; 20],
         storage_location: String,
-        signature: String,
-    ) -> Result<AnnounceCall> {
-        let cmd = contract.build_pact_tx_with_expr(
-            &format!(
-                "({}.{}.{} \"{}\",\"{}\",\"{}\")",
-                contract.get_namespace(),
-                contract.get_module_name(),
-                Self::METHOD_NAME,
-                validator,
-                storage_location,
-                signature,
-            ),
-        ).await?;
-
-        Ok(AnnounceCall {
+        signature: [u8; 65],
+    ) -> AnnounceCall {
+        AnnounceCall {
             contract,
             validator,
             storage_location,
             signature,
-            cmd,
-        })
+            gas_limit: None,
+        }
     }
 }
 
+#[async_trait]
 impl ContractCall for AnnounceCall<'_> {
-    fn get_contract(&self) -> &dyn Contract {
+    fn contract(&self) -> &dyn Contract {
         self.contract
     }
 
-    fn get_cmd(&self) -> &CommandDto {
-        &self.cmd
+    fn set_gas_limit(&mut self, gas_limit: u64) {
+        self.gas_limit = Some(gas_limit);
+    }
+
+    fn gas_limit(&self) -> Option<u64> {
+        self.gas_limit
+    }
+
+    async fn cmd(&self) -> Result<CommandDto> {
+        self.contract.build_pact_tx_with_expr(
+            &format!(
+                "({}.{}.{} \"{}\",\"{}\",\"{}\")",
+                self.contract.namespace(),
+                self.contract.module_name(),
+                Self::METHOD_NAME,
+                hex::encode(self.validator),
+                self.storage_location,
+                hex::encode(self.signature),
+            ),
+            self.gas_limit,
+        ).await.map_err(|e| e.into())
     }
 }
 
 pub struct GetAnnouncedStorageLocationsCall<'a> {
     contract: &'a IValidatorAnnounce,
-    validators: Vec<String>,
-    cmd: CommandDto,
+    validators: Vec<[u8; 20]>,
+    gas_limit: Option<u64>,
 }
 
 impl GetAnnouncedStorageLocationsCall<'_> {
     const METHOD_NAME: &'static str = "get-announced-storage-locations";
-    pub async fn new(
+    pub fn new(
         contract: &IValidatorAnnounce,
-        validators: Vec<String>,
-    ) -> Result<GetAnnouncedStorageLocationsCall> {
-        let cmd = contract.build_pact_tx_with_expr(
-            &format!(
-                "({}.{}.{} \"{}\")",
-                contract.get_namespace(),
-                contract.get_module_name(),
-                Self::METHOD_NAME,
-                validators.join(","),
-            ),
-        ).await?;
-
-        Ok(GetAnnouncedStorageLocationsCall {
+        validators: Vec<[u8; 20]>,
+    ) -> GetAnnouncedStorageLocationsCall {
+        GetAnnouncedStorageLocationsCall {
             contract,
             validators,
-            cmd,
-        })
+            gas_limit: None,
+        }
     }
 }
 
+#[async_trait]
 impl ContractCall for GetAnnouncedStorageLocationsCall<'_> {
-    fn get_contract(&self) -> &dyn Contract {
+    fn contract(&self) -> &dyn Contract {
         self.contract
     }
 
-    fn get_cmd(&self) -> &CommandDto {
-        &self.cmd
+    fn set_gas_limit(&mut self, gas_limit: u64) {
+        self.gas_limit = Some(gas_limit);
+    }
+
+    fn gas_limit(&self) -> Option<u64> {
+        self.gas_limit
+    }
+
+    async fn cmd(&self) -> Result<CommandDto> {
+        self.contract.build_pact_tx_with_expr(
+            &format!(
+                "({}.{}.{} \"{}\")",
+                self.contract.namespace(),
+                self.contract.module_name(),
+                Self::METHOD_NAME,
+                self.validators.iter().map(|v| hex::encode(v)).collect::<Vec<String>>().join(","),
+            ),
+            self.gas_limit,
+        ).await.map_err(|e| e.into())
     }
 }
 
@@ -106,33 +123,33 @@ impl IValidatorAnnounce {
         }
     }
 
-    pub async fn announce(
+    pub fn announce(
         &self,
-        validator: String,
+        validator: [u8; 20],
         storage_location: String,
-        signature: String,
-    ) -> Result<AnnounceCall> {
+        signature: [u8; 65],
+    ) -> AnnounceCall {
         AnnounceCall::new(
             self,
             validator,
             storage_location,
             signature,
-        ).await
+        )
     }
 
-    pub async fn get_announced_storage_locations(
+    pub fn get_announced_storage_locations(
         &self,
-        validators: Vec<String>,
-    ) -> Result<GetAnnouncedStorageLocationsCall> {
+        validators: Vec<[u8; 20]>,
+    ) -> GetAnnouncedStorageLocationsCall {
         GetAnnouncedStorageLocationsCall::new(
             self,
             validators,
-        ).await
+        )
     }
 }
 
 impl Contract for IValidatorAnnounce {
-    fn get_module_name(&self) ->  &'static str {
+    fn module_name(&self) ->  &'static str {
         Self::MODULE_NAME
     }
 

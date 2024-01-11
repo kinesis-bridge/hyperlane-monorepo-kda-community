@@ -171,7 +171,7 @@ pub async fn get_block_by_hash(
     let uri_str = format!("{}/block_by_hash", configuration.base_path);
     let mut req_builder = client.request(reqwest::Method::GET, uri_str.as_str());
 
-    req_builder = req_builder.query(&[("host", &host.to_string())]);
+    req_builder = req_builder.query(&[("host", &host.trim_end_matches('/').to_string())]);
     req_builder = req_builder.query(&[("network", &network.to_string())]);
     req_builder = req_builder.query(&[("chain_id", &chain_id.to_string())]);
     req_builder = req_builder.query(&[("hash", &hash.to_string())]);
@@ -212,7 +212,7 @@ pub async fn get_block_by_height(
     let uri_str = format!("{}/block_by_height", configuration.base_path);
     let mut req_builder = client.request(reqwest::Method::GET, uri_str.as_str());
 
-    req_builder = req_builder.query(&[("host", &host.to_string())]);
+    req_builder = req_builder.query(&[("host", &host.trim_end_matches('/').to_string())]);
     req_builder = req_builder.query(&[("network", &network.to_string())]);
     req_builder = req_builder.query(&[("chain_id", &chain_id.to_string())]);
     req_builder = req_builder.query(&[("height", &height.to_string())]);
@@ -254,7 +254,7 @@ pub async fn get_blocks(
     let uri_str = format!("{}/blocks", configuration.base_path);
     let mut req_builder = client.request(reqwest::Method::GET, uri_str.as_str());
 
-    req_builder = req_builder.query(&[("host", &host.to_string())]);
+    req_builder = req_builder.query(&[("host", &host.trim_end_matches('/').to_string())]);
     req_builder = req_builder.query(&[("network", &network.to_string())]);
     req_builder = req_builder.query(&[("chain_id", &chain_id.to_string())]);
     req_builder = req_builder.query(&[("from", &from.to_string())]);
@@ -296,7 +296,7 @@ pub async fn get_event_by_hash(
     let uri_str = format!("{}/event_by_hash", configuration.base_path);
     let mut req_builder = client.request(reqwest::Method::GET, uri_str.as_str());
 
-    req_builder = req_builder.query(&[("host", &host.to_string())]);
+    req_builder = req_builder.query(&[("host", &host.trim_end_matches('/').to_string())]);
     req_builder = req_builder.query(&[("network", &network.to_string())]);
     req_builder = req_builder.query(&[("chain_id", &chain_id.to_string())]);
     req_builder = req_builder.query(&[("hash", &hash.to_string())]);
@@ -337,7 +337,7 @@ pub async fn get_event_by_height(
     let uri_str = format!("{}/event_by_height", configuration.base_path);
     let mut req_builder = client.request(reqwest::Method::GET, uri_str.as_str());
 
-    req_builder = req_builder.query(&[("host", &host.to_string())]);
+    req_builder = req_builder.query(&[("host", &host.trim_end_matches('/').to_string())]);
     req_builder = req_builder.query(&[("network", &network.to_string())]);
     req_builder = req_builder.query(&[("chain_id", &chain_id.to_string())]);
     req_builder = req_builder.query(&[("height", &height.to_string())]);
@@ -379,7 +379,7 @@ pub async fn get_events(
     let uri_str = format!("{}/events", configuration.base_path);
     let mut req_builder = client.request(reqwest::Method::GET, uri_str.as_str());
 
-    req_builder = req_builder.query(&[("host", &host.to_string())]);
+    req_builder = req_builder.query(&[("host", &host.trim_end_matches('/').to_string())]);
     req_builder = req_builder.query(&[("network", &network.to_string())]);
     req_builder = req_builder.query(&[("chain_id", &chain_id.to_string())]);
     req_builder = req_builder.query(&[("from", &from.to_string())]);
@@ -421,7 +421,7 @@ pub async fn get_header_by_hash(
     let uri_str = format!("{}/header_by_hash", configuration.base_path);
     let mut req_builder = client.request(reqwest::Method::GET, uri_str.as_str());
 
-    req_builder = req_builder.query(&[("host", &host.to_string())]);
+    req_builder = req_builder.query(&[("host", &host.trim_end_matches('/').to_string())]);
     req_builder = req_builder.query(&[("network", &network.to_string())]);
     req_builder = req_builder.query(&[("chain_id", &chain_id.to_string())]);
     req_builder = req_builder.query(&[("hash", &hash.to_string())]);
@@ -462,7 +462,7 @@ pub async fn get_header_by_height(
     let uri_str = format!("{}/header_by_height", configuration.base_path);
     let mut req_builder = client.request(reqwest::Method::GET, uri_str.as_str());
 
-    req_builder = req_builder.query(&[("host", &host.to_string())]);
+    req_builder = req_builder.query(&[("host", &host.trim_end_matches('/').to_string())]);
     req_builder = req_builder.query(&[("network", &network.to_string())]);
     req_builder = req_builder.query(&[("chain_id", &chain_id.to_string())]);
     req_builder = req_builder.query(&[("height", &height.to_string())]);
@@ -504,7 +504,7 @@ pub async fn get_headers(
     let uri_str = format!("{}/headers", configuration.base_path);
     let mut req_builder = client.request(reqwest::Method::GET, uri_str.as_str());
 
-    req_builder = req_builder.query(&[("host", &host.to_string())]);
+    req_builder = req_builder.query(&[("host", &host.trim_end_matches('/').to_string())]);
     req_builder = req_builder.query(&[("network", &network.to_string())]);
     req_builder = req_builder.query(&[("chain_id", &chain_id.to_string())]);
     req_builder = req_builder.query(&[("from", &from.to_string())]);
@@ -545,7 +545,7 @@ pub async fn get_height(
     let uri_str = format!("{}/height", configuration.base_path);
     let mut req_builder = client.request(reqwest::Method::GET, uri_str.as_str());
 
-    req_builder = req_builder.query(&[("host", &host.to_string())]);
+    req_builder = req_builder.query(&[("host", &host.trim_end_matches('/').to_string())]);
     req_builder = req_builder.query(&[("network", &network.to_string())]);
     if let Some(ref str) = depth {
         req_builder = req_builder.query(&[("depth", &str.to_string())]);
@@ -587,7 +587,7 @@ pub async fn get_tx_by_hash(
     let uri_str = format!("{}/tx_by_hash", configuration.base_path);
     let mut req_builder = client.request(reqwest::Method::GET, uri_str.as_str());
 
-    req_builder = req_builder.query(&[("host", &host.to_string())]);
+    req_builder = req_builder.query(&[("host", &host.trim_end_matches('/').to_string())]);
     req_builder = req_builder.query(&[("network", &network.to_string())]);
     req_builder = req_builder.query(&[("chain_id", &chain_id.to_string())]);
     req_builder = req_builder.query(&[("hash", &hash.to_string())]);
@@ -628,7 +628,7 @@ pub async fn get_tx_by_height(
     let uri_str = format!("{}/tx_by_height", configuration.base_path);
     let mut req_builder = client.request(reqwest::Method::GET, uri_str.as_str());
 
-    req_builder = req_builder.query(&[("host", &host.to_string())]);
+    req_builder = req_builder.query(&[("host", &host.trim_end_matches('/').to_string())]);
     req_builder = req_builder.query(&[("network", &network.to_string())]);
     req_builder = req_builder.query(&[("chain_id", &chain_id.to_string())]);
     req_builder = req_builder.query(&[("height", &height.to_string())]);
@@ -670,7 +670,7 @@ pub async fn get_txs(
     let uri_str = format!("{}/txs", configuration.base_path);
     let mut req_builder = client.request(reqwest::Method::GET, uri_str.as_str());
 
-    req_builder = req_builder.query(&[("host", &host.to_string())]);
+    req_builder = req_builder.query(&[("host", &host.trim_end_matches('/').to_string())]);
     req_builder = req_builder.query(&[("network", &network.to_string())]);
     req_builder = req_builder.query(&[("chain_id", &chain_id.to_string())]);
     req_builder = req_builder.query(&[("from", &from.to_string())]);

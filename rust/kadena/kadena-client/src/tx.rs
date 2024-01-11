@@ -1,10 +1,13 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, num::NonZeroU64};
 
 use crate::contract_call::ContractCall;
 use crate::models::CommandResultDto;
 use anyhow::Result;
 use hyperlane_core::ChainCommunicationError;
 use tracing::{error, info};
+
+/// Buffer to add to gas estimate
+const GAS_ESTIMATE_BUFFER: u64 = 50000;
 
 /// Number of times to retry polling
 const POLL_RETRY_COUNT: u8 = 10;
@@ -38,4 +41,31 @@ pub async fn report_tx<C: ContractCall>(tx: C) -> Result<HashMap<String, Command
     Err(anyhow::Error::from(
         ChainCommunicationError::TransactionTimeout(),
     ))
+}
+
+pub async fn fill_tx_gas_params<C: ContractCall>(tx: C, tx_gas_limit: Option<u64>) -> Result<C> {
+    let gas_limit = if let Some(gas_limit) = tx_gas_limit {
+        gas_limit
+    } else {
+        tx.estimate_gas()
+            .await?
+            .saturating_add(GAS_ESTIMATE_BUFFER)
+            .into()
+    };
+    let mut tx = tx;
+    tx.set_gas_limit(gas_limit);
+    Ok(tx)
+}
+
+pub async fn call_with_lag<C: ContractCall> (
+    call: C,
+    maybe_lag: Option<NonZeroU64>,
+) -> Result<C>
+{
+    if let Some(_lag) = maybe_lag {
+        // TODO: implement lag
+        Ok(call)
+    } else {
+        Ok(call)
+    }
 }

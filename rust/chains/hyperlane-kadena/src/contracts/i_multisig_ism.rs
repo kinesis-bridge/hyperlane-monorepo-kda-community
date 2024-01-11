@@ -4,45 +4,50 @@ use crate::{provider, KadenaProvider};
 
 use kadena_client::{contract::{Contract, KadenaProxyProvider}, models::CommandDto, contract_call::ContractCall};
 use anyhow::Result;
+use async_trait::async_trait;
 
 
 pub struct ValidatorsAndThresholdCall<'a> {
     contract: &'a IMultisigIsm,
-    message: String,
-    cmd: CommandDto,
+    gas_limit: Option<u64>,
 }
 
 impl ValidatorsAndThresholdCall<'_> {
     const METHOD_NAME: &'static str = "validators-and-threshold";
-    pub async fn new(
+    pub fn new(
         contract: &IMultisigIsm,
-        message: String,
-    ) -> Result<ValidatorsAndThresholdCall> {
-        let cmd = contract.build_pact_tx_with_expr(
-            &format!(
-                "({}.{}.{} {})",
-                contract.get_namespace(),
-                contract.get_module_name(),
-                Self::METHOD_NAME,
-                message,
-            ),
-        ).await?;
-
-        Ok(ValidatorsAndThresholdCall {
+    ) -> ValidatorsAndThresholdCall {
+        ValidatorsAndThresholdCall {
             contract,
-            message,
-            cmd,
-        })
+            gas_limit: None,
+        }
     }
 }
 
+#[async_trait]
 impl ContractCall for ValidatorsAndThresholdCall<'_> {
-    fn get_contract(&self) -> &dyn Contract {
+    fn contract(&self) -> &dyn Contract {
         self.contract
     }
 
-    fn get_cmd(&self) -> &CommandDto {
-        &self.cmd
+    fn set_gas_limit(&mut self, gas_limit: u64) {
+        self.gas_limit = Some(gas_limit);
+    }
+
+    fn gas_limit(&self) -> Option<u64> {
+        self.gas_limit
+    }
+
+    async fn cmd(&self) -> Result<CommandDto> {
+        self.contract.build_pact_tx_with_expr(
+            &format!(
+                "({}.{}.{})",
+                self.contract.namespace(),
+                self.contract.module_name(),
+                Self::METHOD_NAME,
+            ),
+            self.gas_limit,
+        ).await.map_err(|e| e.into())
     }
 }
 
@@ -52,7 +57,7 @@ pub struct IMultisigIsm {
 }
 
 impl IMultisigIsm {
-    const MODULE_NAME: &'static str = "multisig-ism";
+    const MODULE_NAME: &'static str = "ism";
     
     pub fn new(provider: Arc<KadenaProvider>) -> Self {
         Self {
@@ -60,16 +65,15 @@ impl IMultisigIsm {
         }
     }
 
-    pub async fn validators_and_threshold(&self, message: String) -> Result<ValidatorsAndThresholdCall> {
+    pub fn validators_and_threshold(&self) -> ValidatorsAndThresholdCall {
         ValidatorsAndThresholdCall::new(
             self,
-            message,
-        ).await
+        )
     }
 }
 
 impl Contract for IMultisigIsm {
-    fn get_module_name(&self) ->  &'static str {
+    fn module_name(&self) ->  &'static str {
         Self::MODULE_NAME
     }
 

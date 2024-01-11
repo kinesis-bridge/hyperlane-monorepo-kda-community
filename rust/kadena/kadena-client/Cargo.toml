@@ -29,3 +29,4 @@ vaultrs = "0.7"
 [dev-dependencies]
 more-asserts = "0.3"
 dotenvy = "0.15"
+hyperlane-kadena = { path = "../../chains/hyperlane-kadena" }

@@ -82,6 +82,7 @@ export class AppController {
       buildPactTxDto.pactCode,
       buildPactTxDto.signer,
       buildPactTxDto.senderAccount,
+      buildPactTxDto.gasLimit,
     );
   }
 

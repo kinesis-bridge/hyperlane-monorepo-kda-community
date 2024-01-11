@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
-use ethers::prelude::Selector;
+use ethers::{prelude::Selector, core::k256::elliptic_curve::PrimeField};
 use ethers_prometheus::middleware::{
     ChainInfo, ContractInfo, PrometheusMiddlewareConf, WalletInfo,
 };
@@ -18,6 +18,7 @@ use hyperlane_ethereum::{
 };
 use hyperlane_fuel as h_fuel;
 use hyperlane_sealevel as h_sealevel;
+use hyperlane_kadena as h_kadena;
 
 use crate::{
     settings::signers::{BuildableWithSignerConf, SignerConf},
@@ -55,6 +56,7 @@ pub enum ChainConnectionConf {
     Fuel(h_fuel::ConnectionConf),
     /// Sealevel configuration.
     Sealevel(h_sealevel::ConnectionConf),
+    Kadena(h_kadena::ConnectionConf),
 }
 
 impl ChainConnectionConf {
@@ -64,6 +66,7 @@ impl ChainConnectionConf {
             Self::Ethereum(_) => HyperlaneDomainProtocol::Ethereum,
             Self::Fuel(_) => HyperlaneDomainProtocol::Fuel,
             Self::Sealevel(_) => HyperlaneDomainProtocol::Sealevel,
+            Self::Kadena(_) => HyperlaneDomainProtocol::Kadena,
         }
     }
 }
@@ -112,6 +115,7 @@ impl ChainConf {
             }
             ChainConnectionConf::Fuel(_) => todo!(),
             ChainConnectionConf::Sealevel(_) => todo!(),
+            ChainConnectionConf::Kadena(_) => todo!(),
         }
         .context(ctx)
     }
@@ -137,6 +141,11 @@ impl ChainConf {
                 h_sealevel::SealevelMailbox::new(conf, locator, keypair)
                     .map(|m| Box::new(m) as Box<dyn Mailbox>)
                     .map_err(Into::into)
+            }
+
+            ChainConnectionConf::Kadena(conf) => {
+                let signer = self.kadena_signer().await.context(ctx)?;
+                Ok(Box::new(h_kadena::KadenaMailbox::new(conf, locator.domain, Arc::new(signer.unwrap()))) as Box<dyn Mailbox>)
             }
         }
         .context(ctx)
@@ -169,6 +178,11 @@ impl ChainConf {
                     .map(|m| Box::new(m) as Box<dyn MerkleTreeHook>)
                     .map_err(Into::into)
             }
+
+            ChainConnectionConf::Kadena(conf) => {
+                let signer = self.kadena_signer().await.context(ctx)?;
+                Ok(Box::new(h_kadena::KadenaMerkleTreeHook::new(conf, locator.domain, Arc::new(signer.unwrap()))) as Box<dyn MerkleTreeHook>)
+            }
         }
         .context(ctx)
     }
@@ -199,6 +213,11 @@ impl ChainConf {
                 let indexer = Box::new(h_sealevel::SealevelMailboxIndexer::new(conf, locator)?);
                 Ok(indexer as Box<dyn SequenceIndexer<HyperlaneMessage>>)
             }
+            ChainConnectionConf::Kadena(conf) => {
+                let signer = self.kadena_signer().await.context(ctx)?;
+                let indexer = Box::new(h_kadena::KadenaMailboxIndexer::new(conf, locator.domain, Arc::new(signer.unwrap()), self.reorg_period));
+                Ok(indexer as Box<dyn SequenceIndexer<HyperlaneMessage>>)
+            }
         }
         .context(ctx)
     }
@@ -227,6 +246,11 @@ impl ChainConf {
             ChainConnectionConf::Fuel(_) => todo!(),
             ChainConnectionConf::Sealevel(conf) => {
                 let indexer = Box::new(h_sealevel::SealevelMailboxIndexer::new(conf, locator)?);
+                Ok(indexer as Box<dyn SequenceIndexer<H256>>)
+            }
+            ChainConnectionConf::Kadena(conf) => {
+                let signer = self.kadena_signer().await.context(ctx)?;
+                let indexer = Box::new(h_kadena::KadenaMailboxIndexer::new(conf, locator.domain, Arc::new(signer.unwrap()), self.reorg_period));
                 Ok(indexer as Box<dyn SequenceIndexer<H256>>)
             }
         }
@@ -260,6 +284,13 @@ impl ChainConf {
                 );
                 Ok(paymaster as Box<dyn InterchainGasPaymaster>)
             }
+            ChainConnectionConf::Kadena(conf) => {
+                let signer = self.kadena_signer().await.context(ctx)?;
+                let paymaster = Box::new(
+                    h_kadena::KadenaInterchainGasPaymaster::new(conf, locator.domain, Arc::new(signer.unwrap())),
+                );
+                Ok(paymaster as Box<dyn InterchainGasPaymaster>)
+            }            
         }
         .context(ctx)
     }
@@ -290,6 +321,13 @@ impl ChainConf {
             ChainConnectionConf::Sealevel(conf) => {
                 let indexer = Box::new(
                     h_sealevel::SealevelInterchainGasPaymasterIndexer::new(conf, locator).await?,
+                );
+                Ok(indexer as Box<dyn SequenceIndexer<InterchainGasPayment>>)
+            }
+            ChainConnectionConf::Kadena(conf) => {
+                let signer = self.kadena_signer().await.context(ctx)?;
+                let indexer = Box::new(
+                    h_kadena::KadenaInterchainGasPaymasterIndexer::new(conf, locator.domain, Arc::new(signer.unwrap()), self.reorg_period),
                 );
                 Ok(indexer as Box<dyn SequenceIndexer<InterchainGasPayment>>)
             }
@@ -326,6 +364,11 @@ impl ChainConf {
                 let indexer = Box::new(h_sealevel::SealevelMerkleTreeHookIndexer::new());
                 Ok(indexer as Box<dyn SequenceIndexer<MerkleTreeInsertion>>)
             }
+            ChainConnectionConf::Kadena(conf) => {
+                let signer = self.kadena_signer().await.context(ctx)?;
+                let indexer = Box::new(h_kadena::KadenaMerkleTreeHookIndexer::new(conf, locator.domain, Arc::new(signer.unwrap()), self.reorg_period));
+                Ok(indexer as Box<dyn SequenceIndexer<MerkleTreeInsertion>>)
+            }
         }
         .context(ctx)
     }
@@ -347,6 +390,13 @@ impl ChainConf {
                 let va = Box::new(h_sealevel::SealevelValidatorAnnounce::new(conf, locator));
                 Ok(va as Box<dyn ValidatorAnnounce>)
             }
+            ChainConnectionConf::Kadena(conf) => {
+                let ctx = "Building validator announce";
+                let signer = self.kadena_signer().await.context(ctx)?;
+                let va = Box::new(h_kadena::KadenaValidatorAnnounce::new(conf, locator.domain, Arc::new(signer.unwrap())));
+                Ok(va as Box<dyn ValidatorAnnounce>)
+            }
+
         }
         .context("Building ValidatorAnnounce")
     }
@@ -380,6 +430,13 @@ impl ChainConf {
                 ));
                 Ok(ism as Box<dyn InterchainSecurityModule>)
             }
+            ChainConnectionConf::Kadena(conf) => {
+                let signer = self.kadena_signer().await.context(ctx)?;
+                let ism = Box::new(h_kadena::KadenaInterchainSecurityModule::new(
+                    conf, locator.domain, Arc::new(signer.unwrap()),
+                ));
+                Ok(ism as Box<dyn InterchainSecurityModule>)
+            }
         }
         .context(ctx)
     }
@@ -403,6 +460,11 @@ impl ChainConf {
             ChainConnectionConf::Sealevel(conf) => {
                 let keypair = self.sealevel_signer().await.context(ctx)?;
                 let ism = Box::new(h_sealevel::SealevelMultisigIsm::new(conf, locator, keypair));
+                Ok(ism as Box<dyn MultisigIsm>)
+            }
+            ChainConnectionConf::Kadena(conf) => {
+                let signer = self.kadena_signer().await.context(ctx)?;
+                let ism = Box::new(h_kadena::KadenaMultisigIsm::new(conf, locator.domain, Arc::new(signer.unwrap())));
                 Ok(ism as Box<dyn MultisigIsm>)
             }
         }
@@ -431,6 +493,9 @@ impl ChainConf {
             ChainConnectionConf::Sealevel(_) => {
                 Err(eyre!("Sealevel does not support routing ISM yet")).context(ctx)
             }
+            ChainConnectionConf::Kadena(_) => {
+                Err(eyre!("Kadena does not support routing ISM yet")).context(ctx)
+            }            
         }
         .context(ctx)
     }
@@ -456,6 +521,9 @@ impl ChainConf {
             ChainConnectionConf::Fuel(_) => todo!(),
             ChainConnectionConf::Sealevel(_) => {
                 Err(eyre!("Sealevel does not support aggregation ISM yet")).context(ctx)
+            }
+            ChainConnectionConf::Kadena(_) => {
+                Err(eyre!("Kadena does not support aggregation ISM yet")).context(ctx)
             }
         }
         .context(ctx)
@@ -483,6 +551,9 @@ impl ChainConf {
             ChainConnectionConf::Sealevel(_) => {
                 Err(eyre!("Sealevel does not support CCIP read ISM yet")).context(ctx)
             }
+            ChainConnectionConf::Kadena(_) => {
+                Err(eyre!("Kadena does not support CCIP read ISM yet")).context(ctx)
+            }
         }
         .context(ctx)
     }
@@ -506,6 +577,10 @@ impl ChainConf {
     }
 
     async fn sealevel_signer(&self) -> Result<Option<h_sealevel::Keypair>> {
+        self.signer().await
+    }
+
+    async fn kadena_signer(&self) -> Result<Option<h_kadena::Signers>> {
         self.signer().await
     }
 

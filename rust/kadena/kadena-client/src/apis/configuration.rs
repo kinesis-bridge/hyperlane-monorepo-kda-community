@@ -68,7 +68,7 @@ impl ConnectionConf {
         }
     }
 
-    pub fn get_hostapi(&self) -> String {
+    pub fn hostapi(&self) -> String {
         format!("{}chainweb/0.0/{}/chain/{}/pact", self.url, self.network_id, self.chain_id)
     }    
 }

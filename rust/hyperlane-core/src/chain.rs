@@ -162,6 +162,8 @@ pub enum HyperlaneDomainProtocol {
     Fuel,
     /// A Sealevel-based chain type which uses hyperlane-sealevel.
     Sealevel,
+    /// A Kadena-based chain type which uses hyperlane-kadena.
+    Kadena,
 }
 
 impl HyperlaneDomainProtocol {
@@ -171,6 +173,7 @@ impl HyperlaneDomainProtocol {
             Ethereum => format!("{:?}", H160::from(addr)),
             Fuel => format!("{:?}", addr),
             Sealevel => format!("{:?}", addr),
+            Kadena => format!("{:?}", addr),
         }
     }
 }
@@ -368,7 +371,7 @@ impl HyperlaneDomain {
         let protocol = self.domain_protocol();
         many_to_one!(match protocol {
             IndexMode::Block: [Ethereum],
-            IndexMode::Sequence : [Sealevel, Fuel],
+            IndexMode::Sequence : [Sealevel, Fuel, Kadena],
         })
     }
 }

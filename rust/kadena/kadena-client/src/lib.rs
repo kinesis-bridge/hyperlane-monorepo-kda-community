@@ -7,3 +7,4 @@ pub mod contract;
 pub mod tx;
 pub mod contract_call;
 pub mod signers;
+pub mod event;

@@ -3,7 +3,9 @@ pub mod prelude {
     use once_cell::sync::Lazy;
     use ed25519_dalek::SigningKey;
     use std::{path::Path, sync::Arc};
+    use async_trait::async_trait;
     use url::Url;
+    use anyhow::Result;
     use kadena_client::{apis::configuration::{Configuration as ProxyConf, ConnectionConf}, contract::{Contract, KadenaProxyProvider}, contract_call::ContractCall, models::CommandDto, signers::Signer};
 
     pub struct TestProvider {
@@ -32,7 +34,7 @@ pub mod prelude {
         a: u64,
         #[allow(dead_code)]
         b: u64,
-        cmd: CommandDto,
+        gas_limit: Option<u64>,
     }
 
     impl AddTwoNumbersCall<'_> {
@@ -41,23 +43,35 @@ pub mod prelude {
             a: u64,
             b: u64,
         ) -> AddTwoNumbersCall {
-            let cmd = contract.build_pact_tx_with_expr(&format!("(+ {} {})", a, b)).await.unwrap();
             AddTwoNumbersCall {
                 contract,
                 a,
                 b,
-                cmd,
+                gas_limit: None
             }
         }
     }
 
+    #[async_trait]
     impl ContractCall for AddTwoNumbersCall<'_> {
-        fn get_contract(&self) -> &dyn Contract {
+        fn contract(&self) -> &dyn Contract {
             self.contract
         }
 
-        fn get_cmd(&self) -> &CommandDto {
-            &self.cmd
+        fn gas_limit(&self) -> Option<u64> {
+            self.gas_limit
+        }
+
+        fn set_gas_limit(&mut self, gas_limit: u64) {
+            self.gas_limit = Some(gas_limit);
+        }
+
+        async fn cmd(&self) -> Result<CommandDto> {
+            self
+                .contract
+                .build_pact_tx_with_expr(&format!("(+ {} {})", self.a, self.b), self.gas_limit)
+                    .await
+                    .map_err(|e| e.into())
         }
     }
 
@@ -86,7 +100,7 @@ pub mod prelude {
     }
 
     impl Contract for TestContract {
-        fn get_module_name(&self) ->  &'static str {
+        fn module_name(&self) ->  &'static str {
             Self::MODULE_NAME
         }
 

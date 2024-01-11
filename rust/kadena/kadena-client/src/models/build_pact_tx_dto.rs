@@ -12,6 +12,8 @@ pub struct BuildPactTxDto {
     pub signer: String,
     #[serde(rename = "senderAccount")]
     pub sender_account: String,
+    #[serde(rename = "gasLimit")]
+    pub gas_limit: u64,
 }
 
 impl BuildPactTxDto {
@@ -22,6 +24,7 @@ impl BuildPactTxDto {
         pact_code: String,
         signer: String,
         sender_account: String,
+        gas_limit: u64,
     ) -> BuildPactTxDto {
         BuildPactTxDto {
             host,
@@ -30,6 +33,7 @@ impl BuildPactTxDto {
             pact_code,
             signer,
             sender_account,
+            gas_limit,
         }
     }
 }

@@ -257,6 +257,48 @@ fn parse_chain(
             .into_iter()
             .next()
             .map(|url| ChainConnectionConf::Sealevel(h_sealevel::ConnectionConf { url })),
+        HyperlaneDomainProtocol::Kadena => {
+            let proxy_url = chain
+                .chain(&mut err)
+                .get_key("proxyUrl")
+                .parse_string()
+                .unwrap_or_default();
+
+            if !(proxy_url.parse::<url::Url>().is_ok() && !proxy_url.ends_with('/')) {
+                err.push(
+                    &chain.cwp + "proxy_url",
+                    eyre!("Missing proxy_url definitions for kadena chain"),
+                );
+            }
+
+            rpcs
+                .into_iter()
+                .next()
+                .and_then(|url| {
+                    // Validate the URL
+                    let path_segments: Vec<&str> = url.path_segments().unwrap().collect();
+                    if path_segments.len() < 6 
+                        || path_segments[0] != "chainweb" 
+                        || path_segments[3] != "chain" 
+                        || path_segments[4].parse::<u8>().is_err() {
+                        Err::<(), _>(eyre!("Kadena URL is not valid"))
+                            .take_err(&mut err, || &chain.cwp + "rpc_urls");
+                        return None;
+                    }
+
+                    // Extract the host, network_id, and chain_id
+                    let host_with_scheme = url.as_str().trim_end_matches(url.path());
+                    let network_id = path_segments[2];
+                    let chain_id: u8 = path_segments[4].parse().unwrap();
+                
+                    Some(ChainConnectionConf::Kadena(h_kadena::ConnectionConf { 
+                        url: url::Url::parse(host_with_scheme).unwrap(),
+                        network_id: network_id.to_string(),
+                        chain_id,
+                        kadena_proxy_url: proxy_url.to_string(),
+                    }))
+            })
+        },
     };
 
     cfg_unwrap_all!(&chain.cwp, err: [connection, mailbox, interchain_gas_paymaster, validator_announce]);

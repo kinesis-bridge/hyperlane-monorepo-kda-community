@@ -17,6 +17,7 @@ config.workspace = true
 convert_case.workspace = true
 derive-new.workspace = true
 ed25519-dalek.workspace = true
+ed25519-dalek-v2 = { version = "2", package = "ed25519-dalek"}
 ethers.workspace = true
 eyre.workspace = true
 fuels.workspace = true
@@ -35,7 +36,9 @@ tracing-error.workspace = true
 tracing-futures.workspace = true
 tracing-subscriber = { workspace = true, features = ["json", "ansi"] }
 tracing.workspace = true
+url.workspace = true
 warp.workspace = true
+
 
 backtrace = { workspace = true, optional = true }
 backtrace-oneline = { path = "../utils/backtrace-oneline", optional = true }
@@ -44,6 +47,7 @@ ethers-prometheus = { path = "../ethers-prometheus", features = ["serde"] }
 hyperlane-core = { path = "../hyperlane-core", features = ["agent", "float"] }
 hyperlane-ethereum = { path = "../chains/hyperlane-ethereum" }
 hyperlane-fuel = { path = "../chains/hyperlane-fuel" }
+hyperlane-kadena = { path = "../chains/hyperlane-kadena" }
 hyperlane-sealevel = { path = "../chains/hyperlane-sealevel" }
 hyperlane-test = { path = "../hyperlane-test" }
 

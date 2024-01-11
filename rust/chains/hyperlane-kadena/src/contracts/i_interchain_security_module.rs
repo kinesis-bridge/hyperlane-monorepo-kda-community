@@ -4,40 +4,49 @@ use crate::{provider, KadenaProvider};
 
 use kadena_client::{contract::{Contract, KadenaProxyProvider}, models::CommandDto, contract_call::ContractCall};
 use anyhow::Result;
+use async_trait::async_trait;
 
 pub struct ModuleTypeCall<'a> {
     contract: &'a IInterchainSecurityModule,
-    cmd: CommandDto,
+    gas_limit: Option<u64>,
 }
 
 impl ModuleTypeCall<'_> {
     const METHOD_NAME: &'static str = "module-type";
-    pub async fn new(
+    pub fn new(
         contract: &IInterchainSecurityModule,
-    ) -> Result<ModuleTypeCall> {
-        let cmd = contract.build_pact_tx_with_expr(
-            &format!(
-                "({}.{}.{})",
-                contract.get_namespace(),
-                contract.get_module_name(),
-                Self::METHOD_NAME,
-            ),
-        ).await?;
-
-        Ok(ModuleTypeCall {
+    ) -> ModuleTypeCall {
+        ModuleTypeCall {
             contract,
-            cmd,
-        })
+            gas_limit: None,
+        }
     }
 }
 
+#[async_trait]
 impl ContractCall for ModuleTypeCall<'_> {
-    fn get_contract(&self) -> &dyn Contract {
+    fn contract(&self) -> &dyn Contract {
         self.contract
     }
 
-    fn get_cmd(&self) -> &CommandDto {
-        &self.cmd
+    fn set_gas_limit(&mut self, gas_limit: u64) {
+        self.gas_limit = Some(gas_limit);
+    }
+
+    fn gas_limit(&self) -> Option<u64> {
+        self.gas_limit
+    }
+
+    async fn cmd(&self) -> Result<CommandDto> {
+        self.contract.build_pact_tx_with_expr(
+            &format!(
+                "({}.{}.{})",
+                self.contract.namespace(),
+                self.contract.module_name(),
+                Self::METHOD_NAME,
+            ),
+            self.gas_limit,
+        ).await.map_err(|e| e.into())
     }
 }
 
@@ -45,43 +54,51 @@ pub struct VerifyCall<'a> {
     contract: &'a IInterchainSecurityModule,
     metadata: String,
     message: String,
-    cmd: CommandDto,
+    gas_limit: Option<u64>,
 }
 
 impl VerifyCall<'_> {
     const METHOD_NAME: &'static str = "verify";
-    pub async fn new(
+    pub fn new(
         contract: &IInterchainSecurityModule,
         metadata: String,
         message: String,
-    ) -> Result<VerifyCall> {
-        let cmd = contract.build_pact_tx_with_expr(
-            &format!(
-                "({}.{}.{} \"{}\",\"{}\")",
-                contract.get_namespace(),
-                contract.get_module_name(),
-                Self::METHOD_NAME,
-                metadata,
-                message,
-            ),
-        ).await?;
-
-        Ok(VerifyCall {
+    ) -> VerifyCall {
+        VerifyCall {
             contract,
             metadata,
             message,
-            cmd,
-        })
+            gas_limit: None,
+        }
     }
 }
 
+#[async_trait]
 impl ContractCall for VerifyCall<'_> {
-    fn get_contract(&self) -> &dyn Contract {
+    fn contract(&self) -> &dyn Contract {
         self.contract
     }
 
-    fn get_cmd(&self) -> &CommandDto {
-        &self.cmd
+    fn set_gas_limit(&mut self, gas_limit: u64) {
+        self.gas_limit = Some(gas_limit);
+    }
+
+    fn gas_limit(&self) -> Option<u64> {
+        self.gas_limit
+    }
+
+    async fn cmd(&self) -> Result<CommandDto> {
+        self.contract.build_pact_tx_with_expr(
+            &format!(
+                "({}.{}.{} \"{}\",\"{}\")",
+                self.contract.namespace(),
+                self.contract.module_name(),
+                Self::METHOD_NAME,
+                self.metadata,
+                self.message,
+            ),
+            self.gas_limit,
+        ).await.map_err(|e| e.into())
     }
 }
 
@@ -91,7 +108,7 @@ pub struct IInterchainSecurityModule {
 }
 
 impl IInterchainSecurityModule {
-    const MODULE_NAME: &'static str = "isp";
+    const MODULE_NAME: &'static str = "ism";
     
     pub fn new(provider: Arc<KadenaProvider>) -> Self {
         Self {
@@ -99,23 +116,23 @@ impl IInterchainSecurityModule {
         }
     }
 
-    pub async fn module_type(&self) -> Result<ModuleTypeCall> {
+    pub fn module_type(&self) -> ModuleTypeCall {
         ModuleTypeCall::new(
             self,
-        ).await
+        )
     }
 
-    pub async fn verify(&self, metadata: String, message: String) -> Result<VerifyCall> {
+    pub fn verify(&self, metadata: String, message: String) -> VerifyCall {
         VerifyCall::new(
             self,
             metadata,
             message,
-        ).await
+        )
     }
 }
 
 impl Contract for IInterchainSecurityModule {
-    fn get_module_name(&self) ->  &'static str {
+    fn module_name(&self) ->  &'static str {
         Self::MODULE_NAME
     }
     

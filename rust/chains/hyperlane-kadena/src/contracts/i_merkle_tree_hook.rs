@@ -2,114 +2,188 @@ use std::sync::Arc;
 
 use crate::{provider, KadenaProvider};
 
-use kadena_client::{contract::{Contract, KadenaProxyProvider}, models::CommandDto, contract_call::ContractCall};
+use kadena_client::{contract::{Contract, KadenaProxyProvider}, models::{CommandDto, EventDataDto}, contract_call::ContractCall, event::{EventData, Event}};
 use anyhow::Result;
+use async_trait::async_trait;
 
-pub struct CountCall<'a> {
-    contract: &'a IMerlkeTreeHook,
-    cmd: CommandDto,
+pub struct InsertedIntoTreeEventData {
+    message_id: String,
+    index: String,
 }
 
-impl CountCall<'_> {
-    const METHOD_NAME: &'static str = "count";
-    pub async fn new(
-        contract: &IMerlkeTreeHook,
-    ) -> Result<CountCall> {
-        let cmd = contract.build_pact_tx_with_expr(
-            &format!(
-                "({}.{}.{})",
-                contract.get_namespace(),
-                contract.get_module_name(),
-                Self::METHOD_NAME,
-            ),
-        ).await?;
+impl TryFrom<EventDataDto> for InsertedIntoTreeEventData {
+    type Error = anyhow::Error;
+    fn try_from(event_data_dto: EventDataDto) -> Result<Self> {
+        let params = event_data_dto.params;
+        let message_id = params.get(0).ok_or(anyhow::anyhow!("Message ID is missing"))?;
+        let index = params.get(1).ok_or(anyhow::anyhow!("Index is missing"))?;
 
-        Ok(CountCall {
-            contract,
-            cmd,
+        Ok(Self {
+            message_id: message_id.to_string(),
+            index: index.to_string(),
         })
     }
 }
 
-impl ContractCall for CountCall<'_> {
-    fn get_contract(&self) -> &dyn Contract {
+impl EventData for InsertedIntoTreeEventData {}
+
+pub struct InsertedIntoTreeEvent<'a> {
+    contract: &'a IMerlkeTreeHook,
+}
+
+impl<'a> InsertedIntoTreeEvent<'a> {
+    const EVENT_NAME: &'static str = "INSERTED_INTO_TREE";
+
+    pub fn new(
+        contract: &'a IMerlkeTreeHook,
+    ) -> Self {
+        Self {
+            contract,
+        }
+    }
+}
+
+impl Event for InsertedIntoTreeEvent<'_> {
+    type DataType = InsertedIntoTreeEventData;
+
+    fn contract(&self) -> &dyn Contract {
         self.contract
     }
 
-    fn get_cmd(&self) -> &CommandDto {
-        &self.cmd
+    fn event_name(&self) -> &'static str {
+        Self::EVENT_NAME
+    }
+}
+
+pub struct CountCall<'a> {
+    contract: &'a IMerlkeTreeHook,
+    gas_limit: Option<u64>,
+}
+
+impl CountCall<'_> {
+    const METHOD_NAME: &'static str = "count";
+    pub fn new(
+        contract: &IMerlkeTreeHook,
+    ) -> CountCall {
+        CountCall {
+            contract,
+            gas_limit: None,
+        }
+    }
+}
+
+#[async_trait]
+impl ContractCall for CountCall<'_> {
+    fn contract(&self) -> &dyn Contract {
+        self.contract
+    }
+
+    fn set_gas_limit(&mut self, gas_limit: u64) {
+        self.gas_limit = Some(gas_limit);
+    }
+
+    fn gas_limit(&self) -> Option<u64> {
+        self.gas_limit
+    }
+
+    async fn cmd(&self) -> Result<CommandDto> {
+        self.contract.build_pact_tx_with_expr(
+            &format!(
+                "({}.{}.{})",
+                self.contract.namespace(),
+                self.contract.module_name(),
+                Self::METHOD_NAME,
+            ),
+            self.gas_limit,
+        ).await.map_err(|e| e.into())
     }
 }
 
 pub struct LatestCheckpointCall<'a> {
     contract: &'a IMerlkeTreeHook,
-    cmd: CommandDto,
+    gas_limit: Option<u64>,
 }
 
 impl LatestCheckpointCall<'_> {
     const METHOD_NAME: &'static str = "latest-checkpoint";
-    pub async fn new(
+    pub fn new(
         contract: &IMerlkeTreeHook,
-    ) -> Result<LatestCheckpointCall> {
-        let cmd = contract.build_pact_tx_with_expr(
-            &format!(
-                "({}.{}.{})",
-                contract.get_namespace(),
-                contract.get_module_name(),
-                Self::METHOD_NAME,
-            ),
-        ).await?;
-
-        Ok(LatestCheckpointCall {
+    ) -> LatestCheckpointCall {
+        LatestCheckpointCall {
             contract,
-            cmd,
-        })
+            gas_limit: None,
+        }
     }
 }
 
+#[async_trait]
 impl ContractCall for LatestCheckpointCall<'_> {
-    fn get_contract(&self) -> &dyn Contract {
+    fn contract(&self) -> &dyn Contract {
         self.contract
     }
 
-    fn get_cmd(&self) -> &CommandDto {
-        &self.cmd
+    fn set_gas_limit(&mut self, gas_limit: u64) {
+        self.gas_limit = Some(gas_limit);
+    }
+
+    fn gas_limit(&self) -> Option<u64> {
+        self.gas_limit
+    }
+
+    async fn cmd(&self) -> Result<CommandDto> {
+        self.contract.build_pact_tx_with_expr(
+            &format!(
+                "({}.{}.{})",
+                self.contract.namespace(),
+                self.contract.module_name(),
+                Self::METHOD_NAME,
+            ),
+            self.gas_limit,
+        ).await.map_err(|e| e.into())
     }
 }
 
 pub struct TreeCall<'a> {
     contract: &'a IMerlkeTreeHook,
-    cmd: CommandDto,
+    gas_limit: Option<u64>,
 }
 
 impl TreeCall<'_> {
     const METHOD_NAME: &'static str = "tree";
-    pub async fn new(
+    pub fn new(
         contract: &IMerlkeTreeHook,
-    ) -> Result<TreeCall> {
-        let cmd = contract.build_pact_tx_with_expr(
-            &format!(
-                "({}.{}.{})",
-                contract.get_namespace(),
-                contract.get_module_name(),
-                Self::METHOD_NAME,
-            ),
-        ).await?;
-
-        Ok(TreeCall {
+    ) -> TreeCall {
+        TreeCall {
             contract,
-            cmd,
-        })
+            gas_limit: None,
+        }
     }
 }
 
+#[async_trait]
 impl ContractCall for TreeCall<'_> {
-    fn get_contract(&self) -> &dyn Contract {
+    fn contract(&self) -> &dyn Contract {
         self.contract
     }
 
-    fn get_cmd(&self) -> &CommandDto {
-        &self.cmd
+    fn set_gas_limit(&mut self, gas_limit: u64) {
+        self.gas_limit = Some(gas_limit);
+    }
+
+    fn gas_limit(&self) -> Option<u64> {
+        self.gas_limit
+    }
+
+    async fn cmd(&self) -> Result<CommandDto> {
+        self.contract.build_pact_tx_with_expr(
+            &format!(
+                "({}.{}.{})",
+                self.contract.namespace(),
+                self.contract.module_name(),
+                Self::METHOD_NAME,
+            ),
+            self.gas_limit,
+        ).await.map_err(|e| e.into())
     }
 }
 
@@ -128,27 +202,33 @@ impl IMerlkeTreeHook {
         }
     }
 
-    pub async fn count(&self) -> Result<CountCall> {
+    pub fn count(&self) -> CountCall {
         CountCall::new(
             self,
-        ).await
+        )
     }
 
-    pub async fn latest_checkpoint(&self) -> Result<LatestCheckpointCall> {
+    pub fn latest_checkpoint(&self) -> LatestCheckpointCall {
         LatestCheckpointCall::new(
             self,
-        ).await
+        )
     }
 
-    pub async fn tree(&self) -> Result<TreeCall> {
+    pub fn tree(&self) -> TreeCall {
         TreeCall::new(
             self,
-        ).await
+        )
+    }
+
+    pub fn inserted_into_tree_event(&self) -> InsertedIntoTreeEvent {
+        InsertedIntoTreeEvent::new(
+            self,
+        )
     }
 }
 
 impl Contract for IMerlkeTreeHook {
-    fn get_module_name(&self) ->  &'static str {
+    fn module_name(&self) ->  &'static str {
         Self::MODULE_NAME
     }
 

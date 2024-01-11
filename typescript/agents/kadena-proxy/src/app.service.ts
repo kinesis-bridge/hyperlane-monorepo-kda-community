@@ -149,12 +149,14 @@ export class AppService {
     pactCode: string,
     signer: string,
     senderAccount: string,
+    gasLimit: number,
   ): Promise<IUnsignedCommand> {
     let builder = Pact.builder
       .execution(pactCode)
       .setMeta({
         chainId: chainId.toString() as ChainId,
         senderAccount: senderAccount,
+        gasLimit: gasLimit,
       })
       .setNetworkId(network);
     if (signer.trim().length != 0) {

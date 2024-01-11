@@ -1,47 +1,49 @@
-#![allow(warnings)]
+#![allow(clippy::enum_variant_names)]
+#![allow(missing_docs)]
 
 use std::sync::Arc;
-use crate::contracts::i_interchain_security_module::IInterchainSecurityModule;
 
 use async_trait::async_trait;
-use tracing::{info, instrument, warn};
-use kadena_client::contract::{Contract, KadenaProxyProvider};
+use kadena_client::signers::Signer;
+use tracing::{instrument, warn};
 
 use hyperlane_core::{
-    Announcement, ChainCommunicationError, ChainResult, ContractLocator, HyperlaneChain,
-    HyperlaneContract, HyperlaneDomain, SignedType, TxOutcome, H160, H256, H512,
-    U256,
+    ChainResult, HyperlaneChain, HyperlaneContract, HyperlaneDomain,
+    HyperlaneMessage, HyperlaneProvider, InterchainSecurityModule, ModuleType,
+    H256, U256, ChainCommunicationError,
 };
+use num_traits::cast::FromPrimitive;
 
-use crate::provider::KadenaProvider;
+use crate::contracts::i_interchain_security_module::IInterchainSecurityModule;
+use crate::{KadenaProvider, ConnectionConf};
+use kadena_client::contract::Contract;
+use kadena_client::contract_call::ContractCall;
 
-/// A reference to a KadenaInterchainSecurityModule contract on some Kadena chain
+/// A reference to an InterchainSecurityModule contract on some Kadena chain
 #[derive(Debug)]
 pub struct KadenaInterchainSecurityModule {
-    pub provider: Arc<KadenaProvider>,
-    pub contract: Arc<IInterchainSecurityModule>,
-    pub domain: HyperlaneDomain,
+    contract: Arc<IInterchainSecurityModule>,
+    domain: HyperlaneDomain,
 }
 
 impl KadenaInterchainSecurityModule {
-    /// Create a new KadenaInterchainSecurityModule
-    pub fn new(provider: Arc<KadenaProvider>, locator: &ContractLocator) -> Self {
-        let contract = Arc::new(IInterchainSecurityModule::new(provider.clone()));
-        Self {
-            provider,
-            contract,
-            domain: locator.domain.clone(),
-        }
-    }
-}
+    /// Create a reference to isp
+    #[allow(unused)]
+    pub fn new(conf: &ConnectionConf, domain: &HyperlaneDomain, signer: Arc<dyn Signer>) -> Self {
+        let (api_conf, proxy_conf) = conf.into();
 
-impl HyperlaneContract for KadenaInterchainSecurityModule {
-    fn address(&self) -> H256 {
-        // TODO: Implement when the contract and encoding are ready
-        let mut addr_vec = self.contract.get_module_name().as_bytes().to_vec();
-        addr_vec.resize(32, 0);
-        let addr_vec: [u8;32] = addr_vec.try_into().unwrap_or([0;32]);
-        H256::from(addr_vec)
+        let provider = Arc::new(KadenaProvider::new(
+            domain.clone(),
+            Arc::new(api_conf),
+            Arc::new(proxy_conf),
+            signer.clone(),
+        ));
+        Self {
+            contract: Arc::new(IInterchainSecurityModule::new(
+                provider,
+            )),
+            domain: domain.clone(),
+        }
     }
 }
 
@@ -50,14 +52,62 @@ impl HyperlaneChain for KadenaInterchainSecurityModule {
         &self.domain
     }
 
-    fn provider(&self) -> Box<dyn hyperlane_core::HyperlaneProvider> {
-        Box::new(
-            KadenaProvider::new(
-                self.provider.domain().clone(),
-                self.provider.connection_conf().clone(),
-                self.provider.kadena_proxy_config().clone(),
-                self.provider.signer().clone(),
-            )
-        )
+    fn provider(&self) -> Box<dyn HyperlaneProvider> {
+        Box::new(KadenaProvider::new(
+            self.domain.clone(),
+            self.contract.provider().connection_conf().clone(),
+            self.contract.provider().kadena_proxy_config().clone(),
+            self.contract.provider().signer().clone()
+        ))
+    }
+}
+
+impl HyperlaneContract for KadenaInterchainSecurityModule {
+    fn address(&self) -> H256 {
+        self.contract.address().into()
+    }
+}
+
+#[async_trait]
+impl InterchainSecurityModule for KadenaInterchainSecurityModule {
+    #[instrument]
+    async fn module_type(&self) -> ChainResult<ModuleType> {
+        let module = self
+            .contract
+            .module_type()
+            .local()
+            .await
+            .map_err(|_| ChainCommunicationError::from_other_str("Error returned while doing local"))?
+            .result()
+            .map_err(|_| ChainCommunicationError::from_other_str("Error returned while calling module_type"))?
+            .as_u64()
+            .ok_or_else(|| ChainCommunicationError::from_other_str("Module type is not a u64"))?;
+        if let Some(module_type) = ModuleType::from_u8(module as u8) {
+            Ok(module_type)
+        } else {
+            warn!(%module, "Unknown module type");
+            Ok(ModuleType::Unused)
+        }
+    }
+
+    #[instrument]
+    async fn dry_run_verify(
+        &self,
+        message: &HyperlaneMessage,
+        metadata: &[u8],
+    ) -> ChainResult<Option<U256>> {
+        unimplemented!("Required by Aggregation ISM which is not supported yet")
+        /* 
+        let tx = self.contract.verify(
+            metadata.to_owned().into(),
+            RawHyperlaneMessage::from(message).to_vec().into(),
+        );
+        let (verifies, gas_estimate) = try_join(tx.call(), tx.estimate_gas()).await?;
+        if verifies {
+            Ok(Some(gas_estimate.into()))
+        } else {
+            Ok(None)
+        }
+        */
     }
 }
