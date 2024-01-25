@@ -75,8 +75,7 @@ impl Indexer<InterchainGasPayment> for KadenaInterchainGasPaymasterIndexer {
                         payment: event_data.kda_amount.into(),
                         gas_amount: event_data.gas_amount.into(),
                     },
-                    // TODO: add actual log meta when implementing scraper
-                    LogMeta::default(),
+                    event_data.log.into(),
                 )
             })
             .collect())

@@ -6,33 +6,43 @@ use hyperlane_core::U256;
 use kadena_client::{contract::{Contract, KadenaProxyProvider}, event::{Event, EventData}, models::EventDataDto};
 use anyhow::Result;
 
+use super::LogMetaProxy;
+
 #[derive(Clone, Debug)]
 pub struct GasPaymentEventData {
     pub id: [u8; 32],
     pub domain: u32,
     pub gas_amount: U256,
     pub kda_amount: U256,
+    pub log: LogMetaProxy,
 }
 
 impl TryFrom<EventDataDto> for GasPaymentEventData {
     type Error = anyhow::Error;
     fn try_from(event_data_dto: EventDataDto) -> Result<Self> {
-        let params = event_data_dto.params;
+        let params = event_data_dto.params.clone();
 
-        let id_str = params.get(0).ok_or(anyhow::anyhow!("ID is missing"))?;
-        let id_vec = hex::decode(id_str.to_string()).map_err(|_| anyhow::anyhow!("Invalid hex string"))?;
-        let mut id = [0; 32];
-        id.copy_from_slice(&id_vec);
+        let id = params.get(0).ok_or(anyhow::anyhow!("ID is missing"))?;
+        let id_str = id.to_string();
+        let id_vec = hex::decode(id_str.strip_prefix("0x").unwrap_or(&id_str)).map_err(|_| anyhow::anyhow!("Invalid hex string"))?;
+        let mut id = [0u8; 32];
+        id[..id_vec.len()].copy_from_slice(&id_vec);
 
         let domain = params.get(1).ok_or(anyhow::anyhow!("Domain is missing"))?;
+        let domain = TryInto::<u64>::try_into(domain.clone())? as u32;
+
         let gas_amount = params.get(2).ok_or(anyhow::anyhow!("Gas amount is missing"))?;
+        let gas_amount = U256::from(TryInto::<u64>::try_into(gas_amount.clone())?);
+
         let kda_amount = params.get(3).ok_or(anyhow::anyhow!("KDA amount is missing"))?;
+        let kda_amount = U256::from(TryInto::<u64>::try_into(kda_amount.clone())?);
 
         Ok(Self {
             id,
-            domain: domain.clone().try_into()?,
-            gas_amount: U256::from(TryInto::<u64>::try_into(gas_amount.clone())?),
-            kda_amount: U256::from(TryInto::<u64>::try_into(kda_amount.clone())?),
+            domain,
+            gas_amount,
+            kda_amount,
+            log: LogMetaProxy::from(event_data_dto),
         })
     }
 }

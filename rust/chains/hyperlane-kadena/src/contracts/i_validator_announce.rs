@@ -97,11 +97,11 @@ impl ContractCall for GetAnnouncedStorageLocationsCall<'_> {
     async fn cmd(&self) -> Result<CommandDto> {
         self.contract.build_pact_tx_with_expr(
             &format!(
-                "({}.{}.{} \"{}\")",
+                "({}.{}.{} [{}])",
                 self.contract.namespace(),
                 self.contract.module_name(),
                 Self::METHOD_NAME,
-                self.validators.iter().map(|v| hex::encode(v)).collect::<Vec<String>>().join(","),
+                self.validators.iter().map(|v| format!("\"{}\"", hex::encode(v))).collect::<Vec<String>>().join(","),
             ),
             self.gas_limit,
         ).await.map_err(|e| e.into())

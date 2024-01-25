@@ -86,7 +86,7 @@ impl Indexer<HyperlaneMessage> for KadenaMailboxIndexer {
             .await
             .map_err(ChainCommunicationError::from_other)?
             .into_iter()
-            .map(|event| (HyperlaneMessage::from(event.message.to_vec()), LogMeta::default()))
+            .map(|event| (HyperlaneMessage::from(event.message.to_vec()), event.log.into()))
             .collect();
 
         events.sort_by(|a, b| a.0.nonce.cmp(&b.0.nonce));
@@ -132,8 +132,7 @@ impl Indexer<H256> for KadenaMailboxIndexer {
             .await
             .map_err(ChainCommunicationError::from_other)?
             .into_iter()
-            // TODO: Add actual log meta when implementing scraper
-            .map(|event| (H256::from(event.id), LogMeta::default()))
+            .map(|event| (H256::from(event.id), event.log.into()))
             .collect())
     }
 }
@@ -271,15 +270,22 @@ impl Mailbox for KadenaMailbox {
 
     #[instrument(skip(self))]
     async fn recipient_ism(&self, _recipient: H256) -> ChainResult<H256> {
-        unimplemented!("Not used by backend yet")
-        /* 
-        Ok(self
+        let ism = self
             .contract
-            .recipient_ism(recipient.into())
-            .call()
-            .await?
-            .into())
-            */
+            .recipient_ism()
+            .local()
+            .await
+            .map_err(|_| ChainCommunicationError::from_other_str("Error returned while doing local"))?
+            .result()
+            .map_err(|_| ChainCommunicationError::from_other_str("Error returned while calling recipient_ism"))?
+            .as_str()
+            .ok_or(ChainCommunicationError::from_other_str("ISM is not a string"))?
+            .to_string();
+
+        let mut ism_bytes: [u8; 32] = [0; 32];
+        ism_bytes[..ism.as_bytes().len()].copy_from_slice(ism.as_bytes());
+
+        Ok(H256::from(ism_bytes))
     }
     
 

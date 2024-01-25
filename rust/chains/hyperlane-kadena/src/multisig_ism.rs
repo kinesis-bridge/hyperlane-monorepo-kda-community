@@ -2,6 +2,7 @@
 #![allow(missing_docs)]
 
 use std::sync::Arc;
+use std::collections::HashMap;
 
 use async_trait::async_trait;
 use kadena_client::signers::Signer;
@@ -9,7 +10,7 @@ use tracing::instrument;
 
 use hyperlane_core::{
     ChainResult, HyperlaneChain, HyperlaneContract, HyperlaneDomain,
-    HyperlaneMessage, HyperlaneProvider, MultisigIsm, H256, ChainCommunicationError,
+    HyperlaneMessage, HyperlaneProvider, MultisigIsm, H256, ChainCommunicationError, H160,
 };
 
 use crate::contracts::i_multisig_ism::IMultisigIsm;
@@ -73,11 +74,11 @@ impl MultisigIsm for KadenaMultisigIsm {
         &self,
         _message: &HyperlaneMessage,
     ) -> ChainResult<(Vec<H256>, u8)> {
-        #[derive(serde::Deserialize)]
+        #[derive(Debug, serde::Deserialize)]
         struct ValidatorsAndThresholdJson
         {
             validators: Vec<String>,
-            threshold: u8
+            threshold: HashMap<String, u8>,
         }
 
         let validators_and_threshold_value = self
@@ -95,16 +96,16 @@ impl MultisigIsm for KadenaMultisigIsm {
         
         let validators: Vec<String> = validators_and_threshold.validators;
 
-        let decoded_validators: Result<Vec<H256>, ChainCommunicationError> = validators.iter()
+        let decoded_validators = validators.iter()
         .map(|validator| {
-            let bytes = hex::decode(validator).map_err(|_| ChainCommunicationError::from_other_str("Invalid hex string"))?;
-            let bytes_array: [u8; 32] = bytes[..].try_into().map_err(|_| ChainCommunicationError::from_other_str("Invalid byte length"))?;
-            Ok(H256::from(bytes_array))
+            let bytes = hex::decode(validator.strip_prefix("0x").unwrap_or(&validator)).map_err(|_| ChainCommunicationError::from_other_str("Invalid hex string"))?;
+            let bytes_array: [u8; 20] = bytes[..].try_into().map_err(|_| ChainCommunicationError::from_other_str("Invalid byte length"))?;
+            Ok(H256::from(H160::from(bytes_array)))
         })
-        .collect();
-            
-        let decoded_validators = decoded_validators?;
+        .collect::<Result<Vec<H256>, ChainCommunicationError>>()?;
+        
+        let threshhold = validators_and_threshold.threshold.iter().next().ok_or(ChainCommunicationError::from_other_str("No threshold found"))?.1;
 
-        Ok((decoded_validators, validators_and_threshold.threshold))
+        Ok((decoded_validators, *threshhold))
     }
 }

@@ -1,9 +1,15 @@
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct IntObject {
+    int: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum EventDataParams {
     String(String),
     Integer(u64),
     Float(f64),
+    IntObject(IntObject),
 }
 
 impl ToString for EventDataParams {
@@ -12,6 +18,7 @@ impl ToString for EventDataParams {
             EventDataParams::String(s) => s.clone(),
             EventDataParams::Integer(i) => i.to_string(),
             EventDataParams::Float(f) => f.to_string(),
+            EventDataParams::IntObject(i) => i.int.to_string(),
         }
     }
 }
@@ -24,6 +31,7 @@ impl TryInto<u64> for EventDataParams {
             EventDataParams::String(s) => s.parse::<u64>(),
             EventDataParams::Integer(i) => Ok(i),
             EventDataParams::Float(f) => Ok(f as u64),
+            EventDataParams::IntObject(i) => Ok(i.int),
         }
     }
 }
@@ -36,6 +44,7 @@ impl TryInto<u32> for EventDataParams {
             EventDataParams::String(s) => s.parse::<u32>(),
             EventDataParams::Integer(i) => Ok(i as u32),
             EventDataParams::Float(f) => Ok(f as u32),
+            EventDataParams::IntObject(i) => Ok(i.int as u32),
         }
     }
 }
@@ -48,6 +57,7 @@ impl TryInto<f64> for EventDataParams {
             EventDataParams::String(s) => s.parse::<f64>(),
             EventDataParams::Integer(i) => Ok(i as f64),
             EventDataParams::Float(f) => Ok(f),
+            EventDataParams::IntObject(i) => Ok(i.int as f64),
         }
     }
 }

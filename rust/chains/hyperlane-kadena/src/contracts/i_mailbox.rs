@@ -2,53 +2,86 @@ use std::sync::Arc;
 
 use crate::{provider, KadenaProvider};
 
+use hyperlane_core::U256;
 use kadena_client::{contract::{Contract, KadenaProxyProvider}, models::{CommandDto, EventDataDto}, contract_call::ContractCall, event::{Event, EventData}};
 use anyhow::Result;
 use async_trait::async_trait;
 
+use tracing::{info, debug};
+
+use super::LogMetaProxy;
+
+#[derive(Debug, Clone)]
 pub struct DispatchEventData {
     pub sender: [u8; 32],
     pub destination: u32,
     pub recipient: [u8; 32],
     pub message: Vec<u8>,
+    pub log: LogMetaProxy,
 }
 
 impl TryFrom<EventDataDto> for DispatchEventData {
     type Error = anyhow::Error;
     fn try_from(event_data_dto: EventDataDto) -> Result<Self> {
-        let params = event_data_dto.params;
+        let params = event_data_dto.params.clone();
 
         // Assembling message since it can't be stored in Event due to verify-spv
 
         let version = params.get(0).ok_or(anyhow::anyhow!("Version is missing"))?;
         let version = TryInto::<u64>::try_into(version.clone())? as u8;
+
+        debug!("Version: {}", version);
         
         let nonce = params.get(1).ok_or(anyhow::anyhow!("Nonce is missing"))?;
         let nonce = TryInto::<u64>::try_into(nonce.clone())? as u32;
 
-        let origin = params.get(2).ok_or(anyhow::anyhow!("Origin is missing"))?;
-        let origin = TryInto::<u64>::try_into(origin.clone())? as u32;
+        debug!("Nonce: {}", nonce);
 
-        let sender = params.get(3).ok_or(anyhow::anyhow!("Sender is missing"))?;
-        let sender_vec = hex::decode(sender.to_string()).map_err(|_| anyhow::anyhow!("Invalid hex string"))?;
+
+        // We should store origin in the event, but it's not available yet
+
+        //let origin = params.get(2).ok_or(anyhow::anyhow!("Origin is missing"))?;
+        //let origin = TryInto::<u64>::try_into(origin.clone())? as u32;
+        let origin = 626u32;
+
+        let sender = params.get(2).ok_or(anyhow::anyhow!("Sender is missing"))?;
+        let sender_str = sender.to_string();
+        let sender_vec = sender_str.as_bytes();
         let mut sender = [0u8; 32];
-        sender.copy_from_slice(&sender_vec);
+        sender[..sender_vec.len()].copy_from_slice(&sender_vec);
+
+        debug!("Sender: {}", hex::encode(sender));
         
-        let destination = params.get(4).ok_or(anyhow::anyhow!("Destination is missing"))?;
+        let destination = params.get(3).ok_or(anyhow::anyhow!("Destination is missing"))?;
         let destination = TryInto::<u64>::try_into(destination.clone())? as u32;
 
-        let recipient = params.get(5).ok_or(anyhow::anyhow!("Recipient is missing"))?;
-        let recipient_vec = hex::decode(recipient.to_string()).map_err(|_| anyhow::anyhow!("Invalid hex string"))?;
+        debug!("Destination: {}", destination);
+
+        let recipient = params.get(4).ok_or(anyhow::anyhow!("Recipient is missing"))?;
+        let recipient_str = recipient.to_string();
+        let recipient_vec = hex::decode(recipient_str.strip_prefix("0x").unwrap_or(&recipient_str)).map_err(|_| anyhow::anyhow!("Invalid hex string"))?;
         let mut recipient = [0u8; 32];
-        recipient.copy_from_slice(&recipient_vec);
+        let start_index = recipient.len().saturating_sub(recipient_vec.len());
+        recipient[start_index..].copy_from_slice(&recipient_vec);
 
-        let recipient_tm = params.get(6).ok_or(anyhow::anyhow!("Recipient TM is missing"))?;
-        let recipient_tm_vec = hex::decode(recipient_tm.to_string()).map_err(|_| anyhow::anyhow!("Invalid hex string"))?;
+        debug!("Recipient: {}", hex::encode(recipient));
+
+        let recipient_tm = params.get(5).ok_or(anyhow::anyhow!("Recipient TM is missing"))?;
+        let recipient_tm_str = recipient_tm.to_string();
+        let recipient_tm_vec = hex::decode(recipient_tm_str.strip_prefix("0x").unwrap_or(&recipient_tm_str)).map_err(|_| anyhow::anyhow!("Invalid hex string"))?;
         let mut recipient_tm = [0u8; 32];
-        recipient_tm.copy_from_slice(&recipient_tm_vec);
+        let start_index = recipient_tm.len().saturating_sub(recipient_tm_vec.len());
+        recipient_tm[start_index..].copy_from_slice(&recipient_tm_vec);
 
-        let amount = params.get(7).ok_or(anyhow::anyhow!("Amount is missing"))?;
-        let amount = TryInto::<u64>::try_into(nonce.clone())?;
+        debug!("Recipient TM: {}", hex::encode(recipient_tm));
+
+        let amount = params.get(6).ok_or(anyhow::anyhow!("Amount is missing"))?;
+        let amount = TryInto::<u64>::try_into(amount.clone())?;
+        let amount: U256 = amount.into();
+        let mut amount_vec: [u8; 32] = [0; 32];
+        amount.to_big_endian(&mut amount_vec);
+
+        debug!("Amount: {}", amount);
 
         let mut message = Vec::new();
 
@@ -59,13 +92,14 @@ impl TryFrom<EventDataDto> for DispatchEventData {
         message.extend_from_slice(&destination.to_be_bytes());
         message.extend_from_slice(&recipient);
         message.extend_from_slice(&recipient_tm);
-        message.extend_from_slice(&amount.to_be_bytes());
+        message.extend_from_slice(&amount_vec);
 
         Ok(Self {
             sender,
             destination,
             recipient,
             message,
+            log: LogMetaProxy::from(event_data_dto),
         })
     }
 }
@@ -100,18 +134,27 @@ impl Event for DispatchEvent<'_> {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct DispatchIdEventData {
-    id: String,
+    pub id: [u8; 32],
+    pub log: LogMetaProxy,
 }
 
 impl TryFrom<EventDataDto> for DispatchIdEventData {
     type Error = anyhow::Error;
     fn try_from(event_data_dto: EventDataDto) -> Result<Self> {
-        let params = event_data_dto.params;
+        let params = event_data_dto.params.clone();
         let id = params.get(0).ok_or(anyhow::anyhow!("ID is missing"))?;
+        let id_str = id.to_string();
+        let id_vec = hex::decode(id_str.strip_prefix("0x").unwrap_or(&id_str)).map_err(|_| anyhow::anyhow!("Invalid hex string"))?;
+        let mut id = [0u8; 32];
+        id[..id_vec.len()].copy_from_slice(&id_vec);
+
+        debug!("id: {}", hex::encode(id));
 
         Ok(Self {
-            id: id.to_string(),
+            id,
+            log: LogMetaProxy::from(event_data_dto),
         })
     }
 }
@@ -146,16 +189,18 @@ impl Event for DispatchIdEvent<'_> {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct ProcessEventData {
-    origin: String,
-    sender: String,
-    recipient: String,
+    pub origin: String,
+    pub sender: String,
+    pub recipient: String,
+    pub log: LogMetaProxy,
 }
 
 impl TryFrom<EventDataDto> for ProcessEventData {
     type Error = anyhow::Error;
     fn try_from(event_data_dto: EventDataDto) -> Result<Self> {
-        let params = event_data_dto.params;
+        let params = event_data_dto.params.clone();
         let origin = params.get(0).ok_or(anyhow::anyhow!("Origin is missing"))?;
         let sender = params.get(1).ok_or(anyhow::anyhow!("Sender is missing"))?;
         let recipient = params.get(2).ok_or(anyhow::anyhow!("Recipient is missing"))?;
@@ -164,6 +209,7 @@ impl TryFrom<EventDataDto> for ProcessEventData {
             origin: origin.to_string(),
             sender: sender.to_string(),
             recipient: recipient.to_string(),
+            log: LogMetaProxy::from(event_data_dto),
         })
     }
 }
@@ -198,14 +244,16 @@ impl Event for ProcessEvent<'_> {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct ProcessIdEventData {
     pub id: [u8; 32],
+    pub log: LogMetaProxy,
 }
 
 impl TryFrom<EventDataDto> for ProcessIdEventData {
     type Error = anyhow::Error;
     fn try_from(event_data_dto: EventDataDto) -> Result<Self> {
-        let params = event_data_dto.params;
+        let params = event_data_dto.params.clone();
         let id_str = params.get(0).ok_or(anyhow::anyhow!("ID is missing"))?;
         let id_vec = hex::decode(id_str.to_string()).map_err(|_| anyhow::anyhow!("Invalid hex string"))?;
         let mut id = [0; 32];
@@ -213,6 +261,7 @@ impl TryFrom<EventDataDto> for ProcessIdEventData {
 
         Ok(Self {
             id,
+            log: LogMetaProxy::from(event_data_dto),
         })
     }
 }
@@ -379,15 +428,17 @@ impl ContractCall for ProcessCall<'_> {
     }
 
     async fn cmd(&self) -> Result<CommandDto> {
+        let pact_string = format!(
+            "({}.{}.{} \"0x{}\" \"0x{}\")",
+            self.contract.namespace(),
+            self.contract.module_name(),
+            Self::METHOD_NAME,
+            hex::encode(&self.metadata),
+            hex::encode(&self.message),
+        );
+        info!("Pact string: {}", pact_string);
         self.contract.build_pact_tx_with_expr(
-            &format!(
-                "({}.{}.{} \"{}\",\"{}\")",
-                self.contract.namespace(),
-                self.contract.module_name(),
-                Self::METHOD_NAME,
-                hex::encode(&self.metadata),
-                hex::encode(&self.message),
-            ),
+            pact_string.as_str(),
             self.gas_limit,
         ).await.map_err(|e| e.into())
     }
@@ -396,7 +447,6 @@ impl ContractCall for ProcessCall<'_> {
 
 pub struct RecipientIsmCall<'a> {
     contract: &'a IMailbox,
-    recipient: String,
     gas_limit: Option<u64>,
 }
 
@@ -404,11 +454,9 @@ impl RecipientIsmCall<'_> {
     const METHOD_NAME: &'static str = "recipient-ism";
     pub fn new(
         contract: &IMailbox,
-        recipient: String,
     ) -> RecipientIsmCall {
         RecipientIsmCall {
             contract,
-            recipient,
             gas_limit: None,
         }
     }
@@ -431,11 +479,10 @@ impl ContractCall for RecipientIsmCall<'_> {
     async fn cmd(&self) -> Result<CommandDto> {
         self.contract.build_pact_tx_with_expr(
             &format!(
-                "({}.{}.{} \"{}\")",
+                "({}.{}.{})",
                 self.contract.namespace(),
                 self.contract.module_name(),
                 Self::METHOD_NAME,
-                self.recipient,
             ),
             self.gas_limit,
         ).await.map_err(|e| e.into())
@@ -477,10 +524,9 @@ impl IMailbox {
         )
     }
 
-    pub fn recipient_ism(&self, recipient: String) -> RecipientIsmCall {
+    pub fn recipient_ism(&self) -> RecipientIsmCall {
         RecipientIsmCall::new(
             self,
-            recipient,
         )
     }
 

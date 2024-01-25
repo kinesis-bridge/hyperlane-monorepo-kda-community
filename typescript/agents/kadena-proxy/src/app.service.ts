@@ -151,12 +151,16 @@ export class AppService {
     senderAccount: string,
     gasLimit: number,
   ): Promise<IUnsignedCommand> {
+    const creationTime = () => Math.round(new Date().getTime() / 1000);
+
     let builder = Pact.builder
       .execution(pactCode)
       .setMeta({
         chainId: chainId.toString() as ChainId,
         senderAccount: senderAccount,
         gasLimit: gasLimit,
+        creationTime: creationTime() - 28800,
+        ttl: 30000,
       })
       .setNetworkId(network);
     if (signer.trim().length != 0) {

@@ -107,7 +107,7 @@ impl ValidatorAnnounce for KadenaValidatorAnnounce {
         &self,
         validators: &[H256],
     ) -> ChainResult<Vec<Vec<String>>> {
-        #[derive(serde::Deserialize)]
+        #[derive(serde::Deserialize, Debug, Default)]
         struct StorageLocationsJson {
             storage_locations: Vec<Vec<String>>,
         }
@@ -121,10 +121,13 @@ impl ValidatorAnnounce for KadenaValidatorAnnounce {
             .await
             .map_err(|_| ChainCommunicationError::from_other_str("Error returned while doing local"))?
             .result()
-            .map_err(|_| ChainCommunicationError::from_other_str("Error returned while calling get_announced_storage_locations"))?;
+            .unwrap_or_default(); // TODO: should be removed when the smart contract side is fixed
+            // TODO: handle error when the smart contract side is fixed
+            //.map_err(|_| ChainCommunicationError::from_other_str("Error returned while calling get_announced_storage_locations"))?;
 
-        let locations: StorageLocationsJson = serde_json::from_value(storage_locations)
-            .map_err(|_| ChainCommunicationError::from_other_str("Error returned while parsing storage_locations"))?;
+        let locations: StorageLocationsJson = serde_json::from_value(storage_locations).unwrap_or_default();
+            // TODO: handle error when the smart contract side is fixed
+            //.map_err(|_| ChainCommunicationError::from_other_str("Error returned while parsing storage_locations"))?;
 
         Ok(locations.storage_locations)
     }

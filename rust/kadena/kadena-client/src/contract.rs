@@ -43,15 +43,19 @@ pub trait Contract: Send + Sync {
     }
 
     fn namespace(&self) -> &'static str {
+        // TODO: remove this in a final version
         "free"
     }
 
     fn pubkey(&self) -> String {
-        "83a5cfcdcbec1d513a2d02ab0f0b61e30c9be22d9c09af001affe79885414450".to_string()
+        // TODO: remove this in a final version
+        "368820f80c324bbc7c2b0610688a7da43e39f91d118732671cd9c7500ff43cca".to_string()
     }
 
     fn account_name(&self) -> String {
-        format!("k:{}", self.pubkey())
+        //format!("k:{}", self.pubkey())
+        // TODO: remove this hardcode when the smart contract side supports k accounts for agents
+        "sender00".to_string()
     }
 
     fn provider(&self) -> Arc<dyn KadenaProxyProvider + Send + Sync>;
