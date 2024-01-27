@@ -55,14 +55,14 @@ pub enum GetEventsError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum GetHeaderByHashError {
-    DefaultResponse(crate::models::BlockHeaderDto),
+    DefaultResponse(Box<crate::models::BlockHeaderDto>),
     UnknownValue(serde_json::Value),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum GetHeaderByHeightError {
-    DefaultResponse(crate::models::BlockHeaderDto),
+    DefaultResponse(Box<crate::models::BlockHeaderDto>),
     UnknownValue(serde_json::Value),
 }
 

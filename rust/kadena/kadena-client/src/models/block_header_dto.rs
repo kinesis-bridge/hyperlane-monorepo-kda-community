@@ -29,6 +29,7 @@ pub struct BlockHeaderDto {
 }
 
 impl BlockHeaderDto {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         creation_time: u64,
         parent: String,

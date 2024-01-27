@@ -19,6 +19,7 @@ pub struct CoinbaseDto {
 }
 
 impl CoinbaseDto {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         gas: f32,
         result: crate::models::ResultDto,
