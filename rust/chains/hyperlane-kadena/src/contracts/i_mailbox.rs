@@ -10,6 +10,7 @@ use async_trait::async_trait;
 use tracing::{info, debug};
 
 use super::LogMetaProxy;
+use super::U256Proxy;
 
 #[derive(Debug, Clone)]
 pub struct DispatchEventData {
@@ -76,8 +77,7 @@ impl TryFrom<EventDataDto> for DispatchEventData {
         debug!("Recipient TM: {}", hex::encode(recipient_tm));
 
         let amount = params.get(6).ok_or(anyhow::anyhow!("Amount is missing"))?;
-        let amount = TryInto::<u64>::try_into(amount.clone())?;
-        let amount: U256 = amount.into();
+        let amount: U256 = U256Proxy::try_from(amount.clone())?.into();
         let mut amount_vec: [u8; 32] = [0; 32];
         amount.to_big_endian(&mut amount_vec);
 

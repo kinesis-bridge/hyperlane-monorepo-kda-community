@@ -6,6 +6,7 @@ use hyperlane_core::U256;
 use kadena_client::{contract::{Contract, KadenaProxyProvider}, event::{Event, EventData}, models::EventDataDto};
 use anyhow::Result;
 
+use super::U256Proxy;
 use super::LogMetaProxy;
 
 #[derive(Clone, Debug)]
@@ -32,10 +33,10 @@ impl TryFrom<EventDataDto> for GasPaymentEventData {
         let domain = TryInto::<u64>::try_into(domain.clone())? as u32;
 
         let gas_amount = params.get(2).ok_or(anyhow::anyhow!("Gas amount is missing"))?;
-        let gas_amount = U256::from(TryInto::<u64>::try_into(gas_amount.clone())?);
+        let gas_amount = U256Proxy::try_from(gas_amount.clone())?.into();
 
         let kda_amount = params.get(3).ok_or(anyhow::anyhow!("KDA amount is missing"))?;
-        let kda_amount = U256::from(TryInto::<u64>::try_into(kda_amount.clone())?);
+        let kda_amount = U256Proxy::try_from(kda_amount.clone())?.into();
 
         Ok(Self {
             id,

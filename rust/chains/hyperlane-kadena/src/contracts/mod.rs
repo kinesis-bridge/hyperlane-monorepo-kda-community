@@ -9,8 +9,11 @@ pub mod i_interchain_security_module;
 pub mod i_multisig_ism;
 pub mod i_merkle_tree_hook;
 
+use std::primitive;
+use anyhow::Result;
+
 use hyperlane_core::{LogMeta, H256, H512, U256};
-use kadena_client::models::EventDataDto;
+use kadena_client::models::{event_data_dto::EventDataParams, EventDataDto};
 use base64::prelude::{Engine as _, BASE64_URL_SAFE_NO_PAD};
 
 #[derive(Debug, Clone)]
@@ -39,4 +42,20 @@ impl From<EventDataDto> for LogMetaProxy {
             log_index: U256::zero(),
         })
     }
-}   
+}
+
+pub struct U256Proxy(U256);
+
+impl From<U256Proxy> for U256 {
+    fn from(proxy: U256Proxy) -> Self {
+        proxy.0
+    }
+}
+
+impl TryFrom<EventDataParams> for U256Proxy {
+    type Error = anyhow::Error;
+    fn try_from(param: EventDataParams) -> Result<Self> {
+        let primitive_u256: primitive_types::U256 = param.try_into()?;
+        Ok(U256Proxy(U256(primitive_u256.0)))
+    }
+}
