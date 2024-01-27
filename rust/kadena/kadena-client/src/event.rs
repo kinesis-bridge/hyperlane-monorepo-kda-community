@@ -29,7 +29,7 @@ pub trait Event: Send + Sync {
         let conn_conf = provider.connection_conf();
         let mut events = kadena_proxy_api::get_events(
             &provider.kadena_proxy_config(),
-            &conn_conf.url.to_string(),
+            conn_conf.url.as_ref(),
             &conn_conf.network_id,
             conn_conf.chain_id.into(),
             (*range.start()).into(),

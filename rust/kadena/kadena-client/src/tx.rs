@@ -24,7 +24,7 @@ pub async fn report_tx<C: ContractCall>(tx: C) -> Result<HashMap<String, Command
 
     for retry in 0..POLL_RETRY_COUNT {
         let poll_rsp = tx.poll(send_rsp.clone()).await?;
-        if poll_rsp.len() > 0
+        if !poll_rsp.is_empty()
             && poll_rsp
                 .keys()
                 .all(|key| send_rsp.request_keys.contains(key))
@@ -50,7 +50,6 @@ pub async fn fill_tx_gas_params<C: ContractCall>(tx: C, tx_gas_limit: Option<u64
         tx.estimate_gas()
             .await?
             .saturating_add(GAS_ESTIMATE_BUFFER)
-            .into()
     };
     let mut tx = tx;
     tx.set_gas_limit(gas_limit);

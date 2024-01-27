@@ -1,8 +1,8 @@
 use crate::apis::configuration::{Configuration as KadenaProxyConf, ConnectionConf};
-use crate::apis::kadena_proxy_api::get_events;
-use crate::apis::kadena_proxy_api::{self, BuildTxError, GetEventsError};
+
+use crate::apis::kadena_proxy_api::{self, BuildTxError};
 use crate::apis::Error;
-use crate::models::{BuildPactTxDto, CommandDto, EventDataDto};
+use crate::models::{BuildPactTxDto, CommandDto};
 use crate::signers::Signer;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -27,7 +27,7 @@ pub trait KadenaProxyProvider {
         let proxy_conf = self.kadena_proxy_config();
         kadena_proxy_api::get_height(
             &proxy_conf,
-            &conf.url.to_string(),
+            conf.url.as_ref(),
             &conf.network_id,
             Some(CONFIRMATION_DEPTH),
         )

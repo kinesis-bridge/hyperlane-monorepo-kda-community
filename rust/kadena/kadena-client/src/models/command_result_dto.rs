@@ -38,16 +38,8 @@ impl CommandResultDto {
             result: Box::new(result),
             gas,
             logs,
-            continuation: if let Some(x) = continuation {
-                Some(Box::new(x))
-            } else {
-                None
-            },
-            meta_data: if let Some(x) = meta_data {
-                Some(Box::new(x))
-            } else {
-                None
-            },
+            continuation: continuation.map(Box::new),
+            meta_data: meta_data.map(Box::new),
             events: None,
         }
     }

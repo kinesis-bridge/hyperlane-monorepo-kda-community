@@ -149,9 +149,9 @@ pub async fn build_tx(
     } else {
         let entity: Option<BuildTxError> = serde_json::from_str(&content).ok();
         let error = ResponseContent {
-            status: status,
-            content: content,
-            entity: entity,
+            status,
+            content,
+            entity,
         };
         Err(Error::ResponseError(error))
     }
@@ -190,9 +190,9 @@ pub async fn get_block_by_hash(
     } else {
         let entity: Option<GetBlockByHashError> = serde_json::from_str(&content).ok();
         let error = ResponseContent {
-            status: status,
-            content: content,
-            entity: entity,
+            status,
+            content,
+            entity,
         };
         Err(Error::ResponseError(error))
     }
@@ -231,9 +231,9 @@ pub async fn get_block_by_height(
     } else {
         let entity: Option<GetBlockByHeightError> = serde_json::from_str(&content).ok();
         let error = ResponseContent {
-            status: status,
-            content: content,
-            entity: entity,
+            status,
+            content,
+            entity,
         };
         Err(Error::ResponseError(error))
     }
@@ -274,9 +274,9 @@ pub async fn get_blocks(
     } else {
         let entity: Option<GetBlocksError> = serde_json::from_str(&content).ok();
         let error = ResponseContent {
-            status: status,
-            content: content,
-            entity: entity,
+            status,
+            content,
+            entity,
         };
         Err(Error::ResponseError(error))
     }
@@ -315,9 +315,9 @@ pub async fn get_event_by_hash(
     } else {
         let entity: Option<GetEventByHashError> = serde_json::from_str(&content).ok();
         let error = ResponseContent {
-            status: status,
-            content: content,
-            entity: entity,
+            status,
+            content,
+            entity,
         };
         Err(Error::ResponseError(error))
     }
@@ -356,9 +356,9 @@ pub async fn get_event_by_height(
     } else {
         let entity: Option<GetEventByHeightError> = serde_json::from_str(&content).ok();
         let error = ResponseContent {
-            status: status,
-            content: content,
-            entity: entity,
+            status,
+            content,
+            entity,
         };
         Err(Error::ResponseError(error))
     }
@@ -399,9 +399,9 @@ pub async fn get_events(
     } else {
         let entity: Option<GetEventsError> = serde_json::from_str(&content).ok();
         let error = ResponseContent {
-            status: status,
-            content: content,
-            entity: entity,
+            status,
+            content,
+            entity,
         };
         Err(Error::ResponseError(error))
     }
@@ -440,9 +440,9 @@ pub async fn get_header_by_hash(
     } else {
         let entity: Option<GetHeaderByHashError> = serde_json::from_str(&content).ok();
         let error = ResponseContent {
-            status: status,
-            content: content,
-            entity: entity,
+            status,
+            content,
+            entity,
         };
         Err(Error::ResponseError(error))
     }
@@ -481,9 +481,9 @@ pub async fn get_header_by_height(
     } else {
         let entity: Option<GetHeaderByHeightError> = serde_json::from_str(&content).ok();
         let error = ResponseContent {
-            status: status,
-            content: content,
-            entity: entity,
+            status,
+            content,
+            entity,
         };
         Err(Error::ResponseError(error))
     }
@@ -524,9 +524,9 @@ pub async fn get_headers(
     } else {
         let entity: Option<GetHeadersError> = serde_json::from_str(&content).ok();
         let error = ResponseContent {
-            status: status,
-            content: content,
-            entity: entity,
+            status,
+            content,
+            entity,
         };
         Err(Error::ResponseError(error))
     }
@@ -565,9 +565,9 @@ pub async fn get_height(
     } else {
         let entity: Option<GetHeightError> = serde_json::from_str(&content).ok();
         let error = ResponseContent {
-            status: status,
-            content: content,
-            entity: entity,
+            status,
+            content,
+            entity,
         };
         Err(Error::ResponseError(error))
     }
@@ -606,9 +606,9 @@ pub async fn get_tx_by_hash(
     } else {
         let entity: Option<GetTxByHashError> = serde_json::from_str(&content).ok();
         let error = ResponseContent {
-            status: status,
-            content: content,
-            entity: entity,
+            status,
+            content,
+            entity,
         };
         Err(Error::ResponseError(error))
     }
@@ -647,9 +647,9 @@ pub async fn get_tx_by_height(
     } else {
         let entity: Option<GetTxByHeightError> = serde_json::from_str(&content).ok();
         let error = ResponseContent {
-            status: status,
-            content: content,
-            entity: entity,
+            status,
+            content,
+            entity,
         };
         Err(Error::ResponseError(error))
     }
@@ -690,9 +690,9 @@ pub async fn get_txs(
     } else {
         let entity: Option<GetTxsError> = serde_json::from_str(&content).ok();
         let error = ResponseContent {
-            status: status,
-            content: content,
-            entity: entity,
+            status,
+            content,
+            entity,
         };
         Err(Error::ResponseError(error))
     }
@@ -725,9 +725,9 @@ pub async fn local(
     } else {
         let entity: Option<LocalError> = serde_json::from_str(&content).ok();
         let error = ResponseContent {
-            status: status,
-            content: content,
-            entity: entity,
+            status,
+            content,
+            entity,
         };
         Err(Error::ResponseError(error))
     }
@@ -761,9 +761,9 @@ pub async fn poll(
     } else {
         let entity: Option<PollError> = serde_json::from_str(&content).ok();
         let error = ResponseContent {
-            status: status,
-            content: content,
-            entity: entity,
+            status,
+            content,
+            entity,
         };
         Err(Error::ResponseError(error))
     }
@@ -796,9 +796,9 @@ pub async fn send(
     } else {
         let entity: Option<SendError> = serde_json::from_str(&content).ok();
         let error = ResponseContent {
-            status: status,
-            content: content,
-            entity: entity,
+            status,
+            content,
+            entity,
         };
         Err(Error::ResponseError(error))
     }
