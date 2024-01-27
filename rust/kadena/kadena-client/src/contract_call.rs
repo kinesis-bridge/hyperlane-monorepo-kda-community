@@ -6,10 +6,11 @@ use crate::{
         kadena_proxy_api::{self, PollError},
         Error,
     },
+    contract::Contract,
     models::{
         CommandDto, CommandResultDto, LocalRequestBodyDto, PollRequestBodyDto, RequestKeysDto,
         SendRequestBodyDto,
-    }, contract::Contract,
+    },
 };
 use anyhow::Result;
 use async_trait::async_trait;
@@ -33,15 +34,24 @@ pub trait ContractCall: Send + Sync {
 
     async fn send(&self) -> Result<RequestKeysDto> {
         let mut cmd = self.cmd().await?;
-        let _ = self.contract().provider().signer().sign_transaction(&mut cmd).await?;
+        let _ = self
+            .contract()
+            .provider()
+            .signer()
+            .sign_transaction(&mut cmd)
+            .await?;
         let send_body = SendRequestBodyDto::new(vec![cmd], self.conf().hostapi());
-        kadena_proxy_api::send(&self.proxy_conf(), send_body).await.map_err(|e| e.into())
+        kadena_proxy_api::send(&self.proxy_conf(), send_body)
+            .await
+            .map_err(|e| e.into())
     }
 
     async fn local(&self) -> Result<CommandResultDto> {
         let local_body =
             LocalRequestBodyDto::new(self.cmd().await?, self.conf().hostapi(), true, false);
-        kadena_proxy_api::local(&self.proxy_conf(), local_body).await.map_err(|e| e.into())
+        kadena_proxy_api::local(&self.proxy_conf(), local_body)
+            .await
+            .map_err(|e| e.into())
     }
 
     async fn poll(

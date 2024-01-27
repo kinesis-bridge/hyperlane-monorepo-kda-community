@@ -6,19 +6,17 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use hyperlane_core::{
-    Announcement, ChainResult, HyperlaneChain, HyperlaneContract,
-    HyperlaneDomain, HyperlaneProvider, SignedType, TxOutcome, ValidatorAnnounce, H160, H256, U256, ChainCommunicationError, H512,
+    Announcement, ChainCommunicationError, ChainResult, HyperlaneChain, HyperlaneContract,
+    HyperlaneDomain, HyperlaneProvider, SignedType, TxOutcome, ValidatorAnnounce, H160, H256, H512,
+    U256,
 };
-use tracing::warn;
 use tracing::instrument;
+use tracing::warn;
 
-use kadena_client::signers::Signer;
-use crate::ConnectionConf;
 use crate::contracts::i_validator_announce::AnnounceCall;
-use crate::{
-    contracts::i_validator_announce::IValidatorAnnounce,
-    KadenaProvider,
-};
+use crate::ConnectionConf;
+use crate::{contracts::i_validator_announce::IValidatorAnnounce, KadenaProvider};
+use kadena_client::signers::Signer;
 
 use kadena_client::contract::Contract;
 use kadena_client::contract_call::ContractCall;
@@ -44,9 +42,7 @@ impl KadenaValidatorAnnounce {
         ));
 
         Self {
-            contract: Arc::new(IValidatorAnnounce::new(
-                provider.clone(),
-            )),
+            contract: Arc::new(IValidatorAnnounce::new(provider.clone())),
             domain: domain.clone(),
         }
     }
@@ -76,7 +72,9 @@ impl KadenaValidatorAnnounce {
 
         fill_tx_gas_params(tx, tx_gas_limit_u64_op)
             .await
-            .map_err(|_| ChainCommunicationError::from_other_str("Error while filling tx gas params"))
+            .map_err(|_| {
+                ChainCommunicationError::from_other_str("Error while filling tx gas params")
+            })
     }
 }
 
@@ -90,7 +88,7 @@ impl HyperlaneChain for KadenaValidatorAnnounce {
             self.domain.clone(),
             self.contract.provider().connection_conf().clone(),
             self.contract.provider().kadena_proxy_config().clone(),
-            self.contract.provider().signer().clone()
+            self.contract.provider().signer().clone(),
         ))
     }
 }
@@ -119,26 +117,32 @@ impl ValidatorAnnounce for KadenaValidatorAnnounce {
             )
             .local()
             .await
-            .map_err(|_| ChainCommunicationError::from_other_str("Error returned while doing local"))?
+            .map_err(|_| {
+                ChainCommunicationError::from_other_str("Error returned while doing local")
+            })?
             .result()
             .unwrap_or_default(); // TODO: should be removed when the smart contract side is fixed
-            // TODO: handle error when the smart contract side is fixed
-            //.map_err(|_| ChainCommunicationError::from_other_str("Error returned while calling get_announced_storage_locations"))?;
+                                  // TODO: handle error when the smart contract side is fixed
+                                  //.map_err(|_| ChainCommunicationError::from_other_str("Error returned while calling get_announced_storage_locations"))?;
 
-        let locations: StorageLocationsJson = serde_json::from_value(storage_locations).unwrap_or_default();
-            // TODO: handle error when the smart contract side is fixed
-            //.map_err(|_| ChainCommunicationError::from_other_str("Error returned while parsing storage_locations"))?;
+        let locations: StorageLocationsJson =
+            serde_json::from_value(storage_locations).unwrap_or_default();
+        // TODO: handle error when the smart contract side is fixed
+        //.map_err(|_| ChainCommunicationError::from_other_str("Error returned while parsing storage_locations"))?;
 
         Ok(locations.storage_locations)
     }
 
     #[instrument(ret, skip(self))]
-    async fn announce_tokens_needed(&self, _announcement: SignedType<Announcement>) -> Option<U256> {
+    async fn announce_tokens_needed(
+        &self,
+        _announcement: SignedType<Announcement>,
+    ) -> Option<U256> {
         // TODO: implement when we have a way to query balance validator on Kadena
         // as of now, we assume there are enough tokens
         Some(U256::zero())
 
-        /* 
+        /*
         let validator = announcement.value.validator;
         let eth_h160: ethers::types::H160 = validator.into();
 
@@ -170,17 +174,30 @@ impl ValidatorAnnounce for KadenaValidatorAnnounce {
             .announce_contract_call(announcement, tx_gas_limit)
             .await?;
 
-        let receipt = report_tx(contract_call)
-            .await
-            .map_err(|_| ChainCommunicationError::from_other_str("Error returned while calling process"))?;
+        let receipt = report_tx(contract_call).await.map_err(|_| {
+            ChainCommunicationError::from_other_str("Error returned while calling process")
+        })?;
 
-        let (_req_key, res) = receipt.into_iter().next().ok_or(ChainCommunicationError::from_other_str("Error in getting receipt"))?;
+        let (_req_key, res) =
+            receipt
+                .into_iter()
+                .next()
+                .ok_or(ChainCommunicationError::from_other_str(
+                    "Error in getting receipt",
+                ))?;
         let tx_outcome = TxOutcome {
-            transaction_id: H512::from_low_u64_be(res.tx_id.ok_or(ChainCommunicationError::from_other_str("Tx id is missing"))?),
+            transaction_id: H512::from_low_u64_be(
+                res.tx_id
+                    .ok_or(ChainCommunicationError::from_other_str("Tx id is missing"))?,
+            ),
             executed: true,
             gas_used: U256::from(res.gas),
-            gas_price: U256::from(res.meta_data.and_then(|meta| meta.public_meta.map(|public_meta| public_meta.gas_price)).unwrap_or_default() as u128),
-        }; 
+            gas_price: U256::from(
+                res.meta_data
+                    .and_then(|meta| meta.public_meta.map(|public_meta| public_meta.gas_price))
+                    .unwrap_or_default() as u128,
+            ),
+        };
 
         Ok(tx_outcome)
     }

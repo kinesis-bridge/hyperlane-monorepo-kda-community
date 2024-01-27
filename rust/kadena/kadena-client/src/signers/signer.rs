@@ -1,4 +1,4 @@
-use ed25519_dalek::{VerifyingKey, Signature};
+use ed25519_dalek::{Signature, VerifyingKey};
 
 use crate::models::CommandDto;
 use anyhow::Result;

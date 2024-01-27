@@ -1,12 +1,18 @@
 pub mod prelude {
+    use anyhow::Result;
+    use async_trait::async_trait;
+    use ed25519_dalek::SigningKey;
+    use kadena_client::{
+        apis::configuration::{Configuration as ProxyConf, ConnectionConf},
+        contract::{Contract, KadenaProxyProvider},
+        contract_call::ContractCall,
+        models::CommandDto,
+        signers::Signer,
+    };
     pub use more_asserts::*;
     use once_cell::sync::Lazy;
-    use ed25519_dalek::SigningKey;
     use std::{path::Path, sync::Arc};
-    use async_trait::async_trait;
     use url::Url;
-    use anyhow::Result;
-    use kadena_client::{apis::configuration::{Configuration as ProxyConf, ConnectionConf}, contract::{Contract, KadenaProxyProvider}, contract_call::ContractCall, models::CommandDto, signers::Signer};
 
     pub struct TestProvider {
         connection_conf: Arc<ConnectionConf>,
@@ -38,16 +44,12 @@ pub mod prelude {
     }
 
     impl AddTwoNumbersCall<'_> {
-        pub async fn new(
-            contract: &TestContract,
-            a: u64,
-            b: u64,
-        ) -> AddTwoNumbersCall {
+        pub async fn new(contract: &TestContract, a: u64, b: u64) -> AddTwoNumbersCall {
             AddTwoNumbersCall {
                 contract,
                 a,
                 b,
-                gas_limit: None
+                gas_limit: None,
             }
         }
     }
@@ -67,14 +69,12 @@ pub mod prelude {
         }
 
         async fn cmd(&self) -> Result<CommandDto> {
-            self
-                .contract
+            self.contract
                 .build_pact_tx_with_expr(&format!("(+ {} {})", self.a, self.b), self.gas_limit)
-                    .await
-                    .map_err(|e| e.into())
+                .await
+                .map_err(|e| e.into())
         }
     }
-
 
     pub struct TestContract {
         provider: Arc<dyn KadenaProxyProvider + Sync + Send>,
@@ -89,9 +89,7 @@ pub mod prelude {
                 proxy_conf: Arc::new(CONTEXT.proxy_conf.clone()),
                 signer,
             });
-            TestContract {
-                provider
-            }
+            TestContract { provider }
         }
 
         pub async fn add_two_numbers(&self, a: u64, b: u64) -> AddTwoNumbersCall {
@@ -100,15 +98,14 @@ pub mod prelude {
     }
 
     impl Contract for TestContract {
-        fn module_name(&self) ->  &'static str {
+        fn module_name(&self) -> &'static str {
             Self::MODULE_NAME
         }
 
-        fn provider(&self) ->  Arc<dyn KadenaProxyProvider + Send + Sync> {
+        fn provider(&self) -> Arc<dyn KadenaProxyProvider + Send + Sync> {
             self.provider.clone()
         }
     }
-
 
     #[derive(Debug)]
     pub struct Context {
@@ -150,4 +147,3 @@ pub mod prelude {
         }
     });
 }
-

@@ -2,9 +2,14 @@ use std::sync::Arc;
 
 use crate::{provider, KadenaProvider};
 
-use kadena_client::{contract::{Contract, KadenaProxyProvider}, models::{CommandDto, EventDataDto}, contract_call::ContractCall, event::{EventData, Event}};
 use anyhow::Result;
 use async_trait::async_trait;
+use kadena_client::{
+    contract::{Contract, KadenaProxyProvider},
+    contract_call::ContractCall,
+    event::{Event, EventData},
+    models::{CommandDto, EventDataDto},
+};
 
 pub struct InsertedIntoTreeEventData {
     message_id: String,
@@ -15,7 +20,9 @@ impl TryFrom<EventDataDto> for InsertedIntoTreeEventData {
     type Error = anyhow::Error;
     fn try_from(event_data_dto: EventDataDto) -> Result<Self> {
         let params = event_data_dto.params;
-        let message_id = params.get(0).ok_or(anyhow::anyhow!("Message ID is missing"))?;
+        let message_id = params
+            .get(0)
+            .ok_or(anyhow::anyhow!("Message ID is missing"))?;
         let index = params.get(1).ok_or(anyhow::anyhow!("Index is missing"))?;
 
         Ok(Self {
@@ -34,12 +41,8 @@ pub struct InsertedIntoTreeEvent<'a> {
 impl<'a> InsertedIntoTreeEvent<'a> {
     const EVENT_NAME: &'static str = "INSERTED_INTO_TREE";
 
-    pub fn new(
-        contract: &'a IMerlkeTreeHook,
-    ) -> Self {
-        Self {
-            contract,
-        }
+    pub fn new(contract: &'a IMerlkeTreeHook) -> Self {
+        Self { contract }
     }
 }
 
@@ -62,9 +65,7 @@ pub struct CountCall<'a> {
 
 impl CountCall<'_> {
     const METHOD_NAME: &'static str = "count";
-    pub fn new(
-        contract: &IMerlkeTreeHook,
-    ) -> CountCall {
+    pub fn new(contract: &IMerlkeTreeHook) -> CountCall {
         CountCall {
             contract,
             gas_limit: None,
@@ -87,15 +88,18 @@ impl ContractCall for CountCall<'_> {
     }
 
     async fn cmd(&self) -> Result<CommandDto> {
-        self.contract.build_pact_tx_with_expr(
-            &format!(
-                "({}.{}.{})",
-                self.contract.namespace(),
-                self.contract.module_name(),
-                Self::METHOD_NAME,
-            ),
-            self.gas_limit,
-        ).await.map_err(|e| e.into())
+        self.contract
+            .build_pact_tx_with_expr(
+                &format!(
+                    "({}.{}.{})",
+                    self.contract.namespace(),
+                    self.contract.module_name(),
+                    Self::METHOD_NAME,
+                ),
+                self.gas_limit,
+            )
+            .await
+            .map_err(|e| e.into())
     }
 }
 
@@ -106,9 +110,7 @@ pub struct LatestCheckpointCall<'a> {
 
 impl LatestCheckpointCall<'_> {
     const METHOD_NAME: &'static str = "latest-checkpoint";
-    pub fn new(
-        contract: &IMerlkeTreeHook,
-    ) -> LatestCheckpointCall {
+    pub fn new(contract: &IMerlkeTreeHook) -> LatestCheckpointCall {
         LatestCheckpointCall {
             contract,
             gas_limit: None,
@@ -131,15 +133,18 @@ impl ContractCall for LatestCheckpointCall<'_> {
     }
 
     async fn cmd(&self) -> Result<CommandDto> {
-        self.contract.build_pact_tx_with_expr(
-            &format!(
-                "({}.{}.{})",
-                self.contract.namespace(),
-                self.contract.module_name(),
-                Self::METHOD_NAME,
-            ),
-            self.gas_limit,
-        ).await.map_err(|e| e.into())
+        self.contract
+            .build_pact_tx_with_expr(
+                &format!(
+                    "({}.{}.{})",
+                    self.contract.namespace(),
+                    self.contract.module_name(),
+                    Self::METHOD_NAME,
+                ),
+                self.gas_limit,
+            )
+            .await
+            .map_err(|e| e.into())
     }
 }
 
@@ -150,9 +155,7 @@ pub struct TreeCall<'a> {
 
 impl TreeCall<'_> {
     const METHOD_NAME: &'static str = "tree";
-    pub fn new(
-        contract: &IMerlkeTreeHook,
-    ) -> TreeCall {
+    pub fn new(contract: &IMerlkeTreeHook) -> TreeCall {
         TreeCall {
             contract,
             gas_limit: None,
@@ -175,15 +178,18 @@ impl ContractCall for TreeCall<'_> {
     }
 
     async fn cmd(&self) -> Result<CommandDto> {
-        self.contract.build_pact_tx_with_expr(
-            &format!(
-                "({}.{}.{})",
-                self.contract.namespace(),
-                self.contract.module_name(),
-                Self::METHOD_NAME,
-            ),
-            self.gas_limit,
-        ).await.map_err(|e| e.into())
+        self.contract
+            .build_pact_tx_with_expr(
+                &format!(
+                    "({}.{}.{})",
+                    self.contract.namespace(),
+                    self.contract.module_name(),
+                    Self::METHOD_NAME,
+                ),
+                self.gas_limit,
+            )
+            .await
+            .map_err(|e| e.into())
     }
 }
 
@@ -195,44 +201,34 @@ pub struct IMerlkeTreeHook {
 impl IMerlkeTreeHook {
     // refers to the mailbox module unless the merkle tree hook is not implemented on the pact side
     const MODULE_NAME: &'static str = "mailbox";
-    
+
     pub fn new(provider: Arc<KadenaProvider>) -> Self {
-        Self {
-            provider,
-        }
+        Self { provider }
     }
 
     pub fn count(&self) -> CountCall {
-        CountCall::new(
-            self,
-        )
+        CountCall::new(self)
     }
 
     pub fn latest_checkpoint(&self) -> LatestCheckpointCall {
-        LatestCheckpointCall::new(
-            self,
-        )
+        LatestCheckpointCall::new(self)
     }
 
     pub fn tree(&self) -> TreeCall {
-        TreeCall::new(
-            self,
-        )
+        TreeCall::new(self)
     }
 
     pub fn inserted_into_tree_event(&self) -> InsertedIntoTreeEvent {
-        InsertedIntoTreeEvent::new(
-            self,
-        )
+        InsertedIntoTreeEvent::new(self)
     }
 }
 
 impl Contract for IMerlkeTreeHook {
-    fn module_name(&self) ->  &'static str {
+    fn module_name(&self) -> &'static str {
         Self::MODULE_NAME
     }
 
-    fn provider(&self) ->  Arc<dyn KadenaProxyProvider + Send + Sync> {
+    fn provider(&self) -> Arc<dyn KadenaProxyProvider + Send + Sync> {
         self.provider.clone()
     }
 }

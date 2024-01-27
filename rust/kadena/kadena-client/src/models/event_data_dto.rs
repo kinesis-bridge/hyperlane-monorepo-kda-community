@@ -1,10 +1,13 @@
 use primitive_types::U256;
-use serde::{Serialize, Deserialize, Deserializer, Serializer};
 use serde::de::Error;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DecimalObject {
-    #[serde(deserialize_with = "deserialize_decimal", serialize_with = "serialize_decimal")]
+    #[serde(
+        deserialize_with = "deserialize_decimal",
+        serialize_with = "serialize_decimal"
+    )]
     decimal: U256,
 }
 

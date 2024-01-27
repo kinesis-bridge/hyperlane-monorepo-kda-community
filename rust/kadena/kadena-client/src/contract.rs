@@ -1,12 +1,12 @@
-use std::sync::Arc;
-use async_trait::async_trait;
-use crate::models::{EventDataDto, CommandDto, BuildPactTxDto};
-use crate::apis::kadena_proxy_api::get_events;
-use crate::apis::Error;
-use crate::apis::kadena_proxy_api::{self, GetEventsError, BuildTxError};
 use crate::apis::configuration::{Configuration as KadenaProxyConf, ConnectionConf};
+use crate::apis::kadena_proxy_api::get_events;
+use crate::apis::kadena_proxy_api::{self, BuildTxError, GetEventsError};
+use crate::apis::Error;
+use crate::models::{BuildPactTxDto, CommandDto, EventDataDto};
 use crate::signers::Signer;
 use anyhow::Result;
+use async_trait::async_trait;
+use std::sync::Arc;
 
 const CONFIRMATION_DEPTH: u64 = 0;
 pub const DEFAULT_GAS_LIMIT: u64 = 100_000;
@@ -21,11 +21,18 @@ pub trait KadenaProxyProvider {
         // 1e-12 is the smallest unit of KDA
         1_000_000 // 1e-6 KDA
     }
-    
+
     async fn get_block_number(&self) -> Result<u64> {
         let conf = self.connection_conf();
         let proxy_conf = self.kadena_proxy_config();
-        kadena_proxy_api::get_height(&proxy_conf, &conf.url.to_string(), &conf.network_id, Some(CONFIRMATION_DEPTH)).await.map_err(|e| e.into())
+        kadena_proxy_api::get_height(
+            &proxy_conf,
+            &conf.url.to_string(),
+            &conf.network_id,
+            Some(CONFIRMATION_DEPTH),
+        )
+        .await
+        .map_err(|e| e.into())
     }
 }
 
@@ -60,7 +67,11 @@ pub trait Contract: Send + Sync {
 
     fn provider(&self) -> Arc<dyn KadenaProxyProvider + Send + Sync>;
 
-    async fn build_pact_tx_with_expr(&self, expr: &str, gas_limit: Option<u64>) -> Result<CommandDto, Error<BuildTxError>> {
+    async fn build_pact_tx_with_expr(
+        &self,
+        expr: &str,
+        gas_limit: Option<u64>,
+    ) -> Result<CommandDto, Error<BuildTxError>> {
         let provider = self.provider();
         let conf = provider.connection_conf();
         let proxy_conf = provider.kadena_proxy_config();
@@ -74,7 +85,6 @@ pub trait Contract: Send + Sync {
             gas_limit.unwrap_or(DEFAULT_GAS_LIMIT),
         );
 
-        kadena_proxy_api::build_tx(&proxy_conf, build_tx_dto)
-            .await
+        kadena_proxy_api::build_tx(&proxy_conf, build_tx_dto).await
     }
 }

@@ -2,9 +2,9 @@
 extern crate serde_derive;
 
 pub mod apis;
-pub mod models;
 pub mod contract;
-pub mod tx;
 pub mod contract_call;
-pub mod signers;
 pub mod event;
+pub mod models;
+pub mod signers;
+pub mod tx;

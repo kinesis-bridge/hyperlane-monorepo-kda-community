@@ -33,7 +33,7 @@ impl super::Signer for LocalWallet {
             .push(crate::models::SignatureJsonDto::new(Some(sig_str)));
         Ok(signature)
     }
-    
+
     fn pubkey(&self) -> VerifyingKey {
         self.signer.verifying_key()
     }

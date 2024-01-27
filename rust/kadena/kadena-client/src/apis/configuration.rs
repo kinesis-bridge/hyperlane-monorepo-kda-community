@@ -1,5 +1,5 @@
-use url::Url;
 use anyhow::Result;
+use url::Url;
 
 #[derive(Debug, Clone)]
 pub struct Configuration {
@@ -69,8 +69,11 @@ impl ConnectionConf {
     }
 
     pub fn hostapi(&self) -> String {
-        format!("{}chainweb/0.0/{}/chain/{}/pact", self.url, self.network_id, self.chain_id)
-    }    
+        format!(
+            "{}chainweb/0.0/{}/chain/{}/pact",
+            self.url, self.network_id, self.chain_id
+        )
+    }
 }
 
 impl Default for ConnectionConf {

@@ -6,8 +6,11 @@ use hyperlane_core::{
     BlockInfo, ChainResult, HyperlaneChain, HyperlaneDomain, HyperlaneProvider, TxnInfo, H256,
 };
 
-use kadena_client::{apis::configuration::{Configuration as KadenaProxyConf, ConnectionConf}, contract::KadenaProxyProvider, signers::Signer};
-
+use kadena_client::{
+    apis::configuration::{Configuration as KadenaProxyConf, ConnectionConf},
+    contract::KadenaProxyProvider,
+    signers::Signer,
+};
 
 /// A wrapper around a Kadena provider to get generic blockchain information.
 #[derive(Debug)]
@@ -40,7 +43,12 @@ impl KadenaProvider {
         kadena_proxy_config: Arc<KadenaProxyConf>,
         signer: Arc<dyn Signer>,
     ) -> Self {
-        KadenaProvider { domain, connection_conf, kadena_proxy_config, signer }
+        KadenaProvider {
+            domain,
+            connection_conf,
+            kadena_proxy_config,
+            signer,
+        }
     }
 
     /// Get the connection configuration.

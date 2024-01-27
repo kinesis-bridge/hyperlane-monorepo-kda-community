@@ -1,11 +1,11 @@
-use ed25519_dalek::{VerifyingKey, Signature};
-use vaultrs::client::VaultClient;
-use vaultrs::transit::data;
-use base64::prelude::{Engine as _, BASE64_URL_SAFE_NO_PAD, BASE64_STANDARD};
-use async_trait::async_trait;
 use crate::models::CommandDto;
 use anyhow::Result;
+use async_trait::async_trait;
+use base64::prelude::{Engine as _, BASE64_STANDARD, BASE64_URL_SAFE_NO_PAD};
+use ed25519_dalek::{Signature, VerifyingKey};
 use tracing::instrument;
+use vaultrs::client::VaultClient;
+use vaultrs::transit::data;
 
 pub struct VaultSigner {
     client: VaultClient,
@@ -24,7 +24,7 @@ impl VaultSigner {
         key_id: K,
         key_version: Option<V>,
         mount: Option<M>,
-    ) -> Result<Self> 
+    ) -> Result<Self>
     where
         K: AsRef<str>,
         M: AsRef<str>,
@@ -35,7 +35,9 @@ impl VaultSigner {
             client,
             key_id: key_id.as_ref().to_owned(),
             key_version: key_version.map(|v| v.into()),
-            mount: mount.map(|m| m.as_ref().to_owned()).unwrap_or(Self::DEFAULT_TRANSIT_MOUNT.to_owned()),
+            mount: mount
+                .map(|m| m.as_ref().to_owned())
+                .unwrap_or(Self::DEFAULT_TRANSIT_MOUNT.to_owned()),
             pubkey,
         })
     }
@@ -61,20 +63,18 @@ impl super::Signer for VaultSigner {
         let hash_bin = BASE64_URL_SAFE_NO_PAD.decode(&tx.hash)?;
         let new_hash = BASE64_STANDARD.encode(&hash_bin);
 
-        let resp = data::sign(
-            &self.client, 
-            &self.mount,
-            &self.key_id,
-            &new_hash, 
-            None
-        )
+        let resp = data::sign(&self.client, &self.mount, &self.key_id, &new_hash, None)
             .await
             .unwrap();
 
         // Since the vault response is in the following format: "vault:v1:signature",
         // we need to split the string and get the signature part
         // If the split fails, we just use the whole string
-        let sig_str = resp.signature.rsplit_once(':').map(|(_, v)| v).unwrap_or(&resp.signature);
+        let sig_str = resp
+            .signature
+            .rsplit_once(':')
+            .map(|(_, v)| v)
+            .unwrap_or(&resp.signature);
 
         let sig_bin = BASE64_STANDARD.decode(sig_str)?;
         let sig = hex::encode(&sig_bin);

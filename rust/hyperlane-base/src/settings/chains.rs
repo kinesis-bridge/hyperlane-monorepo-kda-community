@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use ethers::{prelude::Selector, core::k256::elliptic_curve::PrimeField};
+use ethers::{core::k256::elliptic_curve::PrimeField, prelude::Selector};
 use ethers_prometheus::middleware::{
     ChainInfo, ContractInfo, PrometheusMiddlewareConf, WalletInfo,
 };
@@ -17,8 +17,8 @@ use hyperlane_ethereum::{
     EthereumValidatorAnnounceAbi,
 };
 use hyperlane_fuel as h_fuel;
-use hyperlane_sealevel as h_sealevel;
 use hyperlane_kadena as h_kadena;
+use hyperlane_sealevel as h_sealevel;
 
 use crate::{
     settings::signers::{BuildableWithSignerConf, SignerConf},
@@ -145,7 +145,11 @@ impl ChainConf {
 
             ChainConnectionConf::Kadena(conf) => {
                 let signer = self.kadena_signer().await.context(ctx)?;
-                Ok(Box::new(h_kadena::KadenaMailbox::new(conf, locator.domain, Arc::new(signer.unwrap()))) as Box<dyn Mailbox>)
+                Ok(Box::new(h_kadena::KadenaMailbox::new(
+                    conf,
+                    locator.domain,
+                    Arc::new(signer.unwrap()),
+                )) as Box<dyn Mailbox>)
             }
         }
         .context(ctx)
@@ -181,7 +185,11 @@ impl ChainConf {
 
             ChainConnectionConf::Kadena(conf) => {
                 let signer = self.kadena_signer().await.context(ctx)?;
-                Ok(Box::new(h_kadena::KadenaMerkleTreeHook::new(conf, locator.domain, Arc::new(signer.unwrap()))) as Box<dyn MerkleTreeHook>)
+                Ok(Box::new(h_kadena::KadenaMerkleTreeHook::new(
+                    conf,
+                    locator.domain,
+                    Arc::new(signer.unwrap()),
+                )) as Box<dyn MerkleTreeHook>)
             }
         }
         .context(ctx)
@@ -215,7 +223,12 @@ impl ChainConf {
             }
             ChainConnectionConf::Kadena(conf) => {
                 let signer = self.kadena_signer().await.context(ctx)?;
-                let indexer = Box::new(h_kadena::KadenaMailboxIndexer::new(conf, locator.domain, Arc::new(signer.unwrap()), self.reorg_period));
+                let indexer = Box::new(h_kadena::KadenaMailboxIndexer::new(
+                    conf,
+                    locator.domain,
+                    Arc::new(signer.unwrap()),
+                    self.reorg_period,
+                ));
                 Ok(indexer as Box<dyn SequenceIndexer<HyperlaneMessage>>)
             }
         }
@@ -250,7 +263,12 @@ impl ChainConf {
             }
             ChainConnectionConf::Kadena(conf) => {
                 let signer = self.kadena_signer().await.context(ctx)?;
-                let indexer = Box::new(h_kadena::KadenaMailboxIndexer::new(conf, locator.domain, Arc::new(signer.unwrap()), self.reorg_period));
+                let indexer = Box::new(h_kadena::KadenaMailboxIndexer::new(
+                    conf,
+                    locator.domain,
+                    Arc::new(signer.unwrap()),
+                    self.reorg_period,
+                ));
                 Ok(indexer as Box<dyn SequenceIndexer<H256>>)
             }
         }
@@ -286,11 +304,13 @@ impl ChainConf {
             }
             ChainConnectionConf::Kadena(conf) => {
                 let signer = self.kadena_signer().await.context(ctx)?;
-                let paymaster = Box::new(
-                    h_kadena::KadenaInterchainGasPaymaster::new(conf, locator.domain, Arc::new(signer.unwrap())),
-                );
+                let paymaster = Box::new(h_kadena::KadenaInterchainGasPaymaster::new(
+                    conf,
+                    locator.domain,
+                    Arc::new(signer.unwrap()),
+                ));
                 Ok(paymaster as Box<dyn InterchainGasPaymaster>)
-            }            
+            }
         }
         .context(ctx)
     }
@@ -326,9 +346,12 @@ impl ChainConf {
             }
             ChainConnectionConf::Kadena(conf) => {
                 let signer = self.kadena_signer().await.context(ctx)?;
-                let indexer = Box::new(
-                    h_kadena::KadenaInterchainGasPaymasterIndexer::new(conf, locator.domain, Arc::new(signer.unwrap()), self.reorg_period),
-                );
+                let indexer = Box::new(h_kadena::KadenaInterchainGasPaymasterIndexer::new(
+                    conf,
+                    locator.domain,
+                    Arc::new(signer.unwrap()),
+                    self.reorg_period,
+                ));
                 Ok(indexer as Box<dyn SequenceIndexer<InterchainGasPayment>>)
             }
         }
@@ -366,7 +389,12 @@ impl ChainConf {
             }
             ChainConnectionConf::Kadena(conf) => {
                 let signer = self.kadena_signer().await.context(ctx)?;
-                let indexer = Box::new(h_kadena::KadenaMerkleTreeHookIndexer::new(conf, locator.domain, Arc::new(signer.unwrap()), self.reorg_period));
+                let indexer = Box::new(h_kadena::KadenaMerkleTreeHookIndexer::new(
+                    conf,
+                    locator.domain,
+                    Arc::new(signer.unwrap()),
+                    self.reorg_period,
+                ));
                 Ok(indexer as Box<dyn SequenceIndexer<MerkleTreeInsertion>>)
             }
         }
@@ -393,10 +421,13 @@ impl ChainConf {
             ChainConnectionConf::Kadena(conf) => {
                 let ctx = "Building validator announce";
                 let signer = self.kadena_signer().await.context(ctx)?;
-                let va = Box::new(h_kadena::KadenaValidatorAnnounce::new(conf, locator.domain, Arc::new(signer.unwrap())));
+                let va = Box::new(h_kadena::KadenaValidatorAnnounce::new(
+                    conf,
+                    locator.domain,
+                    Arc::new(signer.unwrap()),
+                ));
                 Ok(va as Box<dyn ValidatorAnnounce>)
             }
-
         }
         .context("Building ValidatorAnnounce")
     }
@@ -433,7 +464,9 @@ impl ChainConf {
             ChainConnectionConf::Kadena(conf) => {
                 let signer = self.kadena_signer().await.context(ctx)?;
                 let ism = Box::new(h_kadena::KadenaInterchainSecurityModule::new(
-                    conf, locator.domain, Arc::new(signer.unwrap()),
+                    conf,
+                    locator.domain,
+                    Arc::new(signer.unwrap()),
                 ));
                 Ok(ism as Box<dyn InterchainSecurityModule>)
             }
@@ -464,7 +497,11 @@ impl ChainConf {
             }
             ChainConnectionConf::Kadena(conf) => {
                 let signer = self.kadena_signer().await.context(ctx)?;
-                let ism = Box::new(h_kadena::KadenaMultisigIsm::new(conf, locator.domain, Arc::new(signer.unwrap())));
+                let ism = Box::new(h_kadena::KadenaMultisigIsm::new(
+                    conf,
+                    locator.domain,
+                    Arc::new(signer.unwrap()),
+                ));
                 Ok(ism as Box<dyn MultisigIsm>)
             }
         }
@@ -495,7 +532,7 @@ impl ChainConf {
             }
             ChainConnectionConf::Kadena(_) => {
                 Err(eyre!("Kadena does not support routing ISM yet")).context(ctx)
-            }            
+            }
         }
         .context(ctx)
     }

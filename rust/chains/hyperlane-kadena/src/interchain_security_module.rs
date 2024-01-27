@@ -8,14 +8,13 @@ use kadena_client::signers::Signer;
 use tracing::{instrument, warn};
 
 use hyperlane_core::{
-    ChainResult, HyperlaneChain, HyperlaneContract, HyperlaneDomain,
-    HyperlaneMessage, HyperlaneProvider, InterchainSecurityModule, ModuleType,
-    H256, U256, ChainCommunicationError,
+    ChainCommunicationError, ChainResult, HyperlaneChain, HyperlaneContract, HyperlaneDomain,
+    HyperlaneMessage, HyperlaneProvider, InterchainSecurityModule, ModuleType, H256, U256,
 };
 use num_traits::cast::FromPrimitive;
 
 use crate::contracts::i_interchain_security_module::IInterchainSecurityModule;
-use crate::{KadenaProvider, ConnectionConf};
+use crate::{ConnectionConf, KadenaProvider};
 use kadena_client::contract::Contract;
 use kadena_client::contract_call::ContractCall;
 
@@ -39,9 +38,7 @@ impl KadenaInterchainSecurityModule {
             signer.clone(),
         ));
         Self {
-            contract: Arc::new(IInterchainSecurityModule::new(
-                provider,
-            )),
+            contract: Arc::new(IInterchainSecurityModule::new(provider)),
             domain: domain.clone(),
         }
     }
@@ -57,7 +54,7 @@ impl HyperlaneChain for KadenaInterchainSecurityModule {
             self.domain.clone(),
             self.contract.provider().connection_conf().clone(),
             self.contract.provider().kadena_proxy_config().clone(),
-            self.contract.provider().signer().clone()
+            self.contract.provider().signer().clone(),
         ))
     }
 }
@@ -77,9 +74,13 @@ impl InterchainSecurityModule for KadenaInterchainSecurityModule {
             .module_type()
             .local()
             .await
-            .map_err(|_| ChainCommunicationError::from_other_str("Error returned while doing local"))?
+            .map_err(|_| {
+                ChainCommunicationError::from_other_str("Error returned while doing local")
+            })?
             .result()
-            .map_err(|_| ChainCommunicationError::from_other_str("Error returned while calling module_type"))?
+            .map_err(|_| {
+                ChainCommunicationError::from_other_str("Error returned while calling module_type")
+            })?
             .as_u64()
             .ok_or_else(|| ChainCommunicationError::from_other_str("Module type is not a u64"))?;
         if let Some(module_type) = ModuleType::from_u8(module as u8) {
@@ -97,7 +98,7 @@ impl InterchainSecurityModule for KadenaInterchainSecurityModule {
         metadata: &[u8],
     ) -> ChainResult<Option<U256>> {
         unimplemented!("Required by Aggregation ISM which is not supported yet")
-        /* 
+        /*
         let tx = self.contract.verify(
             metadata.to_owned().into(),
             RawHyperlaneMessage::from(message).to_vec().into(),

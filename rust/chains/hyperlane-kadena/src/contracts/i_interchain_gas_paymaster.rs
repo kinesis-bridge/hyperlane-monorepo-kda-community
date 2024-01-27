@@ -2,12 +2,16 @@ use std::sync::Arc;
 
 use crate::{provider, KadenaProvider};
 
-use hyperlane_core::U256;
-use kadena_client::{contract::{Contract, KadenaProxyProvider}, event::{Event, EventData}, models::EventDataDto};
 use anyhow::Result;
+use hyperlane_core::U256;
+use kadena_client::{
+    contract::{Contract, KadenaProxyProvider},
+    event::{Event, EventData},
+    models::EventDataDto,
+};
 
-use super::U256Proxy;
 use super::LogMetaProxy;
+use super::U256Proxy;
 
 #[derive(Clone, Debug)]
 pub struct GasPaymentEventData {
@@ -25,17 +29,22 @@ impl TryFrom<EventDataDto> for GasPaymentEventData {
 
         let id = params.get(0).ok_or(anyhow::anyhow!("ID is missing"))?;
         let id_str = id.to_string();
-        let id_vec = hex::decode(id_str.strip_prefix("0x").unwrap_or(&id_str)).map_err(|_| anyhow::anyhow!("Invalid hex string"))?;
+        let id_vec = hex::decode(id_str.strip_prefix("0x").unwrap_or(&id_str))
+            .map_err(|_| anyhow::anyhow!("Invalid hex string"))?;
         let mut id = [0u8; 32];
         id[..id_vec.len()].copy_from_slice(&id_vec);
 
         let domain = params.get(1).ok_or(anyhow::anyhow!("Domain is missing"))?;
         let domain = TryInto::<u64>::try_into(domain.clone())? as u32;
 
-        let gas_amount = params.get(2).ok_or(anyhow::anyhow!("Gas amount is missing"))?;
+        let gas_amount = params
+            .get(2)
+            .ok_or(anyhow::anyhow!("Gas amount is missing"))?;
         let gas_amount = U256Proxy::try_from(gas_amount.clone())?.into();
 
-        let kda_amount = params.get(3).ok_or(anyhow::anyhow!("KDA amount is missing"))?;
+        let kda_amount = params
+            .get(3)
+            .ok_or(anyhow::anyhow!("KDA amount is missing"))?;
         let kda_amount = U256Proxy::try_from(kda_amount.clone())?.into();
 
         Ok(Self {
@@ -57,12 +66,8 @@ pub struct GasPaymentEvent<'a> {
 impl<'a> GasPaymentEvent<'a> {
     const EVENT_NAME: &'static str = "GAS_PAYMENT";
 
-    pub fn new(
-        contract: &'a IInterchainGasPaymaster,
-    ) -> Self {
-        Self {
-            contract,
-        }
+    pub fn new(contract: &'a IInterchainGasPaymaster) -> Self {
+        Self { contract }
     }
 }
 
@@ -85,26 +90,22 @@ pub struct IInterchainGasPaymaster {
 
 impl IInterchainGasPaymaster {
     const MODULE_NAME: &'static str = "igp";
-    
+
     pub fn new(provider: Arc<KadenaProvider>) -> Self {
-        Self {
-            provider,
-        }
+        Self { provider }
     }
 
     pub fn gas_payment_event(&self) -> GasPaymentEvent {
-        GasPaymentEvent::new(
-            self,
-        )
+        GasPaymentEvent::new(self)
     }
 }
 
 impl Contract for IInterchainGasPaymaster {
-    fn module_name(&self) ->  &'static str {
+    fn module_name(&self) -> &'static str {
         Self::MODULE_NAME
     }
 
-    fn provider(&self) ->  Arc<dyn KadenaProxyProvider + Send + Sync> {
+    fn provider(&self) -> Arc<dyn KadenaProxyProvider + Send + Sync> {
         self.provider.clone()
     }
 }

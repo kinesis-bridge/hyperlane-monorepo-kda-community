@@ -5,25 +5,24 @@ use std::num::NonZeroU64;
 use std::ops::RangeInclusive;
 use std::sync::Arc;
 
+use crate::ConnectionConf;
 use async_trait::async_trait;
 use hyperlane_core::H512;
-use crate::ConnectionConf;
 use kadena_client::event::Event;
 use kadena_client::signers::Signer;
 use tracing::{instrument, warn};
 
 use hyperlane_core::{
-    utils::fmt_bytes, ChainCommunicationError, ChainResult,
-    HyperlaneChain, HyperlaneContract, HyperlaneDomain, HyperlaneMessage,
-    HyperlaneProvider, Indexer, LogMeta, Mailbox, RawHyperlaneMessage, SequenceIndexer,
-    TxCostEstimate, TxOutcome, H256, U256,
+    utils::fmt_bytes, ChainCommunicationError, ChainResult, HyperlaneChain, HyperlaneContract,
+    HyperlaneDomain, HyperlaneMessage, HyperlaneProvider, Indexer, LogMeta, Mailbox,
+    RawHyperlaneMessage, SequenceIndexer, TxCostEstimate, TxOutcome, H256, U256,
 };
 
 use crate::contracts::i_mailbox::{IMailbox, ProcessCall};
-use kadena_client::tx::{call_with_lag, fill_tx_gas_params, report_tx};
-use kadena_client::contract_call::ContractCall;
-use kadena_client::contract::{self, Contract, KadenaProxyProvider};
 use crate::KadenaProvider;
+use kadena_client::contract::{self, Contract, KadenaProxyProvider};
+use kadena_client::contract_call::ContractCall;
+use kadena_client::tx::{call_with_lag, fill_tx_gas_params, report_tx};
 
 #[derive(Debug, Clone)]
 /// Struct that retrieves event data for an Kadena mailbox
@@ -35,7 +34,12 @@ pub struct KadenaMailboxIndexer {
 
 impl KadenaMailboxIndexer {
     /// Create new KadenaMailboxIndexer
-    pub fn new(conf: &ConnectionConf, domain: &HyperlaneDomain, signer: Arc<dyn Signer>, reorg_period: u32) -> Self {
+    pub fn new(
+        conf: &ConnectionConf,
+        domain: &HyperlaneDomain,
+        signer: Arc<dyn Signer>,
+        reorg_period: u32,
+    ) -> Self {
         let (api_conf, proxy_conf) = conf.into();
 
         let provider = Arc::new(KadenaProvider::new(
@@ -43,11 +47,9 @@ impl KadenaMailboxIndexer {
             Arc::new(api_conf),
             Arc::new(proxy_conf),
             signer.clone(),
-        )); 
-
-        let contract = Arc::new(IMailbox::new(
-            provider.clone(),
         ));
+
+        let contract = Arc::new(IMailbox::new(provider.clone()));
         Self {
             contract,
             provider,
@@ -57,14 +59,10 @@ impl KadenaMailboxIndexer {
 
     #[instrument(level = "debug", err, ret, skip(self))]
     async fn get_finalized_block_number(&self) -> ChainResult<u32> {
-        Ok(
-            (self
-                .provider
-                .get_block_number()
-                .await
-                .map_err(|_| ChainCommunicationError::from_other_str("Error while getting block number"))? as u32)
-                    .saturating_sub(self.reorg_period)
-        )
+        Ok((self.provider.get_block_number().await.map_err(|_| {
+            ChainCommunicationError::from_other_str("Error while getting block number")
+        })? as u32)
+            .saturating_sub(self.reorg_period))
     }
 }
 
@@ -86,7 +84,12 @@ impl Indexer<HyperlaneMessage> for KadenaMailboxIndexer {
             .await
             .map_err(ChainCommunicationError::from_other)?
             .into_iter()
-            .map(|event| (HyperlaneMessage::from(event.message.to_vec()), event.log.into()))
+            .map(|event| {
+                (
+                    HyperlaneMessage::from(event.message.to_vec()),
+                    event.log.into(),
+                )
+            })
             .collect();
 
         events.sort_by(|a, b| a.0.nonce.cmp(&b.0.nonce));
@@ -107,11 +110,16 @@ impl SequenceIndexer<HyperlaneMessage> for KadenaMailboxIndexer {
             .nonce()
             .local()
             .await
-            .map_err(|_| ChainCommunicationError::from_other_str("Error returned while doing local"))?
+            .map_err(|_| {
+                ChainCommunicationError::from_other_str("Error returned while doing local")
+            })?
             .result()
-            .map_err(|_| ChainCommunicationError::from_other_str("Error returned while calling nonce"))?
+            .map_err(|_| {
+                ChainCommunicationError::from_other_str("Error returned while calling nonce")
+            })?
             .as_u64()
-            .ok_or_else(|| ChainCommunicationError::from_other_str("Nonce is not a u64"))? as u32;
+            .ok_or_else(|| ChainCommunicationError::from_other_str("Nonce is not a u64"))?
+            as u32;
 
         Ok((Some(sequence), tip))
     }
@@ -167,9 +175,7 @@ impl KadenaMailbox {
             signer.clone(),
         ));
         Self {
-            contract: Arc::new(IMailbox::new(
-                provider.clone(),
-            )),
+            contract: Arc::new(IMailbox::new(provider.clone())),
             domain: domain.clone(),
             provider,
         }
@@ -198,7 +204,9 @@ impl KadenaMailbox {
 
         fill_tx_gas_params(tx, tx_gas_limit_u64_op)
             .await
-            .map_err(|_| ChainCommunicationError::from_other_str("Error while filling tx gas params"))
+            .map_err(|_| {
+                ChainCommunicationError::from_other_str("Error while filling tx gas params")
+            })
     }
 }
 
@@ -212,7 +220,7 @@ impl HyperlaneChain for KadenaMailbox {
             self.domain.clone(),
             self.contract.provider().connection_conf().clone(),
             self.contract.provider().kadena_proxy_config().clone(),
-            self.contract.provider().signer().clone()
+            self.contract.provider().signer().clone(),
         ))
     }
 }
@@ -227,20 +235,21 @@ impl HyperlaneContract for KadenaMailbox {
 impl Mailbox for KadenaMailbox {
     #[instrument(skip(self))]
     async fn count(&self, maybe_lag: Option<NonZeroU64>) -> ChainResult<u32> {
-        let call = call_with_lag(
-            self
-                .contract
-                .nonce(),
-            maybe_lag
-        )
+        let call = call_with_lag(self.contract.nonce(), maybe_lag)
             .await
-            .map_err(|_| ChainCommunicationError::from_other_str("Error while setting lag for nonce call"))?;
+            .map_err(|_| {
+                ChainCommunicationError::from_other_str("Error while setting lag for nonce call")
+            })?;
         let nonce = call
             .local()
             .await
-            .map_err(|_| ChainCommunicationError::from_other_str("Error returned while doing local"))?
+            .map_err(|_| {
+                ChainCommunicationError::from_other_str("Error returned while doing local")
+            })?
             .result()
-            .map_err(|_| ChainCommunicationError::from_other_str("Error returned while calling nonce"))?
+            .map_err(|_| {
+                ChainCommunicationError::from_other_str("Error returned while calling nonce")
+            })?
             .as_u64()
             .ok_or_else(|| ChainCommunicationError::from_other_str("Nonce is not a u64"))?;
         Ok(nonce as u32)
@@ -248,18 +257,20 @@ impl Mailbox for KadenaMailbox {
 
     #[instrument(skip(self))]
     async fn delivered(&self, id: H256) -> ChainResult<bool> {
-        Ok(
-            self
-                .contract
-                .delivered(id.into())
-                .local()
-                .await
-                .map_err(|_| ChainCommunicationError::from_other_str("Error returned while doing local"))?
-                .result()
-                .map_err(|_| ChainCommunicationError::from_other_str("Error returned while calling delivered"))?
-                .as_bool()
-                .ok_or_else(|| ChainCommunicationError::from_other_str("Delivered is not a bool"))?
-        )
+        Ok(self
+            .contract
+            .delivered(id.into())
+            .local()
+            .await
+            .map_err(|_| {
+                ChainCommunicationError::from_other_str("Error returned while doing local")
+            })?
+            .result()
+            .map_err(|_| {
+                ChainCommunicationError::from_other_str("Error returned while calling delivered")
+            })?
+            .as_bool()
+            .ok_or_else(|| ChainCommunicationError::from_other_str("Delivered is not a bool"))?)
     }
 
     #[instrument(skip(self))]
@@ -275,11 +286,19 @@ impl Mailbox for KadenaMailbox {
             .recipient_ism()
             .local()
             .await
-            .map_err(|_| ChainCommunicationError::from_other_str("Error returned while doing local"))?
+            .map_err(|_| {
+                ChainCommunicationError::from_other_str("Error returned while doing local")
+            })?
             .result()
-            .map_err(|_| ChainCommunicationError::from_other_str("Error returned while calling recipient_ism"))?
+            .map_err(|_| {
+                ChainCommunicationError::from_other_str(
+                    "Error returned while calling recipient_ism",
+                )
+            })?
             .as_str()
-            .ok_or(ChainCommunicationError::from_other_str("ISM is not a string"))?
+            .ok_or(ChainCommunicationError::from_other_str(
+                "ISM is not a string",
+            ))?
             .to_string();
 
         let mut ism_bytes: [u8; 32] = [0; 32];
@@ -287,7 +306,6 @@ impl Mailbox for KadenaMailbox {
 
         Ok(H256::from(ism_bytes))
     }
-    
 
     #[instrument(skip(self), fields(metadata=%fmt_bytes(metadata)))]
     async fn process(
@@ -299,17 +317,30 @@ impl Mailbox for KadenaMailbox {
         let contract_call = self
             .process_contract_call(message, metadata, tx_gas_limit)
             .await?;
-        let receipt = report_tx(contract_call)
-            .await
-            .map_err(|_| ChainCommunicationError::from_other_str("Error returned while calling process"))?;
+        let receipt = report_tx(contract_call).await.map_err(|_| {
+            ChainCommunicationError::from_other_str("Error returned while calling process")
+        })?;
 
-        let (_req_key, res) = receipt.into_iter().next().ok_or(ChainCommunicationError::from_other_str("Error in getting receipt"))?;
+        let (_req_key, res) =
+            receipt
+                .into_iter()
+                .next()
+                .ok_or(ChainCommunicationError::from_other_str(
+                    "Error in getting receipt",
+                ))?;
         let tx_outcome = TxOutcome {
-            transaction_id: H512::from_low_u64_be(res.tx_id.ok_or(ChainCommunicationError::from_other_str("Tx id is missing"))?),
+            transaction_id: H512::from_low_u64_be(
+                res.tx_id
+                    .ok_or(ChainCommunicationError::from_other_str("Tx id is missing"))?,
+            ),
             executed: true,
             gas_used: U256::from(res.gas),
-            gas_price: U256::from(res.meta_data.and_then(|meta| meta.public_meta.map(|public_meta| public_meta.gas_price)).unwrap_or_default() as u128),
-        }; 
+            gas_price: U256::from(
+                res.meta_data
+                    .and_then(|meta| meta.public_meta.map(|public_meta| public_meta.gas_price))
+                    .unwrap_or_default() as u128,
+            ),
+        };
 
         Ok(tx_outcome)
     }
@@ -322,11 +353,10 @@ impl Mailbox for KadenaMailbox {
     ) -> ChainResult<TxCostEstimate> {
         let contract_call = self.process_contract_call(message, metadata, None).await?;
         let gas_limit = contract_call
-            .gas_limit().unwrap_or(contract::DEFAULT_GAS_LIMIT);
+            .gas_limit()
+            .unwrap_or(contract::DEFAULT_GAS_LIMIT);
 
-        let gas_price = self
-            .provider
-            .get_gas_price();
+        let gas_price = self.provider.get_gas_price();
 
         Ok(TxCostEstimate {
             gas_limit: gas_limit.into(),

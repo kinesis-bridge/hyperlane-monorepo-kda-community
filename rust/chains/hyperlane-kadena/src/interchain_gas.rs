@@ -6,19 +6,19 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use hyperlane_core::{
-    ChainCommunicationError, ChainResult, HyperlaneChain,
-    HyperlaneContract, HyperlaneDomain, HyperlaneProvider, Indexer, InterchainGasPaymaster,
-    InterchainGasPayment, LogMeta, SequenceIndexer, H256,
+    ChainCommunicationError, ChainResult, HyperlaneChain, HyperlaneContract, HyperlaneDomain,
+    HyperlaneProvider, Indexer, InterchainGasPaymaster, InterchainGasPayment, LogMeta,
+    SequenceIndexer, H256,
 };
-use kadena_client::event::Event;
 use kadena_client::contract::{Contract, KadenaProxyProvider};
+use kadena_client::event::Event;
 
 use kadena_client::signers::Signer;
 use tracing::instrument;
 
 use crate::contracts::i_interchain_gas_paymaster::IInterchainGasPaymaster;
 
-use crate::{KadenaProvider, ConnectionConf};
+use crate::{ConnectionConf, KadenaProvider};
 
 #[derive(Debug)]
 /// Struct that retrieves event data for an Ethereum InterchainGasPaymaster
@@ -31,7 +31,12 @@ pub struct KadenaInterchainGasPaymasterIndexer {
 impl KadenaInterchainGasPaymasterIndexer {
     /// Create new KadenaInterchainGasPaymasterIndexer
     #[allow(dead_code)]
-    pub fn new(conf: &ConnectionConf, domain: &HyperlaneDomain, signer: Arc<dyn Signer>, reorg_period: u32) -> Self {
+    pub fn new(
+        conf: &ConnectionConf,
+        domain: &HyperlaneDomain,
+        signer: Arc<dyn Signer>,
+        reorg_period: u32,
+    ) -> Self {
         let (api_conf, proxy_conf) = conf.into();
 
         let provider = Arc::new(KadenaProvider::new(
@@ -39,12 +44,10 @@ impl KadenaInterchainGasPaymasterIndexer {
             Arc::new(api_conf),
             Arc::new(proxy_conf),
             signer.clone(),
-        ));  
+        ));
 
         Self {
-            contract: Arc::new(IInterchainGasPaymaster::new(
-                provider.clone(),
-            )),
+            contract: Arc::new(IInterchainGasPaymaster::new(provider.clone())),
             provider,
             reorg_period,
         }
@@ -83,14 +86,10 @@ impl Indexer<InterchainGasPayment> for KadenaInterchainGasPaymasterIndexer {
 
     #[instrument(level = "debug", err, ret, skip(self))]
     async fn get_finalized_block_number(&self) -> ChainResult<u32> {
-        Ok(
-            (self
-                .provider
-                .get_block_number()
-                .await
-                .map_err(|_| ChainCommunicationError::from_other_str("Error while getting block number"))? as u32)
-                    .saturating_sub(self.reorg_period)
-        )
+        Ok((self.provider.get_block_number().await.map_err(|_| {
+            ChainCommunicationError::from_other_str("Error while getting block number")
+        })? as u32)
+            .saturating_sub(self.reorg_period))
     }
 }
 
@@ -129,9 +128,7 @@ impl KadenaInterchainGasPaymaster {
         ));
 
         Self {
-            contract: Arc::new(IInterchainGasPaymaster::new(
-                provider.clone(),
-            )),
+            contract: Arc::new(IInterchainGasPaymaster::new(provider.clone())),
             domain: domain.clone(),
         }
     }
@@ -147,7 +144,7 @@ impl HyperlaneChain for KadenaInterchainGasPaymaster {
             self.domain.clone(),
             self.contract.provider().connection_conf().clone(),
             self.contract.provider().kadena_proxy_config().clone(),
-            self.contract.provider().signer().clone()
+            self.contract.provider().signer().clone(),
         ))
     }
 }

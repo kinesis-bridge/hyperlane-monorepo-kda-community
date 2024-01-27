@@ -1,6 +1,6 @@
-use anyhow::{Result, Ok};
-use serde_json::Value;
 use crate::models::CommandResultDtoResult;
+use anyhow::{Ok, Result};
+use serde_json::Value;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CommandResultDto {
@@ -57,5 +57,5 @@ impl CommandResultDto {
             CommandResultDtoResult::Success(res) => Ok(res.data.clone()),
             CommandResultDtoResult::Error(err) => Err(anyhow::anyhow!("tx error: {}", err.status)),
         }
-    }    
+    }
 }

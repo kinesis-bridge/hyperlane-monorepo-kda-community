@@ -2,9 +2,13 @@ use std::sync::Arc;
 
 use crate::{provider, KadenaProvider};
 
-use kadena_client::{contract::{Contract, KadenaProxyProvider}, models::CommandDto, contract_call::ContractCall};
 use anyhow::Result;
 use async_trait::async_trait;
+use kadena_client::{
+    contract::{Contract, KadenaProxyProvider},
+    contract_call::ContractCall,
+    models::CommandDto,
+};
 
 pub struct ModuleTypeCall<'a> {
     contract: &'a IInterchainSecurityModule,
@@ -13,9 +17,7 @@ pub struct ModuleTypeCall<'a> {
 
 impl ModuleTypeCall<'_> {
     const METHOD_NAME: &'static str = "module-type";
-    pub fn new(
-        contract: &IInterchainSecurityModule,
-    ) -> ModuleTypeCall {
+    pub fn new(contract: &IInterchainSecurityModule) -> ModuleTypeCall {
         ModuleTypeCall {
             contract,
             gas_limit: None,
@@ -38,15 +40,18 @@ impl ContractCall for ModuleTypeCall<'_> {
     }
 
     async fn cmd(&self) -> Result<CommandDto> {
-        self.contract.build_pact_tx_with_expr(
-            &format!(
-                "({}.{}.{})",
-                self.contract.namespace(),
-                self.contract.module_name(),
-                Self::METHOD_NAME,
-            ),
-            self.gas_limit,
-        ).await.map_err(|e| e.into())
+        self.contract
+            .build_pact_tx_with_expr(
+                &format!(
+                    "({}.{}.{})",
+                    self.contract.namespace(),
+                    self.contract.module_name(),
+                    Self::METHOD_NAME,
+                ),
+                self.gas_limit,
+            )
+            .await
+            .map_err(|e| e.into())
     }
 }
 
@@ -88,17 +93,20 @@ impl ContractCall for VerifyCall<'_> {
     }
 
     async fn cmd(&self) -> Result<CommandDto> {
-        self.contract.build_pact_tx_with_expr(
-            &format!(
-                "({}.{}.{} \"{}\",\"{}\")",
-                self.contract.namespace(),
-                self.contract.module_name(),
-                Self::METHOD_NAME,
-                self.metadata,
-                self.message,
-            ),
-            self.gas_limit,
-        ).await.map_err(|e| e.into())
+        self.contract
+            .build_pact_tx_with_expr(
+                &format!(
+                    "({}.{}.{} \"{}\",\"{}\")",
+                    self.contract.namespace(),
+                    self.contract.module_name(),
+                    Self::METHOD_NAME,
+                    self.metadata,
+                    self.message,
+                ),
+                self.gas_limit,
+            )
+            .await
+            .map_err(|e| e.into())
     }
 }
 
@@ -109,34 +117,26 @@ pub struct IInterchainSecurityModule {
 
 impl IInterchainSecurityModule {
     const MODULE_NAME: &'static str = "ism";
-    
+
     pub fn new(provider: Arc<KadenaProvider>) -> Self {
-        Self {
-            provider,
-        }
+        Self { provider }
     }
 
     pub fn module_type(&self) -> ModuleTypeCall {
-        ModuleTypeCall::new(
-            self,
-        )
+        ModuleTypeCall::new(self)
     }
 
     pub fn verify(&self, metadata: String, message: String) -> VerifyCall {
-        VerifyCall::new(
-            self,
-            metadata,
-            message,
-        )
+        VerifyCall::new(self, metadata, message)
     }
 }
 
 impl Contract for IInterchainSecurityModule {
-    fn module_name(&self) ->  &'static str {
+    fn module_name(&self) -> &'static str {
         Self::MODULE_NAME
     }
-    
-    fn provider(&self) ->  Arc<dyn KadenaProxyProvider + Send + Sync> {
+
+    fn provider(&self) -> Arc<dyn KadenaProxyProvider + Send + Sync> {
         self.provider.clone()
     }
 }

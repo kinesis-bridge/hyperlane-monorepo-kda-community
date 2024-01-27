@@ -2,22 +2,27 @@ pub mod common;
 
 use std::sync::Arc;
 
-use hyperlane_core::{HyperlaneDomain, HyperlaneDomainType, HyperlaneDomainProtocol, HyperlaneMessage};
-
-use kadena_client::{
-    models::CommandResultDtoResult,
-    signers::{LocalWallet, VaultSigner}, tx::{self, report_tx}, contract_call::ContractCall, contract::KadenaProxyProvider, event::Event,
+use hyperlane_core::{
+    HyperlaneDomain, HyperlaneDomainProtocol, HyperlaneDomainType, HyperlaneMessage,
 };
+
 use common::prelude::*;
+use kadena_client::{
+    contract::KadenaProxyProvider,
+    contract_call::ContractCall,
+    event::Event,
+    models::CommandResultDtoResult,
+    signers::{LocalWallet, VaultSigner},
+    tx::{self, report_tx},
+};
 
 #[tokio::test]
 pub async fn test_add_two_numbers_local_tx() {
     let a = 1;
     let b = 2;
-    
-    let test_contract = TestContract::new(Arc::new(
-        LocalWallet::new(CONTEXT.default_privkey.clone()))
-    );
+
+    let test_contract =
+        TestContract::new(Arc::new(LocalWallet::new(CONTEXT.default_privkey.clone())));
     let call = test_contract.add_two_numbers(a, b).await;
     let rep_res = tx::report_tx(call).await.unwrap();
     println!("res: {:?}", rep_res);
@@ -36,9 +41,8 @@ pub async fn test_add_two_numbers_local_tx() {
 pub async fn test_estimate_gas() {
     const GAS_BUFFER: u64 = 500;
 
-    let test_contract = TestContract::new(Arc::new(
-        LocalWallet::new(CONTEXT.default_privkey.clone())
-    ));
+    let test_contract =
+        TestContract::new(Arc::new(LocalWallet::new(CONTEXT.default_privkey.clone())));
 
     let call = test_contract.add_two_numbers(1, 2).await;
 
@@ -65,20 +69,20 @@ pub async fn test_add_two_numbers_vault_tx() {
             .address(&CONTEXT.vault_address)
             .token(&CONTEXT.vault_token)
             .build()
-            .unwrap()
-    ).unwrap();
-    
+            .unwrap(),
+    )
+    .unwrap();
 
     let vault_signer = VaultSigner::new(
         client,
         CONTEXT.vault_key_id.clone(),
         None as Option<u64>,
         None as Option<&str>,
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
-    let test_contract = TestContract::new(Arc::new(
-        vault_signer
-    ));
+    let test_contract = TestContract::new(Arc::new(vault_signer));
 
     let call = test_contract.add_two_numbers(a, b).await;
     let rep_res = tx::report_tx(call).await.unwrap();
@@ -92,14 +96,13 @@ pub async fn test_add_two_numbers_vault_tx() {
             panic!("Error in tx {:?}", err);
         }
     }
-
 }
 
 #[tokio::test]
 pub async fn test_ism_module_type() {
     use hyperlane_kadena::contracts::i_interchain_security_module::IInterchainSecurityModule;
     use hyperlane_kadena::KadenaProvider;
-    
+
     let domain = HyperlaneDomain::Unknown {
         domain_id: 0,
         domain_name: "test".to_owned(),
@@ -107,16 +110,12 @@ pub async fn test_ism_module_type() {
         domain_protocol: HyperlaneDomainProtocol::Ethereum,
     };
 
-    let kadena_provider = Arc::new(
-        KadenaProvider::new(
-            domain.clone(),
-            Arc::new(CONTEXT.conf.clone()),
-            Arc::new(CONTEXT.proxy_conf.clone()),
-            Arc::new(
-                LocalWallet::new(CONTEXT.default_privkey.clone())
-            )
-        )
-    );
+    let kadena_provider = Arc::new(KadenaProvider::new(
+        domain.clone(),
+        Arc::new(CONTEXT.conf.clone()),
+        Arc::new(CONTEXT.proxy_conf.clone()),
+        Arc::new(LocalWallet::new(CONTEXT.default_privkey.clone())),
+    ));
 
     let ism_contract = IInterchainSecurityModule::new(kadena_provider.clone());
 
@@ -130,7 +129,7 @@ pub async fn test_ism_module_type() {
 pub async fn test_ism_validators_and_threshold() {
     use hyperlane_kadena::contracts::i_multisig_ism::IMultisigIsm;
     use hyperlane_kadena::KadenaProvider;
-    
+
     let domain = HyperlaneDomain::Unknown {
         domain_id: 0,
         domain_name: "test".to_owned(),
@@ -138,16 +137,12 @@ pub async fn test_ism_validators_and_threshold() {
         domain_protocol: HyperlaneDomainProtocol::Ethereum,
     };
 
-    let kadena_provider = Arc::new(
-        KadenaProvider::new(
-            domain.clone(),
-            Arc::new(CONTEXT.conf.clone()),
-            Arc::new(CONTEXT.proxy_conf.clone()),
-            Arc::new(
-                LocalWallet::new(CONTEXT.default_privkey.clone())
-            )
-        )
-    );
+    let kadena_provider = Arc::new(KadenaProvider::new(
+        domain.clone(),
+        Arc::new(CONTEXT.conf.clone()),
+        Arc::new(CONTEXT.proxy_conf.clone()),
+        Arc::new(LocalWallet::new(CONTEXT.default_privkey.clone())),
+    ));
 
     let ism_contract = IMultisigIsm::new(kadena_provider.clone());
 
@@ -157,12 +152,11 @@ pub async fn test_ism_validators_and_threshold() {
     println!("res: {:?}", res);
 }
 
-
 #[tokio::test]
 pub async fn test_mailbox_process() {
     use hyperlane_kadena::contracts::i_mailbox::IMailbox;
     use hyperlane_kadena::KadenaProvider;
-    
+
     let domain = HyperlaneDomain::Unknown {
         domain_id: 0,
         domain_name: "test".to_owned(),
@@ -170,16 +164,12 @@ pub async fn test_mailbox_process() {
         domain_protocol: HyperlaneDomainProtocol::Ethereum,
     };
 
-    let kadena_provider = Arc::new(
-        KadenaProvider::new(
-            domain.clone(),
-            Arc::new(CONTEXT.conf.clone()),
-            Arc::new(CONTEXT.proxy_conf.clone()),
-            Arc::new(
-                LocalWallet::new(CONTEXT.default_privkey.clone())
-            )
-        )
-    );
+    let kadena_provider = Arc::new(KadenaProvider::new(
+        domain.clone(),
+        Arc::new(CONTEXT.conf.clone()),
+        Arc::new(CONTEXT.proxy_conf.clone()),
+        Arc::new(LocalWallet::new(CONTEXT.default_privkey.clone())),
+    ));
 
     let mailbox_contract = IMailbox::new(kadena_provider.clone());
 
@@ -193,7 +183,10 @@ pub async fn test_mailbox_process() {
 
     return;
 
-    let call = mailbox_contract.process(hex::decode(metadata).unwrap(), hex::decode(message).unwrap());
+    let call = mailbox_contract.process(
+        hex::decode(metadata).unwrap(),
+        hex::decode(message).unwrap(),
+    );
 
     let res = call.local().await.unwrap();
     println!("res: {:?}", res);
@@ -203,7 +196,7 @@ pub async fn test_mailbox_process() {
 async fn test_provider() {
     use hyperlane_kadena::contracts::i_mailbox::IMailbox;
     use hyperlane_kadena::KadenaProvider;
-    
+
     let domain = HyperlaneDomain::Unknown {
         domain_id: 0,
         domain_name: "test".to_owned(),
@@ -211,28 +204,27 @@ async fn test_provider() {
         domain_protocol: HyperlaneDomainProtocol::Ethereum,
     };
 
-    let kadena_provider = Arc::new(
-        KadenaProvider::new(
-            domain.clone(),
-            Arc::new(CONTEXT.conf.clone()),
-            Arc::new(CONTEXT.proxy_conf.clone()),
-            Arc::new(
-                LocalWallet::new(CONTEXT.default_privkey.clone())
-            )
-        )
-    );
+    let kadena_provider = Arc::new(KadenaProvider::new(
+        domain.clone(),
+        Arc::new(CONTEXT.conf.clone()),
+        Arc::new(CONTEXT.proxy_conf.clone()),
+        Arc::new(LocalWallet::new(CONTEXT.default_privkey.clone())),
+    ));
 
-    println!("block {}", kadena_provider.get_block_number().await.unwrap());    
+    println!(
+        "block {}",
+        kadena_provider.get_block_number().await.unwrap()
+    );
 }
 
 #[tokio::test]
 pub async fn test_events() {
-    use std::str::FromStr;
-    use hyperlane_kadena::contracts::i_validator_announce::IValidatorAnnounce;
-    use hyperlane_kadena::KadenaProvider;
     use hyperlane_core::H160;
     use hyperlane_core::H256;
-    
+    use hyperlane_kadena::contracts::i_validator_announce::IValidatorAnnounce;
+    use hyperlane_kadena::KadenaProvider;
+    use std::str::FromStr;
+
     let domain = HyperlaneDomain::Unknown {
         domain_id: 0,
         domain_name: "test".to_owned(),
@@ -240,16 +232,12 @@ pub async fn test_events() {
         domain_protocol: HyperlaneDomainProtocol::Kadena,
     };
 
-    let kadena_provider = Arc::new(
-        KadenaProvider::new(
-            domain.clone(),
-            Arc::new(CONTEXT.conf.clone()),
-            Arc::new(CONTEXT.proxy_conf.clone()),
-            Arc::new(
-                LocalWallet::new(CONTEXT.default_privkey.clone())
-            )
-        )
-    );
+    let kadena_provider = Arc::new(KadenaProvider::new(
+        domain.clone(),
+        Arc::new(CONTEXT.conf.clone()),
+        Arc::new(CONTEXT.proxy_conf.clone()),
+        Arc::new(LocalWallet::new(CONTEXT.default_privkey.clone())),
+    ));
 
     let contract = IValidatorAnnounce::new(kadena_provider.clone());
 
@@ -271,6 +259,4 @@ pub async fn test_events() {
     let locations: StorageLocationsJson = serde_json::from_value(cmd_res).unwrap_or_default();
 
     println!("locations: {:?}", locations);
-
-
 }

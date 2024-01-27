@@ -57,11 +57,7 @@ pub async fn fill_tx_gas_params<C: ContractCall>(tx: C, tx_gas_limit: Option<u64
     Ok(tx)
 }
 
-pub async fn call_with_lag<C: ContractCall> (
-    call: C,
-    maybe_lag: Option<NonZeroU64>,
-) -> Result<C>
-{
+pub async fn call_with_lag<C: ContractCall>(call: C, maybe_lag: Option<NonZeroU64>) -> Result<C> {
     if let Some(_lag) = maybe_lag {
         // TODO: implement lag
         Ok(call)

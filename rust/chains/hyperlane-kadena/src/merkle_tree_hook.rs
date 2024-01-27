@@ -9,13 +9,12 @@ use kadena_client::signers::Signer;
 use tracing::instrument;
 
 use hyperlane_core::{
-    ChainResult, Checkpoint, HyperlaneChain,
-    HyperlaneContract, HyperlaneDomain, HyperlaneProvider, Indexer, LogMeta, MerkleTreeHook,
-    MerkleTreeInsertion, SequenceIndexer, H256,
+    ChainResult, Checkpoint, HyperlaneChain, HyperlaneContract, HyperlaneDomain, HyperlaneProvider,
+    Indexer, LogMeta, MerkleTreeHook, MerkleTreeInsertion, SequenceIndexer, H256,
 };
 
 use crate::contracts::i_merkle_tree_hook::IMerlkeTreeHook;
-use crate::{KadenaProvider, ConnectionConf};
+use crate::{ConnectionConf, KadenaProvider};
 use kadena_client::contract::Contract;
 
 #[derive(Debug)]
@@ -32,7 +31,12 @@ pub struct KadenaMerkleTreeHookIndexer {
 impl KadenaMerkleTreeHookIndexer {
     /// Create new KadenaMerkleTreeHookIndexer
     #[allow(unused)]
-    pub fn new(conf: &ConnectionConf, domain: &HyperlaneDomain, signer: Arc<dyn Signer>, reorg_period: u32) -> Self {
+    pub fn new(
+        conf: &ConnectionConf,
+        domain: &HyperlaneDomain,
+        signer: Arc<dyn Signer>,
+        reorg_period: u32,
+    ) -> Self {
         let (api_conf, proxy_conf) = conf.into();
 
         let provider = Arc::new(KadenaProvider::new(
@@ -40,12 +44,10 @@ impl KadenaMerkleTreeHookIndexer {
             Arc::new(api_conf),
             Arc::new(proxy_conf),
             signer.clone(),
-        ));        
+        ));
 
         Self {
-            contract: Arc::new(IMerlkeTreeHook::new(
-                provider.clone(),
-            )),
+            contract: Arc::new(IMerlkeTreeHook::new(provider.clone())),
             provider,
             reorg_period,
         }
@@ -94,7 +96,7 @@ pub struct KadenaMerkleTreeHook {
 impl KadenaMerkleTreeHook {
     /// Create a reference to a mailbox at a specific Kadena address on some
     /// chain
-    
+
     #[allow(unused)]
     pub fn new(conf: &ConnectionConf, domain: &HyperlaneDomain, signer: Arc<dyn Signer>) -> Self {
         let (api_conf, proxy_conf) = conf.into();
@@ -105,11 +107,9 @@ impl KadenaMerkleTreeHook {
             Arc::new(proxy_conf),
             signer.clone(),
         ));
-        
+
         Self {
-            contract: Arc::new(IMerlkeTreeHook::new(
-                provider.clone(),
-            )),
+            contract: Arc::new(IMerlkeTreeHook::new(provider.clone())),
             domain: domain.clone(),
             provider,
         }
@@ -126,7 +126,7 @@ impl HyperlaneChain for KadenaMerkleTreeHook {
             self.domain.clone(),
             self.contract.provider().connection_conf().clone(),
             self.contract.provider().kadena_proxy_config().clone(),
-            self.contract.provider().signer().clone()
+            self.contract.provider().signer().clone(),
         ))
     }
 }
@@ -142,7 +142,7 @@ impl MerkleTreeHook for KadenaMerkleTreeHook {
     #[instrument(skip(self))]
     async fn latest_checkpoint(&self, _maybe_lag: Option<NonZeroU64>) -> ChainResult<Checkpoint> {
         unimplemented!()
-        /* 
+        /*
         let call =
             call_with_lag(self.contract.latest_checkpoint(), &self.provider, maybe_lag).await?;
 
@@ -160,7 +160,7 @@ impl MerkleTreeHook for KadenaMerkleTreeHook {
     #[allow(clippy::needless_range_loop)]
     async fn tree(&self, _maybe_lag: Option<NonZeroU64>) -> ChainResult<IncrementalMerkle> {
         unimplemented!()
-        /* 
+        /*
         let call = call_with_lag(self.contract.tree(), &self.provider, maybe_lag).await?;
 
         Ok(call.call().await?.into())
@@ -171,7 +171,7 @@ impl MerkleTreeHook for KadenaMerkleTreeHook {
     #[instrument(skip(self))]
     async fn count(&self, _maybe_lag: Option<NonZeroU64>) -> ChainResult<u32> {
         unimplemented!()
-        /* 
+        /*
         let call = call_with_lag(self.contract.count(), &self.provider, maybe_lag).await?;
         let count = call.call().await?;
         Ok(count)

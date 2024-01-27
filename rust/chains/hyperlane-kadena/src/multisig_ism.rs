@@ -1,24 +1,22 @@
 #![allow(clippy::enum_variant_names)]
 #![allow(missing_docs)]
 
-use std::sync::Arc;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use kadena_client::signers::Signer;
 use tracing::instrument;
 
 use hyperlane_core::{
-    ChainResult, HyperlaneChain, HyperlaneContract, HyperlaneDomain,
-    HyperlaneMessage, HyperlaneProvider, MultisigIsm, H256, ChainCommunicationError, H160,
+    ChainCommunicationError, ChainResult, HyperlaneChain, HyperlaneContract, HyperlaneDomain,
+    HyperlaneMessage, HyperlaneProvider, MultisigIsm, H160, H256,
 };
 
 use crate::contracts::i_multisig_ism::IMultisigIsm;
-use crate::{KadenaProvider, ConnectionConf};
+use crate::{ConnectionConf, KadenaProvider};
 use kadena_client::contract::Contract;
 use kadena_client::contract_call::ContractCall;
-
-
 
 /// A reference to an MultisigIsm contract on some Kadena chain
 #[derive(Debug)]
@@ -56,7 +54,7 @@ impl HyperlaneChain for KadenaMultisigIsm {
             self.domain.clone(),
             self.contract.provider().connection_conf().clone(),
             self.contract.provider().kadena_proxy_config().clone(),
-            self.contract.provider().signer().clone()
+            self.contract.provider().signer().clone(),
         ))
     }
 }
@@ -75,8 +73,7 @@ impl MultisigIsm for KadenaMultisigIsm {
         _message: &HyperlaneMessage,
     ) -> ChainResult<(Vec<H256>, u8)> {
         #[derive(Debug, serde::Deserialize)]
-        struct ValidatorsAndThresholdJson
-        {
+        struct ValidatorsAndThresholdJson {
             validators: Vec<String>,
             threshold: HashMap<String, u8>,
         }
@@ -86,25 +83,43 @@ impl MultisigIsm for KadenaMultisigIsm {
             .validators_and_threshold()
             .local()
             .await
-            .map_err(|_| ChainCommunicationError::from_other_str("Error returned while doing local"))?
+            .map_err(|_| {
+                ChainCommunicationError::from_other_str("Error returned while doing local")
+            })?
             .result()
-            .map_err(|_| ChainCommunicationError::from_other_str("Error returned while calling nonce"))?;
+            .map_err(|_| {
+                ChainCommunicationError::from_other_str("Error returned while calling nonce")
+            })?;
 
-        let validators_and_threshold: ValidatorsAndThresholdJson = serde_json::from_value(validators_and_threshold_value)
-            .map_err(|_| ChainCommunicationError::from_other_str("Error returned while parsing validators and threshold"))?;
-   
-        
+        let validators_and_threshold: ValidatorsAndThresholdJson =
+            serde_json::from_value(validators_and_threshold_value).map_err(|_| {
+                ChainCommunicationError::from_other_str(
+                    "Error returned while parsing validators and threshold",
+                )
+            })?;
+
         let validators: Vec<String> = validators_and_threshold.validators;
 
-        let decoded_validators = validators.iter()
-        .map(|validator| {
-            let bytes = hex::decode(validator.strip_prefix("0x").unwrap_or(&validator)).map_err(|_| ChainCommunicationError::from_other_str("Invalid hex string"))?;
-            let bytes_array: [u8; 20] = bytes[..].try_into().map_err(|_| ChainCommunicationError::from_other_str("Invalid byte length"))?;
-            Ok(H256::from(H160::from(bytes_array)))
-        })
-        .collect::<Result<Vec<H256>, ChainCommunicationError>>()?;
-        
-        let threshhold = validators_and_threshold.threshold.iter().next().ok_or(ChainCommunicationError::from_other_str("No threshold found"))?.1;
+        let decoded_validators = validators
+            .iter()
+            .map(|validator| {
+                let bytes = hex::decode(validator.strip_prefix("0x").unwrap_or(&validator))
+                    .map_err(|_| ChainCommunicationError::from_other_str("Invalid hex string"))?;
+                let bytes_array: [u8; 20] = bytes[..]
+                    .try_into()
+                    .map_err(|_| ChainCommunicationError::from_other_str("Invalid byte length"))?;
+                Ok(H256::from(H160::from(bytes_array)))
+            })
+            .collect::<Result<Vec<H256>, ChainCommunicationError>>()?;
+
+        let threshhold = validators_and_threshold
+            .threshold
+            .iter()
+            .next()
+            .ok_or(ChainCommunicationError::from_other_str(
+                "No threshold found",
+            ))?
+            .1;
 
         Ok((decoded_validators, *threshhold))
     }

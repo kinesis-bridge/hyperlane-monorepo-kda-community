@@ -11,9 +11,7 @@ use crate::{
     models::EventDataDto,
 };
 
-pub trait EventData: Send + Sync + TryFrom<EventDataDto> {
-
-}
+pub trait EventData: Send + Sync + TryFrom<EventDataDto> {}
 
 #[async_trait]
 pub trait Event: Send + Sync {
@@ -39,11 +37,18 @@ pub trait Event: Send + Sync {
         )
         .await?;
         events.retain(|event| {
-            event.module.namespace.as_ref().is_some_and(|ns| ns == contract.namespace())
-                && self.event_name() == event.name 
+            event
+                .module
+                .namespace
+                .as_ref()
+                .is_some_and(|ns| ns == contract.namespace())
+                && self.event_name() == event.name
                 && contract.module_name() == event.module.name
         });
 
-        Ok(events.into_iter().filter_map(|event| Self::DataType::try_from(event).ok()).collect())
+        Ok(events
+            .into_iter()
+            .filter_map(|event| Self::DataType::try_from(event).ok())
+            .collect())
     }
 }

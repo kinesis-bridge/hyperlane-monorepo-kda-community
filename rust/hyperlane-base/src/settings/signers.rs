@@ -3,10 +3,10 @@ use std::time::Duration;
 use async_trait::async_trait;
 use ed25519_dalek::SecretKey;
 use ethers::prelude::{AwsSigner, LocalWallet};
-use hyperlane_kadena::Signers as KadenaSigners;
-use hyperlane_kadena::LocalWallet as KadenaLocalWallet;
 use eyre::{bail, Context, Report};
 use hyperlane_core::H256;
+use hyperlane_kadena::LocalWallet as KadenaLocalWallet;
+use hyperlane_kadena::Signers as KadenaSigners;
 use hyperlane_sealevel::Keypair;
 use rusoto_core::{HttpClient, HttpConfig, Region};
 use rusoto_kms::KmsClient;
@@ -115,9 +115,9 @@ impl BuildableWithSignerConf for Keypair {
 impl BuildableWithSignerConf for KadenaSigners {
     async fn build(conf: &SignerConf) -> Result<Self, Report> {
         Ok(match conf {
-            SignerConf::HexKey { key } => {
-                KadenaSigners::Local(KadenaLocalWallet::new(ed25519_dalek_v2::SigningKey::from_bytes(key.as_bytes().try_into()?)))
-            }
+            SignerConf::HexKey { key } => KadenaSigners::Local(KadenaLocalWallet::new(
+                ed25519_dalek_v2::SigningKey::from_bytes(key.as_bytes().try_into()?),
+            )),
             SignerConf::Aws { .. } => bail!("Aws signer is not supported by kadena"),
             SignerConf::Node => bail!("Node signer is not supported by kadena"),
         })

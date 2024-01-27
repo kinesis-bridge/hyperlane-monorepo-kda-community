@@ -1,8 +1,12 @@
-use std::sync::Arc;
 use crate::{provider, KadenaProvider};
-use kadena_client::{contract::{Contract, KadenaProxyProvider}, contract_call::ContractCall, models::CommandDto};
 use anyhow::Result;
 use async_trait::async_trait;
+use kadena_client::{
+    contract::{Contract, KadenaProxyProvider},
+    contract_call::ContractCall,
+    models::CommandDto,
+};
+use std::sync::Arc;
 
 pub struct AnnounceCall<'a> {
     contract: &'a IValidatorAnnounce,
@@ -45,18 +49,21 @@ impl ContractCall for AnnounceCall<'_> {
     }
 
     async fn cmd(&self) -> Result<CommandDto> {
-        self.contract.build_pact_tx_with_expr(
-            &format!(
-                "({}.{}.{} \"{}\",\"{}\",\"{}\")",
-                self.contract.namespace(),
-                self.contract.module_name(),
-                Self::METHOD_NAME,
-                hex::encode(self.validator),
-                self.storage_location,
-                hex::encode(self.signature),
-            ),
-            self.gas_limit,
-        ).await.map_err(|e| e.into())
+        self.contract
+            .build_pact_tx_with_expr(
+                &format!(
+                    "({}.{}.{} \"{}\",\"{}\",\"{}\")",
+                    self.contract.namespace(),
+                    self.contract.module_name(),
+                    Self::METHOD_NAME,
+                    hex::encode(self.validator),
+                    self.storage_location,
+                    hex::encode(self.signature),
+                ),
+                self.gas_limit,
+            )
+            .await
+            .map_err(|e| e.into())
     }
 }
 
@@ -95,19 +102,25 @@ impl ContractCall for GetAnnouncedStorageLocationsCall<'_> {
     }
 
     async fn cmd(&self) -> Result<CommandDto> {
-        self.contract.build_pact_tx_with_expr(
-            &format!(
-                "({}.{}.{} [{}])",
-                self.contract.namespace(),
-                self.contract.module_name(),
-                Self::METHOD_NAME,
-                self.validators.iter().map(|v| format!("\"{}\"", hex::encode(v))).collect::<Vec<String>>().join(","),
-            ),
-            self.gas_limit,
-        ).await.map_err(|e| e.into())
+        self.contract
+            .build_pact_tx_with_expr(
+                &format!(
+                    "({}.{}.{} [{}])",
+                    self.contract.namespace(),
+                    self.contract.module_name(),
+                    Self::METHOD_NAME,
+                    self.validators
+                        .iter()
+                        .map(|v| format!("\"{}\"", hex::encode(v)))
+                        .collect::<Vec<String>>()
+                        .join(","),
+                ),
+                self.gas_limit,
+            )
+            .await
+            .map_err(|e| e.into())
     }
 }
-
 
 #[derive(Clone, Debug)]
 pub struct IValidatorAnnounce {
@@ -118,9 +131,7 @@ impl IValidatorAnnounce {
     const MODULE_NAME: &'static str = "validator-announce";
 
     pub fn new(provider: Arc<KadenaProvider>) -> Self {
-        Self {
-            provider,
-        }
+        Self { provider }
     }
 
     pub fn announce(
@@ -129,31 +140,23 @@ impl IValidatorAnnounce {
         storage_location: String,
         signature: [u8; 65],
     ) -> AnnounceCall {
-        AnnounceCall::new(
-            self,
-            validator,
-            storage_location,
-            signature,
-        )
+        AnnounceCall::new(self, validator, storage_location, signature)
     }
 
     pub fn get_announced_storage_locations(
         &self,
         validators: Vec<[u8; 20]>,
     ) -> GetAnnouncedStorageLocationsCall {
-        GetAnnouncedStorageLocationsCall::new(
-            self,
-            validators,
-        )
+        GetAnnouncedStorageLocationsCall::new(self, validators)
     }
 }
 
 impl Contract for IValidatorAnnounce {
-    fn module_name(&self) ->  &'static str {
+    fn module_name(&self) -> &'static str {
         Self::MODULE_NAME
     }
 
-    fn provider(&self) ->  Arc<dyn KadenaProxyProvider + Send + Sync> {
+    fn provider(&self) -> Arc<dyn KadenaProxyProvider + Send + Sync> {
         self.provider.clone()
     }
 }
