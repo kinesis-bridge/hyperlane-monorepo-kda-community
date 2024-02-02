@@ -37,12 +37,9 @@ impl KadenaMerkleTreeHookIndexer {
         signer: Arc<dyn Signer>,
         reorg_period: u32,
     ) -> Self {
-        let (api_conf, proxy_conf) = conf.into();
-
         let provider = Arc::new(KadenaProvider::new(
             domain.clone(),
-            Arc::new(api_conf),
-            Arc::new(proxy_conf),
+            Arc::new(conf.into()),
             signer.clone(),
         ));
 
@@ -99,12 +96,9 @@ impl KadenaMerkleTreeHook {
 
     #[allow(unused)]
     pub fn new(conf: &ConnectionConf, domain: &HyperlaneDomain, signer: Arc<dyn Signer>) -> Self {
-        let (api_conf, proxy_conf) = conf.into();
-
         let provider = Arc::new(KadenaProvider::new(
             domain.clone(),
-            Arc::new(api_conf),
-            Arc::new(proxy_conf),
+            Arc::new(conf.into()),
             signer.clone(),
         ));
 
@@ -124,8 +118,7 @@ impl HyperlaneChain for KadenaMerkleTreeHook {
     fn provider(&self) -> Box<dyn HyperlaneProvider> {
         Box::new(KadenaProvider::new(
             self.domain.clone(),
-            self.contract.provider().connection_conf().clone(),
-            self.contract.provider().kadena_proxy_config().clone(),
+            self.contract.provider().proxy_client().clone(),
             self.contract.provider().signer().clone(),
         ))
     }

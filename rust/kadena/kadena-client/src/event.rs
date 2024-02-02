@@ -1,21 +1,48 @@
 use std::ops::RangeInclusive;
 
 use async_trait::async_trait;
+use tracing::warn;
 
 use crate::{
-    apis::{
-        kadena_proxy_api::{self, GetEventsError},
-        Error,
-    },
     contract::Contract,
-    models::EventDataDto,
+    error::KadenaClientError,
+    models::{
+        EventDataDto,
+        EventParam,
+        EventParamType,
+    },
 };
 
-pub trait EventData: Send + Sync + TryFrom<EventDataDto> {}
+pub trait EventData: Send + Sync + TryFrom<EventDataDto> {
+    fn params() -> &'static [EventParamType];
+
+    fn check_params(
+        args: Vec<EventParam>,
+        params: &[EventParamType],
+    ) -> Result<Vec<EventParam>, KadenaClientError> {
+        if args.len() != params.len() {
+            return Err(KadenaClientError::EventParamsCountMismatchError {
+                expected: params.len(),
+                actual: args.len(),
+            });
+        }
+
+        for (arg, param) in args.iter().zip(params.iter()) {
+            if EventParamType::from(arg) != *param {
+                return Err(KadenaClientError::EventParamsTypeMismatchError {
+                    expected: *param,
+                    actual: arg.clone(),
+                });
+            }
+        }
+        Ok(args)
+    }
+}
 
 #[async_trait]
 pub trait Event: Send + Sync {
-    type DataType: EventData;
+    type DataType: EventData + TryFrom<EventDataDto, Error = Self::Error>;
+    type Error: std::fmt::Debug + Send + Sync + 'static;
 
     fn event_name(&self) -> &'static str;
     fn contract(&self) -> &dyn Contract;
@@ -23,19 +50,13 @@ pub trait Event: Send + Sync {
     async fn query_events_range<Idx: Into<u64> + Send + Sync + Copy>(
         &self,
         range: RangeInclusive<Idx>,
-    ) -> Result<Vec<Self::DataType>, Error<GetEventsError>> {
+    ) -> Result<Vec<Self::DataType>, KadenaClientError> {
         let contract = self.contract();
         let provider = self.contract().provider();
-        let conn_conf = provider.connection_conf();
-        let mut events = kadena_proxy_api::get_events(
-            &provider.kadena_proxy_config(),
-            conn_conf.url.as_ref(),
-            &conn_conf.network_id,
-            conn_conf.chain_id.into(),
-            (*range.start()).into(),
-            (*range.end()).into(),
-        )
-        .await?;
+        let client = provider.proxy_client();
+        let mut events = client
+            .events((*range.start()).into(), (*range.end()).into())
+            .await?;
         events.retain(|event| {
             event
                 .module
@@ -48,7 +69,21 @@ pub trait Event: Send + Sync {
 
         Ok(events
             .into_iter()
-            .filter_map(|event| Self::DataType::try_from(event).ok())
+            .filter_map(|event| {
+                let event_name = event.name.clone();
+                match Self::DataType::try_from(event) {
+                    Ok(data) => Some(data),
+                    Err(e) => {
+                        warn!(
+                            "Failed to convert event data to {} for event {} with error: {:?}",
+                            std::any::type_name::<Self::DataType>(),
+                            event_name,
+                            e,
+                        );
+                        None
+                    }
+                }
+            })
             .collect())
     }
 }

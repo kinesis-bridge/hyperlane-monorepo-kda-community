@@ -1,13 +1,13 @@
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 use crate::{provider, KadenaProvider};
 
-use anyhow::Result;
-use hyperlane_core::U256;
+use hyperlane_core::{H256, U256};
 use kadena_client::{
     contract::{Contract, KadenaProxyProvider},
+    error::KadenaClientError,
     event::{Event, EventData},
-    models::EventDataDto,
+    models::{EventDataDto, EventParamType},
 };
 
 use super::LogMetaProxy;
@@ -15,7 +15,7 @@ use super::U256Proxy;
 
 #[derive(Clone, Debug)]
 pub struct GasPaymentEventData {
-    pub id: [u8; 32],
+    pub id: H256,
     pub domain: u32,
     pub gas_amount: U256,
     pub kda_amount: U256,
@@ -23,41 +23,36 @@ pub struct GasPaymentEventData {
 }
 
 impl TryFrom<EventDataDto> for GasPaymentEventData {
-    type Error = anyhow::Error;
-    fn try_from(event_data_dto: EventDataDto) -> Result<Self> {
-        let params = event_data_dto.params.clone();
+    type Error = KadenaClientError;
+    fn try_from(mut event_data_dto: EventDataDto) -> Result<Self, Self::Error> {
+        let args = Self::check_params(std::mem::take(&mut event_data_dto.params), Self::params())?;
 
-        let id = params.get(0).ok_or(anyhow::anyhow!("ID is missing"))?;
-        let id_str = id.to_string();
-        let id_vec = hex::decode(id_str.strip_prefix("0x").unwrap_or(&id_str))
-            .map_err(|_| anyhow::anyhow!("Invalid hex string"))?;
-        let mut id = [0u8; 32];
-        id[..id_vec.len()].copy_from_slice(&id_vec);
-
-        let domain = params.get(1).ok_or(anyhow::anyhow!("Domain is missing"))?;
-        let domain = TryInto::<u64>::try_into(domain.clone())? as u32;
-
-        let gas_amount = params
-            .get(2)
-            .ok_or(anyhow::anyhow!("Gas amount is missing"))?;
-        let gas_amount = U256Proxy::try_from(gas_amount.clone())?.into();
-
-        let kda_amount = params
-            .get(3)
-            .ok_or(anyhow::anyhow!("KDA amount is missing"))?;
-        let kda_amount = U256Proxy::try_from(kda_amount.clone())?.into();
+        let id = H256::from_str(&args[0].to_string())
+            .map_err(|e| KadenaClientError::OtherError(Box::new(e)))?;
+        let domain = (&args[1]).try_into()?;
+        let gas_amount = U256Proxy::try_from(&args[2])?.into();
+        let kda_amount = U256Proxy::try_from(&args[3])?.into();
 
         Ok(Self {
             id,
             domain,
             gas_amount,
             kda_amount,
-            log: LogMetaProxy::from(event_data_dto),
+            log: event_data_dto.into(),
         })
     }
 }
 
-impl EventData for GasPaymentEventData {}
+impl EventData for GasPaymentEventData {
+    fn params() -> &'static [EventParamType] {
+        &[
+            EventParamType::String,
+            EventParamType::String,
+            EventParamType::Integer,
+            EventParamType::Integer,
+        ]
+    }
+}
 
 pub struct GasPaymentEvent<'a> {
     contract: &'a IInterchainGasPaymaster,
@@ -73,6 +68,7 @@ impl<'a> GasPaymentEvent<'a> {
 
 impl Event for GasPaymentEvent<'_> {
     type DataType = GasPaymentEventData;
+    type Error = KadenaClientError;
 
     fn contract(&self) -> &dyn Contract {
         self.contract

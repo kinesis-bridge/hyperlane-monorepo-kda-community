@@ -258,18 +258,12 @@ fn parse_chain(
             .next()
             .map(|url| ChainConnectionConf::Sealevel(h_sealevel::ConnectionConf { url })),
         HyperlaneDomainProtocol::Kadena => {
-            let proxy_url = chain
+            let kadena_proxy_url = chain
                 .chain(&mut err)
                 .get_key("proxyUrl")
-                .parse_string()
-                .unwrap_or_default();
-
-            if !(proxy_url.parse::<url::Url>().is_ok() && !proxy_url.ends_with('/')) {
-                err.push(
-                    &chain.cwp + "proxy_url",
-                    eyre!("Missing proxy_url definitions for kadena chain"),
-                );
-            }
+                .parse_from_str("Invalid kadena proxy url")
+                .end();
+            cfg_unwrap_all!(&chain.cwp, err: [kadena_proxy_url]);
 
             rpcs.into_iter().next().and_then(|url| {
                 // Validate the URL
@@ -293,7 +287,7 @@ fn parse_chain(
                     url: url::Url::parse(host_with_scheme).unwrap(),
                     network_id: network_id.to_string(),
                     chain_id,
-                    kadena_proxy_url: proxy_url.to_string(),
+                    kadena_proxy_url,
                 }))
             })
         }

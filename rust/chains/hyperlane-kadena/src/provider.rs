@@ -6,28 +6,19 @@ use hyperlane_core::{
     BlockInfo, ChainResult, HyperlaneChain, HyperlaneDomain, HyperlaneProvider, TxnInfo, H256,
 };
 
-use kadena_client::{
-    apis::configuration::{Configuration as KadenaProxyConf, ConnectionConf},
-    contract::KadenaProxyProvider,
-    signers::Signer,
-};
+use kadena_client::{client::KadenaProxyClient, contract::KadenaProxyProvider, signers::Signer};
 
 /// A wrapper around a Kadena provider to get generic blockchain information.
 #[derive(Debug)]
 pub struct KadenaProvider {
     domain: HyperlaneDomain,
-    connection_conf: Arc<ConnectionConf>,
-    kadena_proxy_config: Arc<KadenaProxyConf>,
+    client: Arc<KadenaProxyClient>,
     signer: Arc<dyn Signer>,
 }
 
 impl KadenaProxyProvider for KadenaProvider {
-    fn connection_conf(&self) -> Arc<ConnectionConf> {
-        self.connection_conf.clone()
-    }
-
-    fn kadena_proxy_config(&self) -> Arc<KadenaProxyConf> {
-        self.kadena_proxy_config.clone()
+    fn proxy_client(&self) -> Arc<KadenaProxyClient> {
+        self.client.clone()
     }
 
     fn signer(&self) -> Arc<dyn Signer> {
@@ -39,26 +30,14 @@ impl KadenaProvider {
     /// Create a new Kadena provider.
     pub fn new(
         domain: HyperlaneDomain,
-        connection_conf: Arc<ConnectionConf>,
-        kadena_proxy_config: Arc<KadenaProxyConf>,
+        client: Arc<KadenaProxyClient>,
         signer: Arc<dyn Signer>,
     ) -> Self {
         KadenaProvider {
             domain,
-            connection_conf,
-            kadena_proxy_config,
+            client,
             signer,
         }
-    }
-
-    /// Get the connection configuration.
-    pub fn connection_conf(&self) -> Arc<ConnectionConf> {
-        self.connection_conf.clone()
-    }
-
-    /// Get the Kadena proxy configuration.
-    pub fn kadena_proxy_config(&self) -> Arc<KadenaProxyConf> {
-        self.kadena_proxy_config.clone()
     }
 
     /// Get the domain of the provider.
@@ -75,8 +54,7 @@ impl HyperlaneChain for KadenaProvider {
     fn provider(&self) -> Box<dyn HyperlaneProvider> {
         Box::new(KadenaProvider {
             domain: self.domain.clone(),
-            connection_conf: self.connection_conf.clone(),
-            kadena_proxy_config: self.kadena_proxy_config.clone(),
+            client: self.client.clone(),
             signer: self.signer.clone(),
         })
     }

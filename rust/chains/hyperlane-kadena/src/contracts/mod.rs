@@ -9,12 +9,14 @@ pub mod i_merkle_tree_hook;
 pub mod i_multisig_ism;
 pub mod i_validator_announce;
 
-use anyhow::Result;
 use std::primitive;
 
 use base64::prelude::{Engine as _, BASE64_URL_SAFE_NO_PAD};
 use hyperlane_core::{LogMeta, H256, H512, U256};
-use kadena_client::models::{event_data_dto::EventDataParams, EventDataDto};
+use kadena_client::{
+    error::KadenaClientError,
+    models::{EventDataDto, EventParam},
+};
 
 #[derive(Debug, Clone)]
 pub struct LogMetaProxy(LogMeta);
@@ -54,9 +56,9 @@ impl From<U256Proxy> for U256 {
     }
 }
 
-impl TryFrom<EventDataParams> for U256Proxy {
-    type Error = anyhow::Error;
-    fn try_from(param: EventDataParams) -> Result<Self> {
+impl TryFrom<&EventParam> for U256Proxy {
+    type Error = KadenaClientError;
+    fn try_from(param: &EventParam) -> Result<Self, KadenaClientError> {
         let primitive_u256: primitive_types::U256 = param.try_into()?;
         Ok(U256Proxy(U256(primitive_u256.0)))
     }

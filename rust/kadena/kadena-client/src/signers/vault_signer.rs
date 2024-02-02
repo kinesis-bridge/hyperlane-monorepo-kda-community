@@ -1,11 +1,22 @@
-use crate::models::CommandDto;
-use anyhow::Result;
+use crate::{
+    error::KadenaClientError,
+    models::CommandDto,
+};
 use async_trait::async_trait;
-use base64::prelude::{Engine as _, BASE64_STANDARD, BASE64_URL_SAFE_NO_PAD};
-use ed25519_dalek::{Signature, VerifyingKey};
+use base64::prelude::{
+    Engine as _,
+    BASE64_STANDARD,
+    BASE64_URL_SAFE_NO_PAD,
+};
+use ed25519_dalek::{
+    Signature,
+    VerifyingKey,
+};
 use tracing::instrument;
-use vaultrs::client::VaultClient;
-use vaultrs::transit::data;
+use vaultrs::{
+    client::VaultClient,
+    transit::data,
+};
 
 pub struct VaultSigner {
     client: VaultClient,
@@ -24,7 +35,7 @@ impl VaultSigner {
         key_id: K,
         key_version: Option<V>,
         mount: Option<M>,
-    ) -> Result<Self>
+    ) -> Result<Self, KadenaClientError>
     where
         K: AsRef<str>,
         M: AsRef<str>,
@@ -58,7 +69,7 @@ impl std::fmt::Debug for VaultSigner {
 #[async_trait]
 impl super::Signer for VaultSigner {
     #[instrument(err, skip(self))]
-    async fn sign_transaction(&self, tx: &mut CommandDto) -> Result<Signature> {
+    async fn sign_transaction(&self, tx: &mut CommandDto) -> Result<Signature, KadenaClientError> {
         // Vault requires the hash to be base64 encoded with padding
         let hash_bin = BASE64_URL_SAFE_NO_PAD.decode(&tx.hash)?;
         let new_hash = BASE64_STANDARD.encode(&hash_bin);

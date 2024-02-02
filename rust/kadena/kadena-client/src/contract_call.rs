@@ -1,38 +1,44 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    sync::Arc,
+};
 
 use crate::{
-    apis::configuration::{Configuration as ProxyConf, ConnectionConf},
-    apis::{
-        kadena_proxy_api::{self, PollError},
-        Error,
-    },
+    client::KadenaProxyClient,
     contract::Contract,
+    error::KadenaClientError,
     models::{
-        CommandDto, CommandResultDto, LocalRequestBodyDto, PollRequestBodyDto, RequestKeysDto,
+        CommandDto,
+        CommandResultDto,
+        LocalRequestBodyDto,
+        PollRequestBodyDto,
+        RequestKeysDto,
         SendRequestBodyDto,
     },
 };
-use anyhow::Result;
 use async_trait::async_trait;
 
 #[async_trait]
 pub trait ContractCall: Send + Sync {
+    /// Returns the contract that this call is for.
     fn contract(&self) -> &dyn Contract;
 
-    fn conf(&self) -> Arc<ConnectionConf> {
-        self.contract().provider().connection_conf().clone()
-    }
-    fn proxy_conf(&self) -> Arc<ProxyConf> {
-        self.contract().provider().kadena_proxy_config().clone()
+    /// Returns the proxy client that this call is for.
+    fn proxy_client(&self) -> Arc<KadenaProxyClient> {
+        self.contract().provider().proxy_client().clone()
     }
 
-    // TODO: use contract call context in case of multiple fields required by contract call
+    /// Sets the gas limit for this call.
     fn set_gas_limit(&mut self, gas_limit: u64);
+
+    /// Returns the gas limit for this call.
     fn gas_limit(&self) -> Option<u64>;
 
-    async fn cmd(&self) -> Result<CommandDto>;
+    /// Returns the command DTO for this call. This is the main DTO for the call.
+    async fn cmd(&self) -> Result<CommandDto, KadenaClientError>;
 
-    async fn send(&self) -> Result<RequestKeysDto> {
+    /// Sends the transaction to the blockchain via the proxy.
+    async fn send(&self) -> Result<RequestKeysDto, KadenaClientError> {
         let mut cmd = self.cmd().await?;
         let _ = self
             .contract()
@@ -40,31 +46,33 @@ pub trait ContractCall: Send + Sync {
             .signer()
             .sign_transaction(&mut cmd)
             .await?;
-        let send_body = SendRequestBodyDto::new(vec![cmd], self.conf().hostapi());
-        kadena_proxy_api::send(&self.proxy_conf(), send_body)
-            .await
-            .map_err(|e| e.into())
+        let client = self.proxy_client();
+        let send_body = SendRequestBodyDto::new(vec![cmd], client.hostapi());
+        client.send(send_body).await
     }
 
-    async fn local(&self) -> Result<CommandResultDto> {
-        let local_body =
-            LocalRequestBodyDto::new(self.cmd().await?, self.conf().hostapi(), true, false);
-        kadena_proxy_api::local(&self.proxy_conf(), local_body)
-            .await
-            .map_err(|e| e.into())
+    /// Preforms a local call to the blockchain via the proxy.
+    async fn local(&self) -> Result<CommandResultDto, KadenaClientError> {
+        let client = self.proxy_client();
+        let local_body = LocalRequestBodyDto::new(self.cmd().await?, client.hostapi(), true, false);
+        client.local(local_body).await
     }
 
+    /// Polls the blockchain via the proxy.
     async fn poll(
         &self,
         request_keys: RequestKeysDto,
-    ) -> Result<HashMap<std::string::String, CommandResultDto>, Error<PollError>> {
-        let poll_body = PollRequestBodyDto::new(request_keys.request_keys, self.conf().hostapi());
-        kadena_proxy_api::poll(&self.proxy_conf(), poll_body).await
+    ) -> Result<HashMap<String, CommandResultDto>, KadenaClientError> {
+        let client = self.proxy_client();
+        let poll_body = PollRequestBodyDto::new(request_keys.request_keys, client.hostapi());
+        client.poll(poll_body).await
     }
 
-    async fn estimate_gas(&self) -> Result<u64> {
-        let cmd = LocalRequestBodyDto::new(self.cmd().await?, self.conf().hostapi(), true, false);
-        let local_rsp = kadena_proxy_api::local(&self.proxy_conf(), cmd).await?;
+    /// Estimates the gas for this call using local endpoint.
+    async fn estimate_gas(&self) -> Result<u64, KadenaClientError> {
+        let client = self.proxy_client();
+        let cmd = LocalRequestBodyDto::new(self.cmd().await?, client.hostapi(), true, false);
+        let local_rsp = client.local(cmd).await?;
         Ok(local_rsp.gas)
     }
 }

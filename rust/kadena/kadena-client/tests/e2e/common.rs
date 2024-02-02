@@ -1,32 +1,37 @@
 pub mod prelude {
-    use anyhow::Result;
     use async_trait::async_trait;
     use ed25519_dalek::SigningKey;
     use kadena_client::{
-        apis::configuration::{Configuration as ProxyConf, ConnectionConf},
-        contract::{Contract, KadenaProxyProvider},
+        client::{
+            ChainwebConf,
+            KadenaProxyClient,
+            ProxyConf,
+        },
+        contract::{
+            Contract,
+            KadenaProxyProvider,
+        },
         contract_call::ContractCall,
+        error::KadenaClientError,
         models::CommandDto,
         signers::Signer,
     };
     pub use more_asserts::*;
     use once_cell::sync::Lazy;
-    use std::{path::Path, sync::Arc};
+    use std::{
+        path::Path,
+        sync::Arc,
+    };
     use url::Url;
 
     pub struct TestProvider {
-        connection_conf: Arc<ConnectionConf>,
-        proxy_conf: Arc<ProxyConf>,
+        client: Arc<KadenaProxyClient>,
         signer: Arc<dyn Signer>,
     }
 
     impl KadenaProxyProvider for TestProvider {
-        fn connection_conf(&self) -> Arc<ConnectionConf> {
-            self.connection_conf.clone()
-        }
-
-        fn kadena_proxy_config(&self) -> Arc<ProxyConf> {
-            self.proxy_conf.clone()
+        fn proxy_client(&self) -> Arc<KadenaProxyClient> {
+            self.client.clone()
         }
 
         fn signer(&self) -> Arc<dyn Signer> {
@@ -68,7 +73,7 @@ pub mod prelude {
             self.gas_limit = Some(gas_limit);
         }
 
-        async fn cmd(&self) -> Result<CommandDto> {
+        async fn cmd(&self) -> Result<CommandDto, KadenaClientError> {
             self.contract
                 .build_pact_tx_with_expr(&format!("(+ {} {})", self.a, self.b), self.gas_limit)
                 .await
@@ -85,8 +90,7 @@ pub mod prelude {
 
         pub fn new(signer: Arc<dyn Signer>) -> Self {
             let provider = Arc::new(TestProvider {
-                connection_conf: Arc::new(CONTEXT.conf.clone()),
-                proxy_conf: Arc::new(CONTEXT.proxy_conf.clone()),
+                client: CONTEXT.client.clone(),
                 signer,
             });
             TestContract { provider }
@@ -117,8 +121,7 @@ pub mod prelude {
         pub vault_address: Url,
         pub vault_key_id: String,
 
-        pub proxy_conf: ProxyConf,
-        pub conf: ConnectionConf,
+        pub client: Arc<KadenaProxyClient>,
     }
 
     pub static CONTEXT: Lazy<Context> = Lazy::new(|| {
@@ -127,13 +130,16 @@ pub mod prelude {
         let privkey_bytes = hex::decode(&default_privkey_str).unwrap();
         let default_privkey = SigningKey::from_bytes(&privkey_bytes.try_into().unwrap());
 
-        let kadena_proxy_url = dotenvy::var("KADENA_PROXY_URL").unwrap();
-        let proxy_conf = ProxyConf::new_with_base_path(kadena_proxy_url).unwrap();
+        let kadena_proxy_url = dotenvy::var("KADENA_PROXY_URL").unwrap().parse().unwrap();
 
         let network_id = dotenvy::var("NETWORK_ID").unwrap();
-        let chain_id = dotenvy::var("CHAIN_ID").unwrap();
-        let rpc_url = Url::parse(&dotenvy::var("RPC_URL").unwrap()).unwrap();
-        let conf = ConnectionConf::new(rpc_url, network_id, chain_id.parse().unwrap());
+        let chain_id = dotenvy::var("CHAIN_ID").unwrap().parse().unwrap();
+        let rpc_url = dotenvy::var("RPC_URL").unwrap().parse().unwrap();
+
+        let proxy_client = KadenaProxyClient::new(
+            ProxyConf::new_with_url(kadena_proxy_url),
+            ChainwebConf::new(rpc_url, network_id, chain_id),
+        );
 
         Context {
             default_pubkey_str: dotenvy::var("DEFAULT_PUBKEY").unwrap(),
@@ -142,8 +148,7 @@ pub mod prelude {
             vault_token: dotenvy::var("VAULT_TOKEN").unwrap(),
             vault_address: Url::parse(&std::env::var("VAULT_ADDRESS").unwrap()).unwrap(),
             vault_key_id: dotenvy::var("VAULT_KEY_ID").unwrap(),
-            proxy_conf,
-            conf,
+            client: Arc::new(proxy_client),
         }
     });
 }

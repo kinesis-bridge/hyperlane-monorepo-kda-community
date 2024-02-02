@@ -1,10 +1,17 @@
-use std::{collections::HashMap, num::NonZeroU64};
+use std::{
+    collections::HashMap,
+    num::NonZeroU64,
+};
 
-use crate::contract_call::ContractCall;
-use crate::models::CommandResultDto;
-use anyhow::Result;
-use hyperlane_core::ChainCommunicationError;
-use tracing::{error, info};
+use crate::{
+    contract_call::ContractCall,
+    error::KadenaClientError,
+    models::CommandResultDto,
+};
+use tracing::{
+    error,
+    info,
+};
 
 /// Buffer to add to gas estimate
 const GAS_ESTIMATE_BUFFER: u64 = 50000;
@@ -15,7 +22,9 @@ const POLL_RETRY_COUNT: u8 = 10;
 /// Polling interval in seconds
 const POLL_RETRY_INTERVAL: u8 = 30;
 
-pub async fn report_tx<C: ContractCall>(tx: C) -> Result<HashMap<String, CommandResultDto>> {
+pub async fn report_tx<C: ContractCall>(
+    tx: C,
+) -> Result<HashMap<String, CommandResultDto>, KadenaClientError> {
     info!("Dispatching transaction");
     let send_rsp = tx.send().await?;
 
@@ -23,7 +32,10 @@ pub async fn report_tx<C: ContractCall>(tx: C) -> Result<HashMap<String, Command
         tokio::time::interval(std::time::Duration::from_secs(POLL_RETRY_INTERVAL as u64));
 
     for retry in 0..POLL_RETRY_COUNT {
-        let poll_rsp = tx.poll(send_rsp.clone()).await?;
+        let poll_rsp = tx
+            .poll(send_rsp.clone())
+            .await
+            .map_err(|e| KadenaClientError::OtherError(Box::new(e)))?;
         if !poll_rsp.is_empty()
             && poll_rsp
                 .keys()
@@ -38,25 +50,27 @@ pub async fn report_tx<C: ContractCall>(tx: C) -> Result<HashMap<String, Command
         }
     }
     error!(?send_rsp.request_keys, "waiting for receipt timed out");
-    Err(anyhow::Error::from(
-        ChainCommunicationError::TransactionTimeout(),
-    ))
+    Err(KadenaClientError::PollTimeoutError(send_rsp.request_keys))
 }
 
-pub async fn fill_tx_gas_params<C: ContractCall>(tx: C, tx_gas_limit: Option<u64>) -> Result<C> {
+pub async fn fill_tx_gas_params<C: ContractCall>(
+    tx: C,
+    tx_gas_limit: Option<u64>,
+) -> Result<C, KadenaClientError> {
     let gas_limit = if let Some(gas_limit) = tx_gas_limit {
         gas_limit
     } else {
-        tx.estimate_gas()
-            .await?
-            .saturating_add(GAS_ESTIMATE_BUFFER)
+        tx.estimate_gas().await?.saturating_add(GAS_ESTIMATE_BUFFER)
     };
     let mut tx = tx;
     tx.set_gas_limit(gas_limit);
     Ok(tx)
 }
 
-pub async fn call_with_lag<C: ContractCall>(call: C, maybe_lag: Option<NonZeroU64>) -> Result<C> {
+pub async fn call_with_lag<C: ContractCall>(
+    call: C,
+    maybe_lag: Option<NonZeroU64>,
+) -> Result<C, KadenaClientError> {
     if let Some(_lag) = maybe_lag {
         // TODO: implement lag
         Ok(call)

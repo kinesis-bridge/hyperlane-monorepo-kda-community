@@ -40,12 +40,9 @@ impl KadenaMailboxIndexer {
         signer: Arc<dyn Signer>,
         reorg_period: u32,
     ) -> Self {
-        let (api_conf, proxy_conf) = conf.into();
-
         let provider = Arc::new(KadenaProvider::new(
             domain.clone(),
-            Arc::new(api_conf),
-            Arc::new(proxy_conf),
+            Arc::new(conf.into()),
             signer.clone(),
         ));
 
@@ -59,9 +56,11 @@ impl KadenaMailboxIndexer {
 
     #[instrument(level = "debug", err, ret, skip(self))]
     async fn get_finalized_block_number(&self) -> ChainResult<u32> {
-        Ok((self.provider.get_block_number().await.map_err(|_| {
-            ChainCommunicationError::from_other_str("Error while getting block number")
-        })? as u32)
+        Ok((self
+            .provider
+            .get_block_number()
+            .await
+            .map_err(ChainCommunicationError::from_other)? as u32)
             .saturating_sub(self.reorg_period))
     }
 }
@@ -84,12 +83,7 @@ impl Indexer<HyperlaneMessage> for KadenaMailboxIndexer {
             .await
             .map_err(ChainCommunicationError::from_other)?
             .into_iter()
-            .map(|event| {
-                (
-                    HyperlaneMessage::from(event.message.to_vec()),
-                    event.log.into(),
-                )
-            })
+            .map(|event| (event.message, event.log.into()))
             .collect();
 
         events.sort_by(|a, b| a.0.nonce.cmp(&b.0.nonce));
@@ -110,13 +104,9 @@ impl SequenceIndexer<HyperlaneMessage> for KadenaMailboxIndexer {
             .nonce()
             .local()
             .await
-            .map_err(|_| {
-                ChainCommunicationError::from_other_str("Error returned while doing local")
-            })?
+            .map_err(ChainCommunicationError::from_other)?
             .result()
-            .map_err(|_| {
-                ChainCommunicationError::from_other_str("Error returned while calling nonce")
-            })?
+            .map_err(ChainCommunicationError::from_other)?
             .as_u64()
             .ok_or_else(|| ChainCommunicationError::from_other_str("Nonce is not a u64"))?
             as u32;
@@ -140,7 +130,7 @@ impl Indexer<H256> for KadenaMailboxIndexer {
             .await
             .map_err(ChainCommunicationError::from_other)?
             .into_iter()
-            .map(|event| (H256::from(event.id), event.log.into()))
+            .map(|event| (H256::from(event.id), event.log))
             .collect())
     }
 }
@@ -166,12 +156,9 @@ pub struct KadenaMailbox {
 impl KadenaMailbox {
     /// Create a reference to a Kadena mailbox
     pub fn new(conf: &ConnectionConf, domain: &HyperlaneDomain, signer: Arc<dyn Signer>) -> Self {
-        let (api_conf, proxy_conf) = conf.into();
-
         let provider = Arc::new(KadenaProvider::new(
             domain.clone(),
-            Arc::new(api_conf),
-            Arc::new(proxy_conf),
+            Arc::new(conf.into()),
             signer.clone(),
         ));
         Self {
@@ -204,9 +191,7 @@ impl KadenaMailbox {
 
         fill_tx_gas_params(tx, tx_gas_limit_u64_op)
             .await
-            .map_err(|_| {
-                ChainCommunicationError::from_other_str("Error while filling tx gas params")
-            })
+            .map_err(ChainCommunicationError::from_other)
     }
 }
 
@@ -218,8 +203,7 @@ impl HyperlaneChain for KadenaMailbox {
     fn provider(&self) -> Box<dyn HyperlaneProvider> {
         Box::new(KadenaProvider::new(
             self.domain.clone(),
-            self.contract.provider().connection_conf().clone(),
-            self.contract.provider().kadena_proxy_config().clone(),
+            self.contract.provider().proxy_client().clone(),
             self.contract.provider().signer().clone(),
         ))
     }
@@ -237,19 +221,13 @@ impl Mailbox for KadenaMailbox {
     async fn count(&self, maybe_lag: Option<NonZeroU64>) -> ChainResult<u32> {
         let call = call_with_lag(self.contract.nonce(), maybe_lag)
             .await
-            .map_err(|_| {
-                ChainCommunicationError::from_other_str("Error while setting lag for nonce call")
-            })?;
+            .map_err(ChainCommunicationError::from_other)?;
         let nonce = call
             .local()
             .await
-            .map_err(|_| {
-                ChainCommunicationError::from_other_str("Error returned while doing local")
-            })?
+            .map_err(ChainCommunicationError::from_other)?
             .result()
-            .map_err(|_| {
-                ChainCommunicationError::from_other_str("Error returned while calling nonce")
-            })?
+            .map_err(ChainCommunicationError::from_other)?
             .as_u64()
             .ok_or_else(|| ChainCommunicationError::from_other_str("Nonce is not a u64"))?;
         Ok(nonce as u32)
@@ -262,13 +240,9 @@ impl Mailbox for KadenaMailbox {
             .delivered(id.into())
             .local()
             .await
-            .map_err(|_| {
-                ChainCommunicationError::from_other_str("Error returned while doing local")
-            })?
+            .map_err(ChainCommunicationError::from_other)?
             .result()
-            .map_err(|_| {
-                ChainCommunicationError::from_other_str("Error returned while calling delivered")
-            })?
+            .map_err(ChainCommunicationError::from_other)?
             .as_bool()
             .ok_or_else(|| ChainCommunicationError::from_other_str("Delivered is not a bool"))?)
     }
@@ -286,15 +260,9 @@ impl Mailbox for KadenaMailbox {
             .recipient_ism()
             .local()
             .await
-            .map_err(|_| {
-                ChainCommunicationError::from_other_str("Error returned while doing local")
-            })?
+            .map_err(ChainCommunicationError::from_other)?
             .result()
-            .map_err(|_| {
-                ChainCommunicationError::from_other_str(
-                    "Error returned while calling recipient_ism",
-                )
-            })?
+            .map_err(ChainCommunicationError::from_other)?
             .as_str()
             .ok_or(ChainCommunicationError::from_other_str(
                 "ISM is not a string",
@@ -317,9 +285,9 @@ impl Mailbox for KadenaMailbox {
         let contract_call = self
             .process_contract_call(message, metadata, tx_gas_limit)
             .await?;
-        let receipt = report_tx(contract_call).await.map_err(|_| {
-            ChainCommunicationError::from_other_str("Error returned while calling process")
-        })?;
+        let receipt = report_tx(contract_call)
+            .await
+            .map_err(ChainCommunicationError::from_other)?;
 
         let (_req_key, res) =
             receipt

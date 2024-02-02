@@ -1,8 +1,10 @@
 #![allow(missing_docs)]
 
-use anyhow::Result;
 use async_trait::async_trait;
-use kadena_client::signers::{LocalWallet, Signer, VaultSigner};
+use kadena_client::{
+    error::KadenaClientError,
+    signers::{LocalWallet, Signer, VaultSigner},
+};
 
 #[derive(Debug)]
 pub enum Signers {
@@ -29,7 +31,7 @@ impl Signer for Signers {
     async fn sign_transaction(
         &self,
         tx: &mut kadena_client::models::CommandDto,
-    ) -> Result<ed25519_dalek::Signature> {
+    ) -> Result<ed25519_dalek::Signature, KadenaClientError> {
         match self {
             Signers::Local(s) => s.sign_transaction(tx).await,
             Signers::Vault(s) => s.sign_transaction(tx).await,

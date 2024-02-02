@@ -37,12 +37,9 @@ impl KadenaInterchainGasPaymasterIndexer {
         signer: Arc<dyn Signer>,
         reorg_period: u32,
     ) -> Self {
-        let (api_conf, proxy_conf) = conf.into();
-
         let provider = Arc::new(KadenaProvider::new(
             domain.clone(),
-            Arc::new(api_conf),
-            Arc::new(proxy_conf),
+            Arc::new(conf.into()),
             signer.clone(),
         ));
 
@@ -86,9 +83,11 @@ impl Indexer<InterchainGasPayment> for KadenaInterchainGasPaymasterIndexer {
 
     #[instrument(level = "debug", err, ret, skip(self))]
     async fn get_finalized_block_number(&self) -> ChainResult<u32> {
-        Ok((self.provider.get_block_number().await.map_err(|_| {
-            ChainCommunicationError::from_other_str("Error while getting block number")
-        })? as u32)
+        Ok((self
+            .provider
+            .get_block_number()
+            .await
+            .map_err(ChainCommunicationError::from_other)? as u32)
             .saturating_sub(self.reorg_period))
     }
 }
@@ -118,12 +117,9 @@ impl KadenaInterchainGasPaymaster {
     /// Create a reference to an igp
     #[allow(unused)]
     pub fn new(conf: &ConnectionConf, domain: &HyperlaneDomain, signer: Arc<dyn Signer>) -> Self {
-        let (api_conf, proxy_conf) = conf.into();
-
         let provider = Arc::new(KadenaProvider::new(
             domain.clone(),
-            Arc::new(api_conf),
-            Arc::new(proxy_conf),
+            Arc::new(conf.into()),
             signer.clone(),
         ));
 
@@ -142,8 +138,7 @@ impl HyperlaneChain for KadenaInterchainGasPaymaster {
     fn provider(&self) -> Box<dyn HyperlaneProvider> {
         Box::new(KadenaProvider::new(
             self.domain.clone(),
-            self.contract.provider().connection_conf().clone(),
-            self.contract.provider().kadena_proxy_config().clone(),
+            self.contract.provider().proxy_client().clone(),
             self.contract.provider().signer().clone(),
         ))
     }

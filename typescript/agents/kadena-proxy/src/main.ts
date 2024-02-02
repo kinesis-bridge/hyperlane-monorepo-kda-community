@@ -17,6 +17,10 @@ async function bootstrap() {
 
   app.useGlobalPipes(new ValidationPipe({ transform: true }));
   app.useGlobalFilters(new AllExceptionsFilter());
+
+  const server = app.getHttpServer();
+  server.keepAliveTimeout = 60000;
+
   await app.listen(3000);
 }
 bootstrap();

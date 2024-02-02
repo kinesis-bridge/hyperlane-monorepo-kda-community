@@ -32,12 +32,9 @@ pub struct KadenaValidatorAnnounce {
 impl KadenaValidatorAnnounce {
     /// Create a reference to a ValidatoAnnounce contract
     pub fn new(conf: &ConnectionConf, domain: &HyperlaneDomain, signer: Arc<dyn Signer>) -> Self {
-        let (api_conf, proxy_conf) = conf.into();
-
         let provider = Arc::new(KadenaProvider::new(
             domain.clone(),
-            Arc::new(api_conf),
-            Arc::new(proxy_conf),
+            Arc::new(conf.into()),
             signer.clone(),
         ));
 
@@ -72,9 +69,7 @@ impl KadenaValidatorAnnounce {
 
         fill_tx_gas_params(tx, tx_gas_limit_u64_op)
             .await
-            .map_err(|_| {
-                ChainCommunicationError::from_other_str("Error while filling tx gas params")
-            })
+            .map_err(ChainCommunicationError::from_other)
     }
 }
 
@@ -86,8 +81,7 @@ impl HyperlaneChain for KadenaValidatorAnnounce {
     fn provider(&self) -> Box<dyn HyperlaneProvider> {
         Box::new(KadenaProvider::new(
             self.domain.clone(),
-            self.contract.provider().connection_conf().clone(),
-            self.contract.provider().kadena_proxy_config().clone(),
+            self.contract.provider().proxy_client().clone(),
             self.contract.provider().signer().clone(),
         ))
     }
@@ -117,9 +111,7 @@ impl ValidatorAnnounce for KadenaValidatorAnnounce {
             )
             .local()
             .await
-            .map_err(|_| {
-                ChainCommunicationError::from_other_str("Error returned while doing local")
-            })?
+            .map_err(ChainCommunicationError::from_other)?
             .result()
             .unwrap_or_default(); // TODO: should be removed when the smart contract side is fixed
                                   // TODO: handle error when the smart contract side is fixed
@@ -174,9 +166,9 @@ impl ValidatorAnnounce for KadenaValidatorAnnounce {
             .announce_contract_call(announcement, tx_gas_limit)
             .await?;
 
-        let receipt = report_tx(contract_call).await.map_err(|_| {
-            ChainCommunicationError::from_other_str("Error returned while calling process")
-        })?;
+        let receipt = report_tx(contract_call)
+            .await
+            .map_err(ChainCommunicationError::from_other)?;
 
         let (_req_key, res) =
             receipt

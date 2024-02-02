@@ -1,15 +1,15 @@
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 use crate::{provider, KadenaProvider};
 
-use anyhow::Result;
 use async_trait::async_trait;
-use hyperlane_core::U256;
+use hyperlane_core::{HyperlaneMessage, LogMeta, H160, H256, U256};
 use kadena_client::{
     contract::{Contract, KadenaProxyProvider},
     contract_call::ContractCall,
+    error::KadenaClientError,
     event::{Event, EventData},
-    models::{CommandDto, EventDataDto},
+    models::{CommandDto, EventDataDto, EventParamType},
 };
 
 use tracing::{debug, info};
@@ -19,108 +19,99 @@ use super::U256Proxy;
 
 #[derive(Debug, Clone)]
 pub struct DispatchEventData {
-    pub sender: [u8; 32],
+    pub sender: H256,
     pub destination: u32,
-    pub recipient: [u8; 32],
-    pub message: Vec<u8>,
+    pub recipient: H256,
+    pub message: HyperlaneMessage,
     pub log: LogMetaProxy,
 }
 
 impl TryFrom<EventDataDto> for DispatchEventData {
-    type Error = anyhow::Error;
-    fn try_from(event_data_dto: EventDataDto) -> Result<Self> {
-        let params = event_data_dto.params.clone();
+    type Error = KadenaClientError;
+    fn try_from(mut event_data_dto: EventDataDto) -> Result<Self, KadenaClientError> {
+        let args = Self::check_params(std::mem::take(&mut event_data_dto.params), Self::params())?;
 
         // Assembling message since it can't be stored in Event due to verify-spv
 
-        let version = params.get(0).ok_or(anyhow::anyhow!("Version is missing"))?;
-        let version = TryInto::<u64>::try_into(version.clone())? as u8;
-
-        debug!("Version: {}", version);
-
-        let nonce = params.get(1).ok_or(anyhow::anyhow!("Nonce is missing"))?;
-        let nonce = TryInto::<u64>::try_into(nonce.clone())? as u32;
-
-        debug!("Nonce: {}", nonce);
+        let version = (&args[0]).try_into()?;
+        let nonce = (&args[1]).try_into()?;
 
         // We should store origin in the event, but it's not available yet
-
-        //let origin = params.get(2).ok_or(anyhow::anyhow!("Origin is missing"))?;
-        //let origin = TryInto::<u64>::try_into(origin.clone())? as u32;
         let origin = 626u32;
 
-        let sender = params.get(2).ok_or(anyhow::anyhow!("Sender is missing"))?;
-        let sender_str = sender.to_string();
+        // As of now, sender is base64 url encoded string, it should be just bypassed as H256
+        let sender_str = args[2].to_string();
         let sender_vec = sender_str.as_bytes();
         let mut sender = [0u8; 32];
-        sender[..sender_vec.len()].copy_from_slice(&sender_vec);
+        let start_index = sender.len().saturating_sub(sender_vec.len());
+        sender[start_index..].copy_from_slice(&sender_vec);
+        let sender = H256::from(sender);
 
-        debug!("Sender: {}", hex::encode(sender));
+        let destination = (&args[3]).try_into()?;
 
-        let destination = params
-            .get(3)
-            .ok_or(anyhow::anyhow!("Destination is missing"))?;
-        let destination = TryInto::<u64>::try_into(destination.clone())? as u32;
+        let recipient = match H160::from_str(&args[4].to_string()) {
+            Ok(recipient) => H256::from(recipient),
+            Err(e) => {
+                debug!(
+                    "Failed to parse recipient as H160, trying to parse as H256: {}",
+                    e
+                );
+                H256::from_str(&args[4].to_string())
+                    .map_err(|e| KadenaClientError::OtherError(Box::new(e)))?
+            }
+        };
 
-        debug!("Destination: {}", destination);
+        let recipient_tm = match H160::from_str(&args[5].to_string()) {
+            Ok(recipient) => H256::from(recipient),
+            Err(e) => {
+                debug!(
+                    "Failed to parse recipient_tm as H160, trying to parse as H256: {}",
+                    e
+                );
+                H256::from_str(&args[5].to_string())
+                    .map_err(|e| KadenaClientError::OtherError(Box::new(e)))?
+            }
+        };
 
-        let recipient = params
-            .get(4)
-            .ok_or(anyhow::anyhow!("Recipient is missing"))?;
-        let recipient_str = recipient.to_string();
-        let recipient_vec = hex::decode(recipient_str.strip_prefix("0x").unwrap_or(&recipient_str))
-            .map_err(|_| anyhow::anyhow!("Invalid hex string"))?;
-        let mut recipient = [0u8; 32];
-        let start_index = recipient.len().saturating_sub(recipient_vec.len());
-        recipient[start_index..].copy_from_slice(&recipient_vec);
+        let amount: U256 = U256Proxy::try_from(&args[6])?.into();
 
-        debug!("Recipient: {}", hex::encode(recipient));
+        let mut message_body = [0u8; 64];
+        message_body[0..32].copy_from_slice(recipient_tm.as_bytes());
+        amount.to_big_endian(&mut message_body[32..64]);
 
-        let recipient_tm = params
-            .get(5)
-            .ok_or(anyhow::anyhow!("Recipient TM is missing"))?;
-        let recipient_tm_str = recipient_tm.to_string();
-        let recipient_tm_vec = hex::decode(
-            recipient_tm_str
-                .strip_prefix("0x")
-                .unwrap_or(&recipient_tm_str),
-        )
-        .map_err(|_| anyhow::anyhow!("Invalid hex string"))?;
-        let mut recipient_tm = [0u8; 32];
-        let start_index = recipient_tm.len().saturating_sub(recipient_tm_vec.len());
-        recipient_tm[start_index..].copy_from_slice(&recipient_tm_vec);
-
-        debug!("Recipient TM: {}", hex::encode(recipient_tm));
-
-        let amount = params.get(6).ok_or(anyhow::anyhow!("Amount is missing"))?;
-        let amount: U256 = U256Proxy::try_from(amount.clone())?.into();
-        let mut amount_vec: [u8; 32] = [0; 32];
-        amount.to_big_endian(&mut amount_vec);
-
-        debug!("Amount: {}", amount);
-
-        let mut message = Vec::new();
-
-        message.extend_from_slice(&version.to_be_bytes());
-        message.extend_from_slice(&nonce.to_be_bytes());
-        message.extend_from_slice(&origin.to_be_bytes());
-        message.extend_from_slice(&sender);
-        message.extend_from_slice(&destination.to_be_bytes());
-        message.extend_from_slice(&recipient);
-        message.extend_from_slice(&recipient_tm);
-        message.extend_from_slice(&amount_vec);
+        let message = HyperlaneMessage {
+            version,
+            nonce,
+            origin,
+            sender,
+            destination,
+            recipient,
+            body: message_body.to_vec(),
+        };
 
         Ok(Self {
             sender,
             destination,
             recipient,
             message,
-            log: LogMetaProxy::from(event_data_dto),
+            log: event_data_dto.into(),
         })
     }
 }
 
-impl EventData for DispatchEventData {}
+impl EventData for DispatchEventData {
+    fn params() -> &'static [EventParamType] {
+        &[
+            EventParamType::IntObject,
+            EventParamType::IntObject,
+            EventParamType::String,
+            EventParamType::String,
+            EventParamType::String,
+            EventParamType::String,
+            EventParamType::DecimalObject,
+        ]
+    }
+}
 
 pub struct DispatchEvent<'a> {
     contract: &'a IMailbox,
@@ -136,6 +127,7 @@ impl<'a> DispatchEvent<'a> {
 
 impl Event for DispatchEvent<'_> {
     type DataType = DispatchEventData;
+    type Error = KadenaClientError;
 
     fn contract(&self) -> &dyn Contract {
         self.contract
@@ -148,31 +140,30 @@ impl Event for DispatchEvent<'_> {
 
 #[derive(Debug, Clone)]
 pub struct DispatchIdEventData {
-    pub id: [u8; 32],
-    pub log: LogMetaProxy,
+    pub id: H256,
+    pub log: LogMeta,
 }
 
 impl TryFrom<EventDataDto> for DispatchIdEventData {
-    type Error = anyhow::Error;
-    fn try_from(event_data_dto: EventDataDto) -> Result<Self> {
-        let params = event_data_dto.params.clone();
-        let id = params.get(0).ok_or(anyhow::anyhow!("ID is missing"))?;
-        let id_str = id.to_string();
-        let id_vec = hex::decode(id_str.strip_prefix("0x").unwrap_or(&id_str))
-            .map_err(|_| anyhow::anyhow!("Invalid hex string"))?;
-        let mut id = [0u8; 32];
-        id[..id_vec.len()].copy_from_slice(&id_vec);
+    type Error = KadenaClientError;
+    fn try_from(mut event_data_dto: EventDataDto) -> Result<Self, Self::Error> {
+        let args = Self::check_params(std::mem::take(&mut event_data_dto.params), Self::params())?;
 
-        debug!("id: {}", hex::encode(id));
+        let id = H256::from_str(&args[0].to_string())
+            .map_err(|e| KadenaClientError::OtherError(Box::new(e)))?;
 
         Ok(Self {
             id,
-            log: LogMetaProxy::from(event_data_dto),
+            log: LogMetaProxy::from(event_data_dto).into(),
         })
     }
 }
 
-impl EventData for DispatchIdEventData {}
+impl EventData for DispatchIdEventData {
+    fn params() -> &'static [EventParamType] {
+        &[EventParamType::String]
+    }
+}
 
 pub struct DispatchIdEvent<'a> {
     contract: &'a IMailbox,
@@ -188,6 +179,7 @@ impl<'a> DispatchIdEvent<'a> {
 
 impl Event for DispatchIdEvent<'_> {
     type DataType = DispatchIdEventData;
+    type Error = KadenaClientError;
 
     fn contract(&self) -> &dyn Contract {
         self.contract
@@ -203,29 +195,35 @@ pub struct ProcessEventData {
     pub origin: String,
     pub sender: String,
     pub recipient: String,
-    pub log: LogMetaProxy,
+    pub log: LogMeta,
 }
 
 impl TryFrom<EventDataDto> for ProcessEventData {
-    type Error = anyhow::Error;
-    fn try_from(event_data_dto: EventDataDto) -> Result<Self> {
-        let params = event_data_dto.params.clone();
-        let origin = params.get(0).ok_or(anyhow::anyhow!("Origin is missing"))?;
-        let sender = params.get(1).ok_or(anyhow::anyhow!("Sender is missing"))?;
-        let recipient = params
-            .get(2)
-            .ok_or(anyhow::anyhow!("Recipient is missing"))?;
+    type Error = KadenaClientError;
+    fn try_from(mut event_data_dto: EventDataDto) -> Result<Self, KadenaClientError> {
+        let args = Self::check_params(std::mem::take(&mut event_data_dto.params), Self::params())?;
+        let origin = args[0].to_string();
+        let sender = args[1].to_string();
+        let recipient = args[2].to_string();
 
         Ok(Self {
-            origin: origin.to_string(),
-            sender: sender.to_string(),
-            recipient: recipient.to_string(),
-            log: LogMetaProxy::from(event_data_dto),
+            origin,
+            sender,
+            recipient,
+            log: LogMetaProxy::from(event_data_dto).into(),
         })
     }
 }
 
-impl EventData for ProcessEventData {}
+impl EventData for ProcessEventData {
+    fn params() -> &'static [EventParamType] {
+        &[
+            EventParamType::String,
+            EventParamType::String,
+            EventParamType::String,
+        ]
+    }
+}
 
 pub struct ProcessEvent<'a> {
     contract: &'a IMailbox,
@@ -241,6 +239,7 @@ impl<'a> ProcessEvent<'a> {
 
 impl Event for ProcessEvent<'_> {
     type DataType = ProcessEventData;
+    type Error = KadenaClientError;
 
     fn contract(&self) -> &dyn Contract {
         self.contract
@@ -253,28 +252,29 @@ impl Event for ProcessEvent<'_> {
 
 #[derive(Debug, Clone)]
 pub struct ProcessIdEventData {
-    pub id: [u8; 32],
-    pub log: LogMetaProxy,
+    pub id: H256,
+    pub log: LogMeta,
 }
 
 impl TryFrom<EventDataDto> for ProcessIdEventData {
-    type Error = anyhow::Error;
-    fn try_from(event_data_dto: EventDataDto) -> Result<Self> {
-        let params = event_data_dto.params.clone();
-        let id_str = params.get(0).ok_or(anyhow::anyhow!("ID is missing"))?;
-        let id_vec =
-            hex::decode(id_str.to_string()).map_err(|_| anyhow::anyhow!("Invalid hex string"))?;
-        let mut id = [0; 32];
-        id.copy_from_slice(&id_vec);
+    type Error = KadenaClientError;
+    fn try_from(mut event_data_dto: EventDataDto) -> Result<Self, KadenaClientError> {
+        let args = Self::check_params(std::mem::take(&mut event_data_dto.params), Self::params())?;
+        let id = H256::from_str(&args[0].to_string())
+            .map_err(|e| KadenaClientError::OtherError(Box::new(e)))?;
 
         Ok(Self {
             id,
-            log: LogMetaProxy::from(event_data_dto),
+            log: LogMetaProxy::from(event_data_dto).into(),
         })
     }
 }
 
-impl EventData for ProcessIdEventData {}
+impl EventData for ProcessIdEventData {
+    fn params() -> &'static [EventParamType] {
+        &[EventParamType::String]
+    }
+}
 
 pub struct ProcessIdEvent<'a> {
     contract: &'a IMailbox,
@@ -290,6 +290,7 @@ impl<'a> ProcessIdEvent<'a> {
 
 impl Event for ProcessIdEvent<'_> {
     type DataType = ProcessIdEventData;
+    type Error = KadenaClientError;
 
     fn contract(&self) -> &dyn Contract {
         self.contract
@@ -331,7 +332,7 @@ impl ContractCall for DeliveredCall<'_> {
         self.gas_limit
     }
 
-    async fn cmd(&self) -> Result<CommandDto> {
+    async fn cmd(&self) -> Result<CommandDto, KadenaClientError> {
         self.contract
             .build_pact_tx_with_expr(
                 &format!(
@@ -377,7 +378,7 @@ impl ContractCall for NonceCall<'_> {
         self.gas_limit
     }
 
-    async fn cmd(&self) -> Result<CommandDto> {
+    async fn cmd(&self) -> Result<CommandDto, KadenaClientError> {
         self.contract
             .build_pact_tx_with_expr(
                 &format!(
@@ -426,7 +427,7 @@ impl ContractCall for ProcessCall<'_> {
         self.gas_limit
     }
 
-    async fn cmd(&self) -> Result<CommandDto> {
+    async fn cmd(&self) -> Result<CommandDto, KadenaClientError> {
         let pact_string = format!(
             "({}.{}.{} \"0x{}\" \"0x{}\")",
             self.contract.namespace(),
@@ -472,7 +473,7 @@ impl ContractCall for RecipientIsmCall<'_> {
         self.gas_limit
     }
 
-    async fn cmd(&self) -> Result<CommandDto> {
+    async fn cmd(&self) -> Result<CommandDto, KadenaClientError> {
         self.contract
             .build_pact_tx_with_expr(
                 &format!(

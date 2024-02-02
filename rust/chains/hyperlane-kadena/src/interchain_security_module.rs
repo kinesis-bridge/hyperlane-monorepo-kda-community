@@ -29,12 +29,9 @@ impl KadenaInterchainSecurityModule {
     /// Create a reference to isp
     #[allow(unused)]
     pub fn new(conf: &ConnectionConf, domain: &HyperlaneDomain, signer: Arc<dyn Signer>) -> Self {
-        let (api_conf, proxy_conf) = conf.into();
-
         let provider = Arc::new(KadenaProvider::new(
             domain.clone(),
-            Arc::new(api_conf),
-            Arc::new(proxy_conf),
+            Arc::new(conf.into()),
             signer.clone(),
         ));
         Self {
@@ -52,8 +49,7 @@ impl HyperlaneChain for KadenaInterchainSecurityModule {
     fn provider(&self) -> Box<dyn HyperlaneProvider> {
         Box::new(KadenaProvider::new(
             self.domain.clone(),
-            self.contract.provider().connection_conf().clone(),
-            self.contract.provider().kadena_proxy_config().clone(),
+            self.contract.provider().proxy_client().clone(),
             self.contract.provider().signer().clone(),
         ))
     }
@@ -74,13 +70,9 @@ impl InterchainSecurityModule for KadenaInterchainSecurityModule {
             .module_type()
             .local()
             .await
-            .map_err(|_| {
-                ChainCommunicationError::from_other_str("Error returned while doing local")
-            })?
+            .map_err(ChainCommunicationError::from_other)?
             .result()
-            .map_err(|_| {
-                ChainCommunicationError::from_other_str("Error returned while calling module_type")
-            })?
+            .map_err(ChainCommunicationError::from_other)?
             .as_u64()
             .ok_or_else(|| ChainCommunicationError::from_other_str("Module type is not a u64"))?;
         if let Some(module_type) = ModuleType::from_u8(module as u8) {

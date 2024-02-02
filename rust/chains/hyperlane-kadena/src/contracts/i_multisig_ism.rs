@@ -2,11 +2,11 @@ use std::sync::Arc;
 
 use crate::{provider, KadenaProvider};
 
-use anyhow::Result;
 use async_trait::async_trait;
 use kadena_client::{
     contract::{Contract, KadenaProxyProvider},
     contract_call::ContractCall,
+    error::KadenaClientError,
     models::CommandDto,
 };
 
@@ -39,7 +39,7 @@ impl ContractCall for ValidatorsAndThresholdCall<'_> {
         self.gas_limit
     }
 
-    async fn cmd(&self) -> Result<CommandDto> {
+    async fn cmd(&self) -> Result<CommandDto, KadenaClientError> {
         self.contract
             .build_pact_tx_with_expr(
                 &format!(

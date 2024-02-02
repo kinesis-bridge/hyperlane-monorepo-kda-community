@@ -28,12 +28,9 @@ pub struct KadenaMultisigIsm {
 impl KadenaMultisigIsm {
     /// Create a reference to a kadena multisig ism
     pub fn new(conf: &ConnectionConf, domain: &HyperlaneDomain, signer: Arc<dyn Signer>) -> Self {
-        let (api_conf, proxy_conf) = conf.into();
-
         let provider = Arc::new(KadenaProvider::new(
             domain.clone(),
-            Arc::new(api_conf),
-            Arc::new(proxy_conf),
+            Arc::new(conf.into()),
             signer.clone(),
         ));
 
@@ -52,8 +49,7 @@ impl HyperlaneChain for KadenaMultisigIsm {
     fn provider(&self) -> Box<dyn HyperlaneProvider> {
         Box::new(KadenaProvider::new(
             self.domain.clone(),
-            self.contract.provider().connection_conf().clone(),
-            self.contract.provider().kadena_proxy_config().clone(),
+            self.contract.provider().proxy_client().clone(),
             self.contract.provider().signer().clone(),
         ))
     }
@@ -83,13 +79,9 @@ impl MultisigIsm for KadenaMultisigIsm {
             .validators_and_threshold()
             .local()
             .await
-            .map_err(|_| {
-                ChainCommunicationError::from_other_str("Error returned while doing local")
-            })?
+            .map_err(ChainCommunicationError::from_other)?
             .result()
-            .map_err(|_| {
-                ChainCommunicationError::from_other_str("Error returned while calling nonce")
-            })?;
+            .map_err(ChainCommunicationError::from_other)?;
 
         let validators_and_threshold: ValidatorsAndThresholdJson =
             serde_json::from_value(validators_and_threshold_value).map_err(|_| {

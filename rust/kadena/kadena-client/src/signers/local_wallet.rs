@@ -1,13 +1,20 @@
-use anyhow::Result;
-use base64::prelude::{Engine as _, BASE64_URL_SAFE_NO_PAD};
-use ed25519_dalek::Signature;
-use ed25519_dalek::Signer;
-use ed25519_dalek::SigningKey;
-use ed25519_dalek::VerifyingKey;
+use base64::prelude::{
+    Engine as _,
+    BASE64_URL_SAFE_NO_PAD,
+};
+use ed25519_dalek::{
+    Signature,
+    Signer,
+    SigningKey,
+    VerifyingKey,
+};
 use hex;
 use tracing::instrument;
 
-use crate::models::CommandDto;
+use crate::{
+    error::KadenaClientError,
+    models::CommandDto,
+};
 use async_trait::async_trait;
 
 #[derive(Debug)]
@@ -24,7 +31,7 @@ impl LocalWallet {
 #[async_trait]
 impl super::Signer for LocalWallet {
     #[instrument(err, skip(self))]
-    async fn sign_transaction(&self, tx: &mut CommandDto) -> Result<Signature> {
+    async fn sign_transaction(&self, tx: &mut CommandDto) -> Result<Signature, KadenaClientError> {
         let hash_bin = BASE64_URL_SAFE_NO_PAD.decode(&tx.hash)?;
         let signature = self.signer.sign(&hash_bin);
         let sig_str = hex::encode(signature.to_bytes());

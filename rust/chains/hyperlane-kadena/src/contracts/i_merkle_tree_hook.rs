@@ -1,14 +1,14 @@
 use std::sync::Arc;
 
 use crate::{provider, KadenaProvider};
-
-use anyhow::Result;
 use async_trait::async_trait;
+use hyperlane_core::ChainCommunicationError;
 use kadena_client::{
     contract::{Contract, KadenaProxyProvider},
     contract_call::ContractCall,
+    error::KadenaClientError,
     event::{Event, EventData},
-    models::{CommandDto, EventDataDto},
+    models::{CommandDto, EventDataDto, EventParamType},
 };
 
 pub struct InsertedIntoTreeEventData {
@@ -17,22 +17,21 @@ pub struct InsertedIntoTreeEventData {
 }
 
 impl TryFrom<EventDataDto> for InsertedIntoTreeEventData {
-    type Error = anyhow::Error;
-    fn try_from(event_data_dto: EventDataDto) -> Result<Self> {
-        let params = event_data_dto.params;
-        let message_id = params
-            .get(0)
-            .ok_or(anyhow::anyhow!("Message ID is missing"))?;
-        let index = params.get(1).ok_or(anyhow::anyhow!("Index is missing"))?;
+    type Error = KadenaClientError;
+    fn try_from(event_data_dto: EventDataDto) -> Result<Self, Self::Error> {
+        let args = Self::check_params(event_data_dto.params, Self::params())?;
+        let message_id = args[0].to_string();
+        let index = args[1].to_string();
 
-        Ok(Self {
-            message_id: message_id.to_string(),
-            index: index.to_string(),
-        })
+        Ok(Self { message_id, index })
     }
 }
 
-impl EventData for InsertedIntoTreeEventData {}
+impl EventData for InsertedIntoTreeEventData {
+    fn params() -> &'static [EventParamType] {
+        &[EventParamType::String, EventParamType::String]
+    }
+}
 
 pub struct InsertedIntoTreeEvent<'a> {
     contract: &'a IMerlkeTreeHook,
@@ -48,6 +47,7 @@ impl<'a> InsertedIntoTreeEvent<'a> {
 
 impl Event for InsertedIntoTreeEvent<'_> {
     type DataType = InsertedIntoTreeEventData;
+    type Error = KadenaClientError;
 
     fn contract(&self) -> &dyn Contract {
         self.contract
@@ -87,7 +87,7 @@ impl ContractCall for CountCall<'_> {
         self.gas_limit
     }
 
-    async fn cmd(&self) -> Result<CommandDto> {
+    async fn cmd(&self) -> Result<CommandDto, KadenaClientError> {
         self.contract
             .build_pact_tx_with_expr(
                 &format!(
@@ -132,7 +132,7 @@ impl ContractCall for LatestCheckpointCall<'_> {
         self.gas_limit
     }
 
-    async fn cmd(&self) -> Result<CommandDto> {
+    async fn cmd(&self) -> Result<CommandDto, KadenaClientError> {
         self.contract
             .build_pact_tx_with_expr(
                 &format!(
@@ -177,7 +177,7 @@ impl ContractCall for TreeCall<'_> {
         self.gas_limit
     }
 
-    async fn cmd(&self) -> Result<CommandDto> {
+    async fn cmd(&self) -> Result<CommandDto, KadenaClientError> {
         self.contract
             .build_pact_tx_with_expr(
                 &format!(
