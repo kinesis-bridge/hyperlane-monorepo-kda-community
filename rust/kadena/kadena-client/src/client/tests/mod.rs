@@ -14,7 +14,7 @@ struct DefaultContext {
 static DEFAULT_CONTEXT: Lazy<DefaultContext> = Lazy::new(|| {
     let chainweb_conf = ChainwebConf {
         url: Url::parse("http://kadena:8080").unwrap(),
-        network_id: "fast-development".to_owned(),
+        network_id: "development".to_owned(),
         chain_id: 0,
     };
     DefaultContext { chainweb_conf }

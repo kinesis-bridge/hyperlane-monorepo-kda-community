@@ -35,7 +35,7 @@ impl Default for ChainwebConf {
     fn default() -> Self {
         ChainwebConf {
             url: Url::parse("https://127.0.0.1:8080").unwrap(),
-            network_id: "fast-development".to_string(),
+            network_id: "development".to_string(),
             chain_id: 0,
         }
     }
