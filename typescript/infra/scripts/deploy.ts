@@ -20,7 +20,6 @@ import { Contexts } from '../config/contexts';
 import { deployEnvToSdkEnv } from '../src/config/environment';
 import { deployWithArtifacts } from '../src/deployment/deploy';
 import { TestQuerySenderDeployer } from '../src/deployment/testcontracts/testquerysender';
-import { TestRecipientDeployer } from '../src/deployment/testcontracts/testrecipient';
 import { impersonateAccount, useLocalProvider } from '../src/utils/fork';
 
 import {
@@ -29,11 +28,12 @@ import {
   getAddresses,
   getArgs,
   getContractAddressesSdkFilepath,
-  getEnvironmentConfig,
   getModuleDirectory,
   withContext,
   withModuleAndFork,
-} from './utils';
+  withNetwork,
+} from './agent-utils';
+import { getEnvironmentConfig } from './core-utils';
 
 async function main() {
   const {
@@ -41,17 +41,12 @@ async function main() {
     module,
     fork,
     environment,
-  } = await withContext(withModuleAndFork(getArgs())).argv;
+    network,
+  } = await withContext(withNetwork(withModuleAndFork(getArgs()))).argv;
   const envConfig = getEnvironmentConfig(environment);
   const env = deployEnvToSdkEnv[environment];
 
   let multiProvider = await envConfig.getMultiProvider();
-
-  // TODO: make this more generic
-  const deployerAddress =
-    environment === 'testnet4'
-      ? '0xfaD1C94469700833717Fa8a3017278BC1cA8031C'
-      : '0xa7ECcdb9Be08178f896c26b7BbD8C3D4E844d9Ba';
 
   if (fork) {
     multiProvider = multiProvider.extendChainMetadata({
@@ -59,7 +54,7 @@ async function main() {
     });
     await useLocalProvider(multiProvider, fork);
 
-    const signer = await impersonateAccount(deployerAddress);
+    const signer = await impersonateAccount(envConfig.owners[fork].owner);
     multiProvider.setSharedSigner(signer);
   }
 
@@ -75,8 +70,13 @@ async function main() {
       multiProvider,
     );
     deployer = new HyperlaneCoreDeployer(multiProvider, ismFactory);
+  } else if (module === Modules.WARP) {
+    throw new Error('Warp is not supported. Use CLI instead.');
   } else if (module === Modules.INTERCHAIN_GAS_PAYMASTER) {
-    config = envConfig.igp;
+    config = {
+      ...envConfig.igp,
+      oracleConfig: envConfig.storageGasOracleConfig,
+    };
     deployer = new HyperlaneIgpDeployer(multiProvider);
   } else if (module === Modules.INTERCHAIN_ACCOUNTS) {
     const core = HyperlaneCore.fromEnvironment(env, multiProvider);
@@ -101,8 +101,7 @@ async function main() {
     );
     deployer = new LiquidityLayerDeployer(multiProvider);
   } else if (module === Modules.TEST_RECIPIENT) {
-    config = objMap(envConfig.core, (_chain) => true);
-    deployer = new TestRecipientDeployer(multiProvider);
+    throw new Error('Test recipient is not supported. Use CLI instead.');
   } else if (module === Modules.TEST_QUERY_SENDER) {
     // Get query router addresses
     const queryAddresses = getAddresses(
@@ -115,7 +114,7 @@ async function main() {
     deployer = new TestQuerySenderDeployer(multiProvider);
   } else if (module === Modules.HELLO_WORLD) {
     const core = HyperlaneCore.fromEnvironment(env, multiProvider);
-    config = core.getRouterConfig(deployerAddress);
+    config = core.getRouterConfig(envConfig.owners);
     deployer = new HelloWorldDeployer(multiProvider);
   } else {
     console.log(`Skipping ${module}, deployer unimplemented`);
@@ -141,7 +140,7 @@ async function main() {
     addresses,
     verification,
     read: environment !== 'test',
-    write: true,
+    write: !fork,
   };
   // Don't write agent config in fork tests
   const agentConfig =
@@ -153,9 +152,10 @@ async function main() {
         }
       : undefined;
 
-  // prompt for confirmation
-  if ((environment === 'mainnet3' || environment === 'testnet4') && !fork) {
-    console.log(JSON.stringify(config, null, 2));
+  // prompt for confirmation in production environments
+  if (environment !== 'test' && !fork) {
+    const confirmConfig = network ? config[network] : config;
+    console.log(JSON.stringify(confirmConfig, null, 2));
     const { value: confirmed } = await prompt({
       type: 'confirm',
       name: 'value',
@@ -167,7 +167,13 @@ async function main() {
     }
   }
 
-  await deployWithArtifacts(config, deployer, cache, fork, agentConfig);
+  await deployWithArtifacts(
+    config,
+    deployer,
+    cache,
+    network ?? fork,
+    agentConfig,
+  );
 }
 
 main()

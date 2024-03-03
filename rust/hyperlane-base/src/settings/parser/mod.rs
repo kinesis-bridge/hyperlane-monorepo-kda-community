@@ -11,20 +11,23 @@ use std::{
 
 use convert_case::{Case, Casing};
 use eyre::{eyre, Context};
+use h_cosmos::RawCosmosAmount;
 use hyperlane_core::{
     cfg_unwrap_all, config::*, HyperlaneDomain, HyperlaneDomainProtocol, IndexMode,
 };
 use itertools::Itertools;
 use serde::Deserialize;
 use serde_json::Value;
+use url::Url;
 
 pub use self::json_value_parser::ValueParser;
 pub use super::envs::*;
 use crate::settings::{
-    chains::IndexSettings, trace::TracingConfig, ChainConf, ChainConnectionConf,
-    CoreContractAddresses, Settings, SignerConf,
+    chains::IndexSettings, parser::connection_parser::build_connection_conf, trace::TracingConfig,
+    ChainConf, CoreContractAddresses, Settings, SignerConf,
 };
 
+mod connection_parser;
 mod json_value_parser;
 
 /// The base agent config
@@ -132,47 +135,7 @@ fn parse_chain(
         .parse_u32()
         .unwrap_or(1);
 
-    let rpcs_base = chain
-        .chain(&mut err)
-        .get_key("rpcUrls")
-        .into_array_iter()
-        .map(|urls| {
-            urls.filter_map(|v| {
-                v.chain(&mut err)
-                    .get_key("http")
-                    .parse_from_str("Invalid http url")
-                    .end()
-            })
-            .collect_vec()
-        })
-        .unwrap_or_default();
-
-    let rpc_overrides = chain
-        .chain(&mut err)
-        .get_opt_key("customRpcUrls")
-        .parse_string()
-        .end()
-        .map(|urls| {
-            urls.split(',')
-                .filter_map(|url| {
-                    url.parse()
-                        .take_err(&mut err, || &chain.cwp + "customRpcUrls")
-                })
-                .collect_vec()
-        });
-
-    let rpcs = rpc_overrides.unwrap_or(rpcs_base);
-
-    if rpcs.is_empty() {
-        err.push(
-            &chain.cwp + "rpc_urls",
-            eyre!("Missing base rpc definitions for chain"),
-        );
-        err.push(
-            &chain.cwp + "custom_rpc_urls",
-            eyre!("Also missing rpc overrides for chain"),
-        );
-    }
+    let rpcs = parse_base_and_override_urls(&chain, "rpcUrls", "customRpcUrls", "http", &mut err);
 
     let from = chain
         .chain(&mut err)
@@ -219,81 +182,20 @@ fn parse_chain(
         .end();
     let merkle_tree_hook = chain
         .chain(&mut err)
-        .get_opt_key("merkleTreeHook")
+        .get_key("merkleTreeHook")
         .parse_address_hash()
         .end();
 
     cfg_unwrap_all!(&chain.cwp, err: [domain]);
+    let connection = build_connection_conf(
+        domain.domain_protocol(),
+        &rpcs,
+        &chain,
+        &mut err,
+        default_rpc_consensus_type,
+    );
 
-    let connection: Option<ChainConnectionConf> = match domain.domain_protocol() {
-        HyperlaneDomainProtocol::Ethereum => {
-            if rpcs.len() <= 1 {
-                rpcs.into_iter()
-                    .next()
-                    .map(|url| ChainConnectionConf::Ethereum(h_eth::ConnectionConf::Http { url }))
-            } else {
-                let rpc_consensus_type = chain
-                    .chain(&mut err)
-                    .get_opt_key("rpcConsensusType")
-                    .parse_string()
-                    .unwrap_or(default_rpc_consensus_type);
-                match rpc_consensus_type {
-                    "single" => Some(h_eth::ConnectionConf::Http {
-                        url: rpcs.into_iter().next().unwrap(),
-                    }),
-                    "fallback" => Some(h_eth::ConnectionConf::HttpFallback { urls: rpcs }),
-                    "quorum" => Some(h_eth::ConnectionConf::HttpQuorum { urls: rpcs }),
-                    ty => Err(eyre!("unknown rpc consensus type `{ty}`"))
-                        .take_err(&mut err, || &chain.cwp + "rpc_consensus_type"),
-                }
-                .map(ChainConnectionConf::Ethereum)
-            }
-        }
-        HyperlaneDomainProtocol::Fuel => rpcs
-            .into_iter()
-            .next()
-            .map(|url| ChainConnectionConf::Fuel(h_fuel::ConnectionConf { url })),
-        HyperlaneDomainProtocol::Sealevel => rpcs
-            .into_iter()
-            .next()
-            .map(|url| ChainConnectionConf::Sealevel(h_sealevel::ConnectionConf { url })),
-        HyperlaneDomainProtocol::Kadena => {
-            let kadena_proxy_url = chain
-                .chain(&mut err)
-                .get_key("proxyUrl")
-                .parse_from_str("Invalid kadena proxy url")
-                .end();
-            cfg_unwrap_all!(&chain.cwp, err: [kadena_proxy_url]);
-
-            rpcs.into_iter().next().and_then(|url| {
-                // Validate the URL
-                let path_segments: Vec<&str> = url.path_segments().unwrap().collect();
-                if path_segments.len() < 6
-                    || path_segments[0] != "chainweb"
-                    || path_segments[3] != "chain"
-                    || path_segments[4].parse::<u8>().is_err()
-                {
-                    Err::<(), _>(eyre!("Kadena URL is not valid"))
-                        .take_err(&mut err, || &chain.cwp + "rpc_urls");
-                    return None;
-                }
-
-                // Extract the host, network_id, and chain_id
-                let host_with_scheme = url.as_str().trim_end_matches(url.path());
-                let network_id = path_segments[2];
-                let chain_id: u8 = path_segments[4].parse().unwrap();
-
-                Some(ChainConnectionConf::Kadena(h_kadena::ConnectionConf {
-                    url: url::Url::parse(host_with_scheme).unwrap(),
-                    network_id: network_id.to_string(),
-                    chain_id,
-                    kadena_proxy_url,
-                }))
-            })
-        }
-    };
-
-    cfg_unwrap_all!(&chain.cwp, err: [connection, mailbox, interchain_gas_paymaster, validator_announce]);
+    cfg_unwrap_all!(&chain.cwp, err: [connection, mailbox, interchain_gas_paymaster, validator_announce, merkle_tree_hook]);
     err.into_result(ChainConf {
         domain,
         signer,
@@ -361,7 +263,7 @@ fn parse_signer(signer: ValueParser) -> ConfigResult<SignerConf> {
 
     let signer_type = signer
         .chain(&mut err)
-        .get_opt_key("signerType")
+        .get_opt_key("type")
         .parse_string()
         .end();
 
@@ -392,11 +294,28 @@ fn parse_signer(signer: ValueParser) -> ConfigResult<SignerConf> {
                 .unwrap_or_default();
             err.into_result(SignerConf::Aws { id, region })
         }};
+        (cosmosKey) => {{
+            let key = signer
+                .chain(&mut err)
+                .get_key("key")
+                .parse_private_key()
+                .unwrap_or_default();
+            let prefix = signer
+                .chain(&mut err)
+                .get_key("prefix")
+                .parse_string()
+                .unwrap_or_default();
+            err.into_result(SignerConf::CosmosKey {
+                key,
+                prefix: prefix.to_string(),
+            })
+        }};
     }
 
     match signer_type {
         Some("hexKey") => parse_signer!(hexKey),
         Some("aws") => parse_signer!(aws),
+        Some("cosmosKey") => parse_signer!(cosmosKey),
         Some(t) => {
             Err(eyre!("Unknown signer type `{t}`")).into_config_result(|| &signer.cwp + "type")
         }
@@ -440,4 +359,86 @@ pub fn recase_json_value(mut val: Value, case: Case) -> Value {
         _ => {}
     }
     val
+}
+
+/// Expects AgentSigner.
+fn parse_cosmos_gas_price(gas_price: ValueParser) -> ConfigResult<RawCosmosAmount> {
+    let mut err = ConfigParsingError::default();
+
+    let amount = gas_price
+        .chain(&mut err)
+        .get_opt_key("amount")
+        .parse_string()
+        .end();
+
+    let denom = gas_price
+        .chain(&mut err)
+        .get_opt_key("denom")
+        .parse_string()
+        .end();
+    cfg_unwrap_all!(&gas_price.cwp, err: [denom, amount]);
+    err.into_result(RawCosmosAmount::new(denom.to_owned(), amount.to_owned()))
+}
+
+fn parse_urls(
+    chain: &ValueParser,
+    key: &str,
+    protocol: &str,
+    err: &mut ConfigParsingError,
+) -> Vec<Url> {
+    chain
+        .chain(err)
+        .get_key(key)
+        .into_array_iter()
+        .map(|urls| {
+            urls.filter_map(|v| {
+                v.chain(err)
+                    .get_key(protocol)
+                    .parse_from_str("Invalid url")
+                    .end()
+            })
+            .collect_vec()
+        })
+        .unwrap_or_default()
+}
+
+fn parse_custom_urls(
+    chain: &ValueParser,
+    key: &str,
+    err: &mut ConfigParsingError,
+) -> Option<Vec<Url>> {
+    chain
+        .chain(err)
+        .get_opt_key(key)
+        .parse_string()
+        .end()
+        .map(|urls| {
+            urls.split(',')
+                .filter_map(|url| url.parse().take_err(err, || &chain.cwp + "customGrpcUrls"))
+                .collect_vec()
+        })
+}
+
+fn parse_base_and_override_urls(
+    chain: &ValueParser,
+    base_key: &str,
+    override_key: &str,
+    protocol: &str,
+    err: &mut ConfigParsingError,
+) -> Vec<Url> {
+    let base = parse_urls(chain, base_key, protocol, err);
+    let overrides = parse_custom_urls(chain, override_key, err);
+    let combined = overrides.unwrap_or(base);
+
+    if combined.is_empty() {
+        err.push(
+            &chain.cwp + "rpc_urls",
+            eyre!("Missing base rpc definitions for chain"),
+        );
+        err.push(
+            &chain.cwp + "custom_rpc_urls",
+            eyre!("Also missing rpc overrides for chain"),
+        );
+    }
+    combined
 }

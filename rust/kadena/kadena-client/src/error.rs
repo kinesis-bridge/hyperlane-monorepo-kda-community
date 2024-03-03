@@ -48,4 +48,7 @@ pub enum KadenaClientError {
 
     #[error("Other error: {0}")]
     OtherError(#[from] Box<dyn std::error::Error + Send + Sync + 'static>),
+
+    #[error("Overflow error")]
+    OverflowError,
 }

@@ -1,5 +1,4 @@
 import {
-  ChainMap,
   CoreConfig,
   CoreViolationType,
   HyperlaneCore,
@@ -9,7 +8,6 @@ import {
   OwnerViolation,
   ViolationType,
 } from '@hyperlane-xyz/sdk';
-import { Address } from '@hyperlane-xyz/utils';
 
 import { HyperlaneAppGovernor } from '../govern/HyperlaneAppGovernor';
 
@@ -17,11 +15,8 @@ export class HyperlaneCoreGovernor extends HyperlaneAppGovernor<
   HyperlaneCore,
   CoreConfig
 > {
-  constructor(
-    readonly checker: HyperlaneCoreChecker,
-    owners: ChainMap<Address>,
-  ) {
-    super(checker, owners);
+  constructor(readonly checker: HyperlaneCoreChecker) {
+    super(checker);
   }
 
   protected async handleMailboxViolation(violation: MailboxViolation) {
@@ -29,10 +24,10 @@ export class HyperlaneCoreGovernor extends HyperlaneAppGovernor<
       case MailboxViolationType.DefaultIsm: {
         let ismAddress: string;
         if (typeof violation.expected === 'object') {
-          const ism = await this.checker.ismFactory.deploy(
-            violation.chain,
-            violation.expected,
-          );
+          const ism = await this.checker.ismFactory.deploy({
+            destination: violation.chain,
+            config: violation.expected,
+          });
           ismAddress = ism.address;
         } else if (typeof violation.expected === 'string') {
           ismAddress = violation.expected;
@@ -64,6 +59,10 @@ export class HyperlaneCoreGovernor extends HyperlaneAppGovernor<
         }
         case CoreViolationType.Mailbox: {
           await this.handleMailboxViolation(violation as MailboxViolation);
+          break;
+        }
+        case CoreViolationType.ValidatorAnnounce: {
+          console.warn('Ignoring ValidatorAnnounce violation');
           break;
         }
         default:

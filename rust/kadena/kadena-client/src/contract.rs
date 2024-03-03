@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 const CONFIRMATION_DEPTH: u64 = 0;
 pub const DEFAULT_GAS_LIMIT: u64 = 100_000;
+pub const DEFAULT_NAMESPACE: &str = "free";
 
 #[async_trait]
 pub trait KadenaProxyProvider {
@@ -52,21 +53,17 @@ pub trait Contract: Send + Sync {
 
     /// Returns the namespace for this contract.
     fn namespace(&self) -> &'static str {
-        // TODO: we may want to remove this in a final version
-        "free"
+        DEFAULT_NAMESPACE
     }
 
-    // TODO: consider moving it to a better place. Public key is not a part of the contract.
-    /// Returns a string representation of the public key for this contract signer.
+    /// Returns the public key for this contract signer.
     fn pubkey(&self) -> String {
-        // TODO: remove this in a final version
-        "368820f80c324bbc7c2b0610688a7da43e39f91d118732671cd9c7500ff43cca".to_string()
+        self.provider().signer().pubkey_str()
     }
 
     // TODO: consider moving it to a better place. Account name is not a part of the contract.
     /// Returns the account name for this contract.
     fn account_name(&self) -> String {
-        //format!("k:{}", self.pubkey())
         // TODO: remove this hardcode when the smart contract side supports k accounts for agents
         "sender00".to_string()
     }

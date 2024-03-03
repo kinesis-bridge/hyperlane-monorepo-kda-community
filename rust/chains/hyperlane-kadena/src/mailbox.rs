@@ -13,7 +13,7 @@ use kadena_client::signers::Signer;
 use tracing::{instrument, warn};
 
 use hyperlane_core::{
-    utils::fmt_bytes, ChainCommunicationError, ChainResult, HyperlaneChain, HyperlaneContract,
+    utils::bytes_to_hex, ChainCommunicationError, ChainResult, HyperlaneChain, HyperlaneContract,
     HyperlaneDomain, HyperlaneMessage, HyperlaneProvider, Indexer, LogMeta, Mailbox,
     RawHyperlaneMessage, SequenceIndexer, TxCostEstimate, TxOutcome, H256, U256,
 };
@@ -275,7 +275,7 @@ impl Mailbox for KadenaMailbox {
         Ok(H256::from(ism_bytes))
     }
 
-    #[instrument(skip(self), fields(metadata=%fmt_bytes(metadata)))]
+    #[instrument(skip(self), fields(metadata=%bytes_to_hex(metadata)))]
     async fn process(
         &self,
         message: &HyperlaneMessage,
@@ -303,17 +303,17 @@ impl Mailbox for KadenaMailbox {
             ),
             executed: true,
             gas_used: U256::from(res.gas),
-            gas_price: U256::from(
-                res.meta_data
+            gas_price: 
+                (res
+                    .meta_data
                     .and_then(|meta| meta.public_meta.map(|public_meta| public_meta.gas_price))
-                    .unwrap_or_default() as u128,
-            ),
+                    .unwrap_or_default() as u128).into(),
         };
 
         Ok(tx_outcome)
     }
 
-    #[instrument(skip(self), fields(msg=%message, metadata=%fmt_bytes(metadata)))]
+    #[instrument(skip(self), fields(msg=%message, metadata=%bytes_to_hex(metadata)))]
     async fn process_estimate_costs(
         &self,
         message: &HyperlaneMessage,

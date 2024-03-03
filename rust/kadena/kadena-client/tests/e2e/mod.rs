@@ -4,16 +4,12 @@ use std::sync::Arc;
 
 use common::prelude::*;
 use kadena_client::{
-    contract_call::ContractCall,
-    models::CommandResultDtoResult,
-    signers::{
+    contract_call::ContractCall, contracts::CoinContract, models::CommandResultDtoResult, signers::{
         LocalWallet,
         VaultSigner,
-    },
-    tx::{
-        self,
-    },
+    }, tx
 };
+use serde::Deserialize;
 
 #[tokio::test]
 pub async fn test_add_two_numbers_local_tx() {
@@ -98,4 +94,18 @@ pub async fn test_add_two_numbers_vault_tx() {
             panic!("Error in tx {:?}", err);
         }
     }
+}
+
+#[tokio::test]
+pub async fn test_get_balance_local_tx() {
+    let coin_contract =
+        CoinContract::new(Arc::new(TestProvider {
+            client: CONTEXT.client.clone(),
+            signer: Arc::new(LocalWallet::new(CONTEXT.default_privkey.clone())),
+        }));
+    let balance = coin_contract.get_balance("sender00".to_string()).await.unwrap();
+    println!("res: {:?}", balance);
+
+    let balance = coin_contract.get_balance("k:94c35ab1bd70243ec670495077f7846373b4dc5e9779d7a6732b5ceb6fde059c".to_string()).await.unwrap();
+    println!("res: {:?}", balance);
 }

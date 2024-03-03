@@ -5,23 +5,25 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use hyperlane_core::accumulator::incremental::IncrementalMerkle;
+use kadena_client::contract_call::ContractCall;
 use kadena_client::signers::Signer;
 use tracing::instrument;
 
 use hyperlane_core::{
-    ChainResult, Checkpoint, HyperlaneChain, HyperlaneContract, HyperlaneDomain, HyperlaneProvider,
-    Indexer, LogMeta, MerkleTreeHook, MerkleTreeInsertion, SequenceIndexer, H256,
+    ChainCommunicationError, ChainResult, Checkpoint, HyperlaneChain, HyperlaneContract, HyperlaneDomain, HyperlaneProvider, Indexer, LogMeta, MerkleTreeHook, MerkleTreeInsertion, SequenceIndexer, H256
 };
 
 use crate::contracts::i_merkle_tree_hook::IMerlkeTreeHook;
+use crate::contracts::i_mailbox::IMailbox;
 use crate::{ConnectionConf, KadenaProvider};
-use kadena_client::contract::Contract;
+use kadena_client::contract::{Contract, KadenaProxyProvider};
 
 #[derive(Debug)]
 /// Struct that retrieves event data for a Kadena MerkleTreeHook
 pub struct KadenaMerkleTreeHookIndexer {
+    // The Kadena implementation doesn't have the merkleTreeHook contract yet, so we use the mailbox contract
     #[allow(dead_code)]
-    contract: Arc<IMerlkeTreeHook>,
+    contract: Arc<IMailbox>,
     #[allow(dead_code)]
     provider: Arc<KadenaProvider>,
     #[allow(dead_code)]
@@ -44,7 +46,7 @@ impl KadenaMerkleTreeHookIndexer {
         ));
 
         Self {
-            contract: Arc::new(IMerlkeTreeHook::new(provider.clone())),
+            contract: Arc::new(IMailbox::new(provider.clone())),
             provider,
             reorg_period,
         }
@@ -63,25 +65,39 @@ impl Indexer<MerkleTreeInsertion> for KadenaMerkleTreeHookIndexer {
 
     #[instrument(level = "debug", err, ret, skip(self))]
     async fn get_finalized_block_number(&self) -> ChainResult<u32> {
-        Ok(0)
+        Ok((self
+            .provider
+            .get_block_number()
+            .await
+            .map_err(ChainCommunicationError::from_other)? as u32)
+            .saturating_sub(self.reorg_period))
     }
 }
 
 #[async_trait]
 impl SequenceIndexer<MerkleTreeInsertion> for KadenaMerkleTreeHookIndexer {
     async fn sequence_and_tip(&self) -> ChainResult<(Option<u32>, u32)> {
-        // The InterchainGasPaymasterIndexerBuilder must return a `SequenceIndexer` type.
-        // It's fine if only a blanket implementation is provided for EVM chains, since their
-        // indexing only uses the `Index` trait, which is a supertrait of `SequenceIndexer`.
-        // TODO: if `SequenceIndexer` turns out to not depend on `Indexer` at all, then the supertrait
-        // dependency could be removed, even if the builder would still need to return a type that is both
-        // ``SequenceIndexer` and `Indexer`.
-        let tip = self.get_finalized_block_number().await?;
-        Ok((None, tip))
+        let tip = Indexer::<MerkleTreeInsertion>::get_finalized_block_number(self).await?;
+
+        // TODO: block call is not supported yet
+        //let sequence = self.contract.nonce().block(u64::from(tip)).call().await?;
+        let sequence = self
+            .contract
+            .nonce()
+            .local()
+            .await
+            .map_err(ChainCommunicationError::from_other)?
+            .result()
+            .map_err(ChainCommunicationError::from_other)?
+            .as_u64()
+            .ok_or_else(|| ChainCommunicationError::from_other_str("Nonce is not a u64"))?
+            as u32;
+
+        Ok((Some(sequence), tip))
     }
 }
 
-/// A reference to a Mailbox contract on some Kadena chain
+/// A reference to a merkleTreeHook contract on some Kadena chain
 #[derive(Debug)]
 pub struct KadenaMerkleTreeHook {
     contract: Arc<IMerlkeTreeHook>,

@@ -25,8 +25,8 @@ pub mod prelude {
     use url::Url;
 
     pub struct TestProvider {
-        client: Arc<KadenaProxyClient>,
-        signer: Arc<dyn Signer>,
+        pub client: Arc<KadenaProxyClient>,
+        pub signer: Arc<dyn Signer>,
     }
 
     impl KadenaProxyProvider for TestProvider {
@@ -98,7 +98,7 @@ pub mod prelude {
 
         pub async fn add_two_numbers(&self, a: u64, b: u64) -> AddTwoNumbersCall {
             AddTwoNumbersCall::new(self, a, b).await
-        }
+        }   
     }
 
     impl Contract for TestContract {

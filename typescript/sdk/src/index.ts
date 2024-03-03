@@ -6,7 +6,6 @@ export {
   BaseSealevelAdapter,
   MultiProtocolApp,
 } from './app/MultiProtocolApp';
-export { agentStartBlocks } from './consts/agentStartBlocks';
 export {
   chainIdToMetadata,
   chainMetadata,
@@ -30,6 +29,7 @@ export {
   hyperlaneContractAddresses,
   hyperlaneEnvironments,
 } from './consts/environments';
+export { MAILBOX_VERSION } from './consts/mailbox';
 export { defaultMultisigConfigs } from './consts/multisigIsm';
 export { SEALEVEL_SPL_NOOP_ADDRESS } from './consts/sealevel';
 export {
@@ -59,6 +59,10 @@ export { HyperlaneCoreDeployer } from './core/HyperlaneCoreDeployer';
 export { MultiProtocolCore } from './core/MultiProtocolCore';
 export { TestCoreApp } from './core/TestCoreApp';
 export { TestCoreDeployer } from './core/TestCoreDeployer';
+export {
+  TestRecipientConfig,
+  TestRecipientDeployer,
+} from './core/TestRecipientDeployer';
 export { EvmCoreAdapter } from './core/adapters/EvmCoreAdapter';
 export { SealevelCoreAdapter } from './core/adapters/SealevelCoreAdapter';
 export { ICoreAdapter } from './core/adapters/types';
@@ -78,6 +82,7 @@ export { DeployerOptions, HyperlaneDeployer } from './deploy/HyperlaneDeployer';
 export { HyperlaneProxyFactoryDeployer } from './deploy/HyperlaneProxyFactoryDeployer';
 export {
   CheckerViolation,
+  OwnableConfig,
   OwnerViolation,
   ViolationType,
 } from './deploy/types';
@@ -100,6 +105,10 @@ export {
   SealevelOverheadIgpDataSchema,
 } from './gas/adapters/serialization';
 export { IgpFactories, igpFactories } from './gas/contracts';
+export {
+  prettyRemoteGasData,
+  prettyTokenExchangeRate,
+} from './gas/oracle/logging';
 export { CoinGeckoTokenPriceGetter } from './gas/token-prices';
 export {
   GasOracleContractType,
@@ -117,9 +126,11 @@ export {
   FallbackRoutingHookConfig,
   HookConfig,
   HookType,
+  HooksConfig,
   IgpHookConfig,
   MerkleTreeHookConfig,
   OpStackHookConfig,
+  PausableHookConfig,
   ProtocolFeeHookConfig,
 } from './hook/types';
 export {
@@ -127,7 +138,10 @@ export {
   collectValidators,
   moduleCanCertainlyVerify,
 } from './ism/HyperlaneIsmFactory';
-export { buildMultisigIsmConfigs } from './ism/multisig';
+export {
+  buildAggregationIsmConfigs,
+  buildMultisigIsmConfigs,
+} from './ism/multisig';
 export {
   AggregationIsmConfig,
   DeployedIsm,
@@ -137,6 +151,7 @@ export {
   MultisigConfig,
   MultisigIsmConfig,
   OpStackIsmConfig,
+  PausableIsmConfig,
   RoutingIsmConfig,
 } from './ism/types';
 export {
@@ -164,6 +179,7 @@ export {
   buildAgentConfig,
 } from './metadata/agentConfig';
 export {
+  BlockExplorer,
   ChainMetadata,
   ChainMetadataSchema,
   ChainMetadataSchemaObject,
@@ -173,13 +189,19 @@ export {
   RpcUrlSchema,
   getChainIdNumber,
   getDomainId,
+  getReorgPeriod,
   isValidChainMetadata,
 } from './metadata/chainMetadataTypes';
+export { ZHash } from './metadata/customZodTypes';
 export {
   HyperlaneDeploymentArtifacts,
   HyperlaneDeploymentArtifactsSchema,
 } from './metadata/deploymentArtifacts';
 export { MatchingList } from './metadata/matchingList';
+export {
+  WarpRouteConfig,
+  WarpRouteConfigSchema,
+} from './metadata/warpRouteConfig';
 export { InterchainAccount } from './middleware/account/InterchainAccount';
 export { InterchainAccountChecker } from './middleware/account/InterchainAccountChecker';
 export {
@@ -237,12 +259,26 @@ export {
   ViemTransaction,
   ViemTransactionReceipt,
 } from './providers/ProviderType';
+export { HyperlaneEtherscanProvider } from './providers/SmartProvider/HyperlaneEtherscanProvider';
+export { HyperlaneJsonRpcProvider } from './providers/SmartProvider/HyperlaneJsonRpcProvider';
 export {
-  RetryJsonRpcProvider,
-  RetryProviderOptions,
-} from './providers/RetryProvider';
+  AllProviderMethods,
+  IProviderMethods,
+  ProviderMethod,
+  excludeProviderMethods,
+} from './providers/SmartProvider/ProviderMethods';
+export { HyperlaneSmartProvider } from './providers/SmartProvider/SmartProvider';
 export {
-  DEFAULT_RETRY_OPTIONS,
+  ChainMetadataWithRpcConnectionInfo,
+  ProviderErrorResult,
+  ProviderPerformResult,
+  ProviderRetryOptions,
+  ProviderStatus,
+  ProviderSuccessResult,
+  ProviderTimeoutResult,
+  SmartProviderOptions,
+} from './providers/SmartProvider/types';
+export {
   ProviderBuilderFn,
   ProviderBuilderMap,
   TypedProviderBuilderFn,
@@ -279,7 +315,6 @@ export {
   GasConfig,
   GasRouterConfig,
   MailboxClientConfig,
-  OwnableConfig,
   ProxiedFactories,
   ProxiedRouterConfig,
   RouterAddress,

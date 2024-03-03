@@ -184,11 +184,11 @@ impl ValidatorAnnounce for KadenaValidatorAnnounce {
             ),
             executed: true,
             gas_used: U256::from(res.gas),
-            gas_price: U256::from(
-                res.meta_data
+            gas_price: 
+                (res
+                    .meta_data
                     .and_then(|meta| meta.public_meta.map(|public_meta| public_meta.gas_price))
-                    .unwrap_or_default() as u128,
-            ),
+                    .unwrap_or_default() as u128).into(),
         };
 
         Ok(tx_outcome)

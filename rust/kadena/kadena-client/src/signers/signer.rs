@@ -16,4 +16,12 @@ pub trait Signer: std::fmt::Debug + Send + Sync {
 
     /// Get the public key of the signer
     fn pubkey(&self) -> VerifyingKey;
+
+    fn pubkey_str(&self) -> String {
+        format!("{}", hex::encode(self.pubkey().to_bytes()))
+    }
+
+    fn k_account(&self) -> String {
+        format!("k:{}", self.pubkey_str())
+    }
 }

@@ -15,6 +15,7 @@ bs58.workspace = true
 color-eyre = { workspace = true, optional = true }
 config.workspace = true
 convert_case.workspace = true
+derive_builder.workspace = true
 derive-new.workspace = true
 ed25519-dalek.workspace = true
 ed25519-dalek-v2 = { version = "2", package = "ed25519-dalek"}
@@ -23,11 +24,13 @@ eyre.workspace = true
 fuels.workspace = true
 futures-util.workspace = true
 itertools.workspace = true
+maplit.workspace = true
 paste.workspace = true
 prometheus.workspace = true
 rocksdb.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+solana-sdk.worksapce = true
 static_assertions.workspace = true
 tempfile = { workspace = true, optional = true }
 thiserror.workspace = true
@@ -38,6 +41,7 @@ tracing-subscriber = { workspace = true, features = ["json", "ansi"] }
 tracing.workspace = true
 url.workspace = true
 warp.workspace = true
+ya-gcp.workspace = true
 
 
 backtrace = { workspace = true, optional = true }
@@ -49,6 +53,7 @@ hyperlane-ethereum = { path = "../chains/hyperlane-ethereum" }
 hyperlane-fuel = { path = "../chains/hyperlane-fuel" }
 hyperlane-kadena = { path = "../chains/hyperlane-kadena" }
 hyperlane-sealevel = { path = "../chains/hyperlane-sealevel" }
+hyperlane-cosmos = { path = "../chains/hyperlane-cosmos"}
 hyperlane-test = { path = "../hyperlane-test" }
 
 # dependency version is determined by etheres

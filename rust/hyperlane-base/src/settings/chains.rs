@@ -1,17 +1,19 @@
-use std::{collections::HashMap, sync::Arc};
+use ethers::prelude::Selector;
+use h_cosmos::CosmosProvider;
+use std::collections::HashMap;
+use std::sync::Arc;
 
-use ethers::{core::k256::elliptic_curve::PrimeField, prelude::Selector};
-use ethers_prometheus::middleware::{
-    ChainInfo, ContractInfo, PrometheusMiddlewareConf, WalletInfo,
-};
 use eyre::{eyre, Context, Result};
+
+use ethers_prometheus::middleware::{ChainInfo, ContractInfo, PrometheusMiddlewareConf};
 use hyperlane_core::{
     AggregationIsm, CcipReadIsm, ContractLocator, HyperlaneAbi, HyperlaneDomain,
-    HyperlaneDomainProtocol, HyperlaneMessage, HyperlaneProvider, HyperlaneSigner, IndexMode,
+    HyperlaneDomainProtocol, HyperlaneMessage, HyperlaneProvider, IndexMode,
     InterchainGasPaymaster, InterchainGasPayment, InterchainSecurityModule, Mailbox,
     MerkleTreeHook, MerkleTreeInsertion, MultisigIsm, RoutingIsm, SequenceIndexer,
     ValidatorAnnounce, H256,
 };
+use hyperlane_cosmos as h_cosmos;
 use hyperlane_ethereum::{
     self as h_eth, BuildableWithProvider, EthereumInterchainGasPaymasterAbi, EthereumMailboxAbi,
     EthereumValidatorAnnounceAbi,
@@ -21,9 +23,12 @@ use hyperlane_kadena as h_kadena;
 use hyperlane_sealevel as h_sealevel;
 
 use crate::{
+    metrics::AgentMetricsConf,
     settings::signers::{BuildableWithSignerConf, SignerConf},
     CoreMetrics,
 };
+
+use super::ChainSigner;
 
 /// A chain setup is a domain ID, an address on that chain (where the mailbox is
 /// deployed) and details for connecting to the chain API.
@@ -56,7 +61,10 @@ pub enum ChainConnectionConf {
     Fuel(h_fuel::ConnectionConf),
     /// Sealevel configuration.
     Sealevel(h_sealevel::ConnectionConf),
+    /// Kadena configuration.
     Kadena(h_kadena::ConnectionConf),
+    /// Cosmos configuration.
+    Cosmos(h_cosmos::ConnectionConf),
 }
 
 impl ChainConnectionConf {
@@ -67,6 +75,7 @@ impl ChainConnectionConf {
             Self::Fuel(_) => HyperlaneDomainProtocol::Fuel,
             Self::Sealevel(_) => HyperlaneDomainProtocol::Sealevel,
             Self::Kadena(_) => HyperlaneDomainProtocol::Kadena,
+            Self::Cosmos(_) => HyperlaneDomainProtocol::Cosmos,
         }
     }
 }
@@ -81,7 +90,7 @@ pub struct CoreContractAddresses {
     /// Address of the ValidatorAnnounce contract
     pub validator_announce: H256,
     /// Address of the MerkleTreeHook contract
-    pub merkle_tree_hook: Option<H256>,
+    pub merkle_tree_hook: H256,
 }
 
 /// Indexing settings
@@ -107,15 +116,34 @@ impl ChainConf {
         metrics: &CoreMetrics,
     ) -> Result<Box<dyn HyperlaneProvider>> {
         let ctx = "Building provider";
+        let locator = self.locator(H256::zero());
         match &self.connection {
             ChainConnectionConf::Ethereum(conf) => {
-                let locator = self.locator(H256::zero());
                 self.build_ethereum(conf, &locator, metrics, h_eth::HyperlaneProviderBuilder {})
                     .await
             }
             ChainConnectionConf::Fuel(_) => todo!(),
-            ChainConnectionConf::Sealevel(_) => todo!(),
-            ChainConnectionConf::Kadena(_) => todo!(),
+            ChainConnectionConf::Kadena(conf) => {
+                let signer = self.kadena_signer().await.context(ctx)?;
+                Ok(Box::new(h_kadena::KadenaProvider::new(
+                    locator.domain.clone(),
+                    Arc::new(conf.into()),
+                    Arc::new(signer.unwrap()),
+                )) as Box<dyn HyperlaneProvider>)
+            }
+            ChainConnectionConf::Sealevel(conf) => Ok(Box::new(h_sealevel::SealevelProvider::new(
+                locator.domain.clone(),
+                conf,
+            )) as Box<dyn HyperlaneProvider>),
+            ChainConnectionConf::Cosmos(conf) => {
+                let provider = CosmosProvider::new(
+                    locator.domain.clone(),
+                    conf.clone(),
+                    Some(locator.clone()),
+                    None,
+                )?;
+                Ok(Box::new(provider) as Box<dyn HyperlaneProvider>)
+            }
         }
         .context(ctx)
     }
@@ -151,6 +179,12 @@ impl ChainConf {
                     Arc::new(signer.unwrap()),
                 )) as Box<dyn Mailbox>)
             }
+            ChainConnectionConf::Cosmos(conf) => {
+                let signer = self.cosmos_signer().await.context(ctx)?;
+                h_cosmos::CosmosMailbox::new(conf.clone(), locator.clone(), signer.clone())
+                    .map(|m| Box::new(m) as Box<dyn Mailbox>)
+                    .map_err(Into::into)
+            }
         }
         .context(ctx)
     }
@@ -161,13 +195,7 @@ impl ChainConf {
         metrics: &CoreMetrics,
     ) -> Result<Box<dyn MerkleTreeHook>> {
         let ctx = "Building merkle tree hook";
-        // TODO: if the merkle tree hook is set for sealevel, it's still a mailbox program
-        // that the connection is made to using the pda seeds, which will not be usable.
-        let address = self
-            .addresses
-            .merkle_tree_hook
-            .unwrap_or(self.addresses.mailbox);
-        let locator = self.locator(address);
+        let locator = self.locator(self.addresses.merkle_tree_hook);
 
         match &self.connection {
             ChainConnectionConf::Ethereum(conf) => {
@@ -190,6 +218,13 @@ impl ChainConf {
                     locator.domain,
                     Arc::new(signer.unwrap()),
                 )) as Box<dyn MerkleTreeHook>)
+            }
+            ChainConnectionConf::Cosmos(conf) => {
+                let signer = self.cosmos_signer().await.context(ctx)?;
+                let hook =
+                    h_cosmos::CosmosMerkleTreeHook::new(conf.clone(), locator.clone(), signer)?;
+
+                Ok(Box::new(hook) as Box<dyn MerkleTreeHook>)
             }
         }
         .context(ctx)
@@ -215,7 +250,6 @@ impl ChainConf {
                 )
                 .await
             }
-
             ChainConnectionConf::Fuel(_) => todo!(),
             ChainConnectionConf::Sealevel(conf) => {
                 let indexer = Box::new(h_sealevel::SealevelMailboxIndexer::new(conf, locator)?);
@@ -229,6 +263,16 @@ impl ChainConf {
                     Arc::new(signer.unwrap()),
                     self.reorg_period,
                 ));
+                Ok(indexer as Box<dyn SequenceIndexer<HyperlaneMessage>>)
+            }
+            ChainConnectionConf::Cosmos(conf) => {
+                let signer = self.cosmos_signer().await.context(ctx)?;
+                let indexer = Box::new(h_cosmos::CosmosMailboxIndexer::new(
+                    conf.clone(),
+                    locator,
+                    signer,
+                    self.reorg_period,
+                )?);
                 Ok(indexer as Box<dyn SequenceIndexer<HyperlaneMessage>>)
             }
         }
@@ -255,7 +299,6 @@ impl ChainConf {
                 )
                 .await
             }
-
             ChainConnectionConf::Fuel(_) => todo!(),
             ChainConnectionConf::Sealevel(conf) => {
                 let indexer = Box::new(h_sealevel::SealevelMailboxIndexer::new(conf, locator)?);
@@ -269,6 +312,16 @@ impl ChainConf {
                     Arc::new(signer.unwrap()),
                     self.reorg_period,
                 ));
+                Ok(indexer as Box<dyn SequenceIndexer<H256>>)
+            }
+            ChainConnectionConf::Cosmos(conf) => {
+                let signer = self.cosmos_signer().await.context(ctx)?;
+                let indexer = Box::new(h_cosmos::CosmosMailboxIndexer::new(
+                    conf.clone(),
+                    locator,
+                    signer,
+                    self.reorg_period,
+                )?);
                 Ok(indexer as Box<dyn SequenceIndexer<H256>>)
             }
         }
@@ -294,7 +347,6 @@ impl ChainConf {
                 )
                 .await
             }
-
             ChainConnectionConf::Fuel(_) => todo!(),
             ChainConnectionConf::Sealevel(conf) => {
                 let paymaster = Box::new(
@@ -309,6 +361,15 @@ impl ChainConf {
                     locator.domain,
                     Arc::new(signer.unwrap()),
                 ));
+                Ok(paymaster as Box<dyn InterchainGasPaymaster>)
+            }
+            ChainConnectionConf::Cosmos(conf) => {
+                let signer = self.cosmos_signer().await.context(ctx)?;
+                let paymaster = Box::new(h_cosmos::CosmosInterchainGasPaymaster::new(
+                    conf.clone(),
+                    locator.clone(),
+                    signer,
+                )?);
                 Ok(paymaster as Box<dyn InterchainGasPaymaster>)
             }
         }
@@ -336,7 +397,6 @@ impl ChainConf {
                 )
                 .await
             }
-
             ChainConnectionConf::Fuel(_) => todo!(),
             ChainConnectionConf::Sealevel(conf) => {
                 let indexer = Box::new(
@@ -354,6 +414,14 @@ impl ChainConf {
                 ));
                 Ok(indexer as Box<dyn SequenceIndexer<InterchainGasPayment>>)
             }
+            ChainConnectionConf::Cosmos(conf) => {
+                let indexer = Box::new(h_cosmos::CosmosInterchainGasPaymasterIndexer::new(
+                    conf.clone(),
+                    locator,
+                    self.reorg_period,
+                )?);
+                Ok(indexer as Box<dyn SequenceIndexer<InterchainGasPayment>>)
+            }
         }
         .context(ctx)
     }
@@ -364,11 +432,7 @@ impl ChainConf {
         metrics: &CoreMetrics,
     ) -> Result<Box<dyn SequenceIndexer<MerkleTreeInsertion>>> {
         let ctx = "Building merkle tree hook indexer";
-        let address = self
-            .addresses
-            .merkle_tree_hook
-            .unwrap_or(self.addresses.mailbox);
-        let locator = self.locator(address);
+        let locator = self.locator(self.addresses.merkle_tree_hook);
 
         match &self.connection {
             ChainConnectionConf::Ethereum(conf) => {
@@ -383,8 +447,23 @@ impl ChainConf {
                 .await
             }
             ChainConnectionConf::Fuel(_) => todo!(),
-            ChainConnectionConf::Sealevel(_) => {
-                let indexer = Box::new(h_sealevel::SealevelMerkleTreeHookIndexer::new());
+            ChainConnectionConf::Sealevel(conf) => {
+                let mailbox_indexer =
+                    Box::new(h_sealevel::SealevelMailboxIndexer::new(conf, locator)?);
+                let indexer = Box::new(h_sealevel::SealevelMerkleTreeHookIndexer::new(
+                    *mailbox_indexer,
+                ));
+                Ok(indexer as Box<dyn SequenceIndexer<MerkleTreeInsertion>>)
+            }
+            ChainConnectionConf::Cosmos(conf) => {
+                let signer = self.cosmos_signer().await.context(ctx)?;
+                let indexer = Box::new(h_cosmos::CosmosMerkleTreeHookIndexer::new(
+                    conf.clone(),
+                    locator,
+                    // TODO: remove signer requirement entirely
+                    signer,
+                    self.reorg_period,
+                )?);
                 Ok(indexer as Box<dyn SequenceIndexer<MerkleTreeInsertion>>)
             }
             ChainConnectionConf::Kadena(conf) => {
@@ -406,13 +485,13 @@ impl ChainConf {
         &self,
         metrics: &CoreMetrics,
     ) -> Result<Box<dyn ValidatorAnnounce>> {
+        let ctx = "Building validator announce";
         let locator = self.locator(self.addresses.validator_announce);
         match &self.connection {
             ChainConnectionConf::Ethereum(conf) => {
                 self.build_ethereum(conf, &locator, metrics, h_eth::ValidatorAnnounceBuilder {})
                     .await
             }
-
             ChainConnectionConf::Fuel(_) => todo!(),
             ChainConnectionConf::Sealevel(conf) => {
                 let va = Box::new(h_sealevel::SealevelValidatorAnnounce::new(conf, locator));
@@ -426,6 +505,16 @@ impl ChainConf {
                     locator.domain,
                     Arc::new(signer.unwrap()),
                 ));
+                Ok(va as Box<dyn ValidatorAnnounce>)
+            }
+            ChainConnectionConf::Cosmos(conf) => {
+                let signer = self.cosmos_signer().await.context(ctx)?;
+                let va = Box::new(h_cosmos::CosmosValidatorAnnounce::new(
+                    conf.clone(),
+                    locator.clone(),
+                    signer,
+                )?);
+
                 Ok(va as Box<dyn ValidatorAnnounce>)
             }
         }
@@ -452,7 +541,6 @@ impl ChainConf {
                 )
                 .await
             }
-
             ChainConnectionConf::Fuel(_) => todo!(),
             ChainConnectionConf::Sealevel(conf) => {
                 let keypair = self.sealevel_signer().await.context(ctx)?;
@@ -468,6 +556,13 @@ impl ChainConf {
                     locator.domain,
                     Arc::new(signer.unwrap()),
                 ));
+                Ok(ism as Box<dyn InterchainSecurityModule>)
+            }
+            ChainConnectionConf::Cosmos(conf) => {
+                let signer = self.cosmos_signer().await.context(ctx)?;
+                let ism = Box::new(h_cosmos::CosmosInterchainSecurityModule::new(
+                    conf, locator, signer,
+                )?);
                 Ok(ism as Box<dyn InterchainSecurityModule>)
             }
         }
@@ -504,6 +599,15 @@ impl ChainConf {
                 ));
                 Ok(ism as Box<dyn MultisigIsm>)
             }
+            ChainConnectionConf::Cosmos(conf) => {
+                let signer = self.cosmos_signer().await.context(ctx)?;
+                let ism = Box::new(h_cosmos::CosmosMultisigIsm::new(
+                    conf.clone(),
+                    locator.clone(),
+                    signer,
+                )?);
+                Ok(ism as Box<dyn MultisigIsm>)
+            }
         }
         .context(ctx)
     }
@@ -525,13 +629,21 @@ impl ChainConf {
                 self.build_ethereum(conf, &locator, metrics, h_eth::RoutingIsmBuilder {})
                     .await
             }
-
             ChainConnectionConf::Fuel(_) => todo!(),
             ChainConnectionConf::Sealevel(_) => {
                 Err(eyre!("Sealevel does not support routing ISM yet")).context(ctx)
             }
             ChainConnectionConf::Kadena(_) => {
                 Err(eyre!("Kadena does not support routing ISM yet")).context(ctx)
+            }
+            ChainConnectionConf::Cosmos(conf) => {
+                let signer = self.cosmos_signer().await.context(ctx)?;
+                let ism = Box::new(h_cosmos::CosmosRoutingIsm::new(
+                    &conf.clone(),
+                    locator.clone(),
+                    signer,
+                )?);
+                Ok(ism as Box<dyn RoutingIsm>)
             }
         }
         .context(ctx)
@@ -554,13 +666,22 @@ impl ChainConf {
                 self.build_ethereum(conf, &locator, metrics, h_eth::AggregationIsmBuilder {})
                     .await
             }
-
             ChainConnectionConf::Fuel(_) => todo!(),
             ChainConnectionConf::Sealevel(_) => {
                 Err(eyre!("Sealevel does not support aggregation ISM yet")).context(ctx)
             }
             ChainConnectionConf::Kadena(_) => {
                 Err(eyre!("Kadena does not support aggregation ISM yet")).context(ctx)
+            }
+            ChainConnectionConf::Cosmos(conf) => {
+                let signer = self.cosmos_signer().await.context(ctx)?;
+                let ism = Box::new(h_cosmos::CosmosAggregationIsm::new(
+                    conf.clone(),
+                    locator.clone(),
+                    signer,
+                )?);
+
+                Ok(ism as Box<dyn AggregationIsm>)
             }
         }
         .context(ctx)
@@ -583,13 +704,15 @@ impl ChainConf {
                 self.build_ethereum(conf, &locator, metrics, h_eth::CcipReadIsmBuilder {})
                     .await
             }
-
             ChainConnectionConf::Fuel(_) => todo!(),
             ChainConnectionConf::Sealevel(_) => {
                 Err(eyre!("Sealevel does not support CCIP read ISM yet")).context(ctx)
             }
             ChainConnectionConf::Kadena(_) => {
                 Err(eyre!("Kadena does not support CCIP read ISM yet")).context(ctx)
+            }
+            ChainConnectionConf::Cosmos(_) => {
+                Err(eyre!("Cosmos does not support CCIP read ISM yet")).context(ctx)
             }
         }
         .context(ctx)
@@ -598,6 +721,26 @@ impl ChainConf {
     async fn signer<S: BuildableWithSignerConf>(&self) -> Result<Option<S>> {
         if let Some(conf) = &self.signer {
             Ok(Some(conf.build::<S>().await?))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Returns a ChainSigner for the flavor of chain this is, if one is configured.
+    pub async fn chain_signer(&self) -> Result<Option<Box<dyn ChainSigner>>> {
+        if let Some(conf) = &self.signer {
+            let chain_signer: Box<dyn ChainSigner> = match &self.connection {
+                ChainConnectionConf::Ethereum(_) => Box::new(conf.build::<h_eth::Signers>().await?),
+                ChainConnectionConf::Fuel(_) => {
+                    Box::new(conf.build::<fuels::prelude::WalletUnlocked>().await?)
+                }
+                ChainConnectionConf::Sealevel(_) => {
+                    Box::new(conf.build::<h_sealevel::Keypair>().await?)
+                }
+                ChainConnectionConf::Cosmos(_) => Box::new(conf.build::<h_cosmos::Signer>().await?),
+                ChainConnectionConf::Kadena(_) => Box::new(conf.build::<h_kadena::Signers>().await?),
+            };
+            Ok(Some(chain_signer))
         } else {
             Ok(None)
         }
@@ -621,27 +764,29 @@ impl ChainConf {
         self.signer().await
     }
 
+    async fn cosmos_signer(&self) -> Result<Option<h_cosmos::Signer>> {
+        self.signer().await
+    }
+
+    /// Try to build an agent metrics configuration from the chain config
+    pub async fn agent_metrics_conf(&self, agent_name: String) -> Result<AgentMetricsConf> {
+        let chain_signer_address = self.chain_signer().await?.map(|s| s.address_string());
+        Ok(AgentMetricsConf {
+            address: chain_signer_address,
+            domain: self.domain.clone(),
+            name: agent_name,
+        })
+    }
+
     /// Get a clone of the ethereum metrics conf with correctly configured
     /// contract information.
-    fn metrics_conf(
-        &self,
-        agent_name: &str,
-        signer: &Option<impl HyperlaneSigner>,
-    ) -> PrometheusMiddlewareConf {
+    pub fn metrics_conf(&self) -> PrometheusMiddlewareConf {
         let mut cfg = self.metrics_conf.clone();
 
         if cfg.chain.is_none() {
             cfg.chain = Some(ChainInfo {
                 name: Some(self.domain.name().into()),
             });
-        }
-
-        if let Some(signer) = signer {
-            cfg.wallets
-                .entry(signer.eth_address().into())
-                .or_insert_with(|| WalletInfo {
-                    name: Some(agent_name.into()),
-                });
         }
 
         let mut register_contract = |name: &str, address: H256, fns: HashMap<Vec<u8>, String>| {
@@ -671,13 +816,11 @@ impl ChainConf {
             self.addresses.interchain_gas_paymaster,
             EthereumInterchainGasPaymasterAbi::fn_map_owned(),
         );
-        if let Some(address) = self.addresses.merkle_tree_hook {
-            register_contract(
-                "merkle_tree_hook",
-                address,
-                EthereumInterchainGasPaymasterAbi::fn_map_owned(),
-            );
-        }
+        register_contract(
+            "merkle_tree_hook",
+            self.addresses.merkle_tree_hook,
+            EthereumInterchainGasPaymasterAbi::fn_map_owned(),
+        );
 
         cfg
     }
@@ -700,7 +843,7 @@ impl ChainConf {
         B: BuildableWithProvider + Sync,
     {
         let signer = self.ethereum_signer().await?;
-        let metrics_conf = self.metrics_conf(metrics.agent_name(), &signer);
+        let metrics_conf = self.metrics_conf();
         let rpc_metrics = Some(metrics.json_rpc_client_metrics());
         let middleware_metrics = Some((metrics.provider_metrics(), metrics_conf));
         let res = builder

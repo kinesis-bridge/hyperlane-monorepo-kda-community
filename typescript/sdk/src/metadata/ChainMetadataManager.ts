@@ -2,16 +2,19 @@ import { Debugger, debug } from 'debug';
 
 import { ProtocolType, exclude, pick } from '@hyperlane-xyz/utils';
 
-import {
-  chainMetadata as defaultChainMetadata,
-  solanaChainToClusterName,
-} from '../consts/chainMetadata';
+import { chainMetadata as defaultChainMetadata } from '../consts/chainMetadata';
 import { ChainMap, ChainName } from '../types';
 
 import {
+  getExplorerAddressUrl,
+  getExplorerApiUrl,
+  getExplorerBaseUrl,
+  getExplorerTxUrl,
+} from './blockExplorer';
+import {
   ChainMetadata,
   getDomainId,
-  isValidChainMetadata,
+  safeParseChainMetadata,
 } from './chainMetadataTypes';
 
 export interface ChainMetadataManagerOptions {
@@ -52,8 +55,14 @@ export class ChainMetadataManager<MetaExt = {}> {
    * @throws if chain's name or domain/chain ID collide
    */
   addChain(metadata: ChainMetadata<MetaExt>): void {
-    if (!isValidChainMetadata(metadata))
-      throw new Error(`Invalid chain metadata for ${metadata.name}`);
+    const parseResult = safeParseChainMetadata(metadata);
+    if (!parseResult.success) {
+      throw new Error(
+        `Invalid chain metadata for ${
+          metadata.name
+        }: ${parseResult.error.format()}`,
+      );
+    }
     // Ensure no two chains have overlapping names/domainIds/chainIds
     for (const chainMetadata of Object.values(this.metadata)) {
       const { name, chainId, domainId } = chainMetadata;
@@ -228,17 +237,8 @@ export class ChainMetadataManager<MetaExt = {}> {
    */
   tryGetExplorerUrl(chainNameOrId: ChainName | number): string | null {
     const metadata = this.tryGetChainMetadata(chainNameOrId);
-    if (!metadata?.blockExplorers?.length) return null;
-    const url = new URL(metadata.blockExplorers[0].url);
-    // TODO move handling of these chain/protocol specific quirks to ChainMetadata
-    if (
-      metadata.protocol === ProtocolType.Sealevel &&
-      solanaChainToClusterName[metadata.name]
-    ) {
-      url.searchParams.set('cluster', solanaChainToClusterName[metadata.name]);
-    }
-    // TODO cosmos support here
-    return url.toString();
+    if (!metadata) return null;
+    return getExplorerBaseUrl(metadata);
   }
 
   /**
@@ -256,14 +256,8 @@ export class ChainMetadataManager<MetaExt = {}> {
    */
   tryGetExplorerApiUrl(chainNameOrId: ChainName | number): string | null {
     const metadata = this.tryGetChainMetadata(chainNameOrId);
-    const { protocol, blockExplorers } = metadata || {};
-    if (protocol !== ProtocolType.Ethereum) return null;
-    if (!blockExplorers?.length || !blockExplorers[0].apiUrl) return null;
-    const { apiUrl, apiKey } = blockExplorers[0];
-    if (!apiKey) return apiUrl;
-    const url = new URL(apiUrl);
-    url.searchParams.set('apikey', apiKey);
-    return url.toString();
+    if (!metadata) return null;
+    return getExplorerApiUrl(metadata);
   }
 
   /**
@@ -283,15 +277,20 @@ export class ChainMetadataManager<MetaExt = {}> {
     chainNameOrId: ChainName | number,
     response: { hash: string },
   ): string | null {
-    const baseUrl = this.tryGetExplorerUrl(chainNameOrId);
-    if (!baseUrl) return null;
-    const chainName = this.getChainName(chainNameOrId);
-    const urlPathStub = ['nautilus', 'proteustestnet'].includes(chainName)
-      ? 'transaction'
-      : 'tx';
-    const url = new URL(baseUrl);
-    url.pathname += `/${urlPathStub}/${response.hash}`;
-    return url.toString();
+    const metadata = this.tryGetChainMetadata(chainNameOrId);
+    if (!metadata) return null;
+    return getExplorerTxUrl(metadata, response.hash);
+  }
+
+  /**
+   * Get a block explorer URL for given chain's tx
+   * @throws if chain's metadata or block explorer data has no been set
+   */
+  getExplorerTxUrl(
+    chainNameOrId: ChainName | number,
+    response: { hash: string },
+  ): string {
+    return `${this.getExplorerUrl(chainNameOrId)}/tx/${response.hash}`;
   }
 
   /**
@@ -301,12 +300,9 @@ export class ChainMetadataManager<MetaExt = {}> {
     chainNameOrId: ChainName | number,
     address?: string,
   ): Promise<string | null> {
-    if (!address) return null;
-    const baseUrl = this.tryGetExplorerUrl(chainNameOrId);
-    if (!baseUrl) return null;
-    const url = new URL(baseUrl);
-    url.pathname += `/address/${address}`;
-    return url.toString();
+    const metadata = this.tryGetChainMetadata(chainNameOrId);
+    if (!metadata || !address) return null;
+    return getExplorerAddressUrl(metadata, address);
   }
 
   /**
@@ -321,17 +317,6 @@ export class ChainMetadataManager<MetaExt = {}> {
     if (!url)
       throw new Error(`Missing data for address url for ${chainNameOrId}`);
     return url;
-  }
-
-  /**
-   * Get a block explorer URL for given chain's tx
-   * @throws if chain's metadata or block explorer data has no been set
-   */
-  getExplorerTxUrl(
-    chainNameOrId: ChainName | number,
-    response: { hash: string },
-  ): string {
-    return `${this.getExplorerUrl(chainNameOrId)}/tx/${response.hash}`;
   }
 
   /**

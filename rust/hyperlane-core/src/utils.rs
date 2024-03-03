@@ -1,7 +1,9 @@
-use std::{str::FromStr, time::Duration};
-
 use eyre::Result;
 use sha3::{digest::Update, Digest, Keccak256};
+use std::str::FromStr;
+
+#[cfg(feature = "float")]
+use std::time::Duration;
 
 use crate::{KnownHyperlaneDomain, H160, H256};
 
@@ -55,8 +57,8 @@ pub fn fmt_address_for_domain(domain: u32, addr: H256) -> String {
         .unwrap_or_else(|_| format!("{addr:?}"))
 }
 
-/// Pretty print a byte slice for logging
-pub fn fmt_bytes(bytes: &[u8]) -> String {
+/// Pretty print a byte slice, including a hex prefix
+pub fn bytes_to_hex(bytes: &[u8]) -> String {
     format!("0x{}", hex::encode(bytes))
 }
 
@@ -238,13 +240,14 @@ macro_rules! many_to_one {
 ///     return Ok(None);
 /// };
 /// // after:
-/// unwrap_or_none_result!(idx, self.index_of_next_key());
+/// let idx = unwrap_or_none_result!(self.index_of_next_key());
 /// ```
 #[macro_export]
 macro_rules! unwrap_or_none_result {
-    ($variable_name:ident, $e:expr $(, $else_e:expr)?) => {
-        let Some($variable_name) = $e
-        else {
+    ($e:expr $(, $else_e:expr)?) => {
+        if let Some(inner) = $e {
+            inner
+        } else {
             $($else_e;)?
             return Ok(None);
         };

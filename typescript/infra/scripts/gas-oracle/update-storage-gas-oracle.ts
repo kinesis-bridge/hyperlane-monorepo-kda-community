@@ -1,16 +1,18 @@
-import { ChainName, HyperlaneIgp, MultiProvider } from '@hyperlane-xyz/sdk';
+import {
+  ChainName,
+  HyperlaneIgp,
+  MultiProvider,
+  prettyRemoteGasData,
+} from '@hyperlane-xyz/sdk';
 import { ProtocolType } from '@hyperlane-xyz/utils';
 
 import { RemoteGasData, StorageGasOracleConfig } from '../../src/config';
 import { deployEnvToSdkEnv } from '../../src/config/environment';
 import { RemoteGasDataConfig } from '../../src/config/gas-oracle';
-import { getArgs, getEnvironmentConfig } from '../utils';
+import { getArgs, withNetwork } from '../agent-utils';
+import { getEnvironmentConfig } from '../core-utils';
 
-import {
-  eqRemoteGasData,
-  prettyRemoteGasData,
-  prettyRemoteGasDataConfig,
-} from './utils';
+import { eqRemoteGasData, prettyRemoteGasDataConfig } from './utils';
 
 /**
  * Idempotent. Use `--dry-run` to not send any transactions.
@@ -19,12 +21,12 @@ import {
  * Expects the deployer key to be the owner of the StorageGasOracle contract.
  */
 async function main() {
-  const args = await getArgs()
+  const args = await withNetwork(getArgs())
     .boolean('dry-run')
     .describe('dry-run', 'If true, will not submit any transactions')
     .default('dry-run', false).argv;
 
-  const { environment } = await getArgs().argv;
+  const { environment, network } = args;
   const coreEnvConfig = getEnvironmentConfig(environment);
   const multiProvider = await coreEnvConfig.getMultiProvider();
 
@@ -38,7 +40,9 @@ async function main() {
     multiProvider,
   );
 
-  for (const chain of igp.chains()) {
+  const targetChains = network ? [network] : igp.chains();
+
+  for (const chain of targetChains) {
     if (
       multiProvider.getChainMetadata(chain).protocol !== ProtocolType.Ethereum
     ) {
@@ -71,7 +75,7 @@ async function setStorageGasOracleValues(
 
   const configsToSet: RemoteGasDataConfig[] = [];
 
-  for (const remote in localStorageGasOracleConfig) {
+  for (const remote of Object.keys(localStorageGasOracleConfig)) {
     const desiredGasData = localStorageGasOracleConfig[remote]!;
     const remoteId = multiProvider.getDomainId(remote);
 

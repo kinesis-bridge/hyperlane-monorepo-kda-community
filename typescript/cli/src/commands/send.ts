@@ -1,6 +1,5 @@
+import { ethers } from 'ethers';
 import { CommandModule, Options } from 'yargs';
-
-import { TokenType } from '@hyperlane-xyz/sdk';
 
 import { log } from '../../logger.js';
 import { sendTestMessage } from '../send/message.js';
@@ -35,15 +34,13 @@ const messageOptions: { [k: string]: Options } = {
   origin: {
     type: 'string',
     description: 'Origin chain to send message from',
-    demandOption: true,
   },
   destination: {
     type: 'string',
     description: 'Destination chain to send message to',
-    demandOption: true,
   },
-  core: coreArtifactsOption,
   chains: chainsCommandOption,
+  core: coreArtifactsOption,
   timeout: {
     type: 'number',
     description: 'Timeout in seconds',
@@ -59,21 +56,31 @@ const messageOptions: { [k: string]: Options } = {
 const messageCommand: CommandModule = {
   command: 'message',
   describe: 'Send a test message to a remote chain',
-  builder: (yargs) => yargs.options(messageOptions),
+  builder: (yargs) =>
+    yargs.options({
+      ...messageOptions,
+      messageBody: {
+        type: 'string',
+        description: 'Optional Message body',
+        default: 'Hello!',
+      },
+    }),
   handler: async (argv: any) => {
     const key: string = argv.key || process.env.HYP_KEY;
     const chainConfigPath: string = argv.chains;
-    const coreArtifactsPath: string = argv.core;
-    const origin: string = argv.origin;
-    const destination: string = argv.destination;
+    const coreArtifactsPath: string | undefined = argv.core;
+    const origin: string | undefined = argv.origin;
+    const destination: string | undefined = argv.destination;
     const timeoutSec: number = argv.timeout;
     const skipWaitForDelivery: boolean = argv.quick;
+    const messageBody: string = argv.messageBody;
     await sendTestMessage({
       key,
       chainConfigPath,
       coreArtifactsPath,
       origin,
       destination,
+      messageBody: ethers.utils.hexlify(ethers.utils.toUtf8Bytes(messageBody)),
       timeoutSec,
       skipWaitForDelivery,
     });
@@ -93,13 +100,6 @@ const transferCommand: CommandModule = {
       router: {
         type: 'string',
         description: 'The address of the token router contract',
-        demandOption: true,
-      },
-      type: {
-        type: 'string',
-        description: 'Warp token type (native of collateral)',
-        default: TokenType.collateral,
-        choices: [TokenType.collateral, TokenType.native],
       },
       wei: {
         type: 'string',
@@ -114,12 +114,11 @@ const transferCommand: CommandModule = {
   handler: async (argv: any) => {
     const key: string = argv.key || process.env.HYP_KEY;
     const chainConfigPath: string = argv.chains;
-    const coreArtifactsPath: string = argv.core;
-    const origin: string = argv.origin;
-    const destination: string = argv.destination;
+    const coreArtifactsPath: string | undefined = argv.core;
+    const origin: string | undefined = argv.origin;
+    const destination: string | undefined = argv.destination;
     const timeoutSec: number = argv.timeout;
-    const routerAddress: string = argv.router;
-    const tokenType: TokenType = argv.type;
+    const routerAddress: string | undefined = argv.router;
     const wei: string = argv.wei;
     const recipient: string | undefined = argv.recipient;
     const skipWaitForDelivery: boolean = argv.quick;
@@ -130,7 +129,6 @@ const transferCommand: CommandModule = {
       origin,
       destination,
       routerAddress,
-      tokenType,
       wei,
       recipient,
       timeoutSec,
