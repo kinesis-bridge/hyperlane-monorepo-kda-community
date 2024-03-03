@@ -249,8 +249,7 @@ impl Mailbox for KadenaMailbox {
 
     #[instrument(skip(self))]
     async fn default_ism(&self) -> ChainResult<H256> {
-        unimplemented!("Not used by backend yet")
-        //Ok(self.contract.default_ism().call().await?.into())
+        self.recipient_ism(H256::zero()).await
     }
 
     #[instrument(skip(self))]

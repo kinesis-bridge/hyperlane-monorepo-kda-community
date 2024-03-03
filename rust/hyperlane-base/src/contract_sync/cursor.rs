@@ -73,7 +73,9 @@ impl SyncState {
                 }
             }
         };
-        if range.is_empty() {
+        if range.is_empty()
+            || (*range.start() == 0 && *range.end() == 0) 
+        {
             return Ok(None);
         }
         Ok(Some(range))

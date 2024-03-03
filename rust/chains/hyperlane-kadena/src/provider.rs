@@ -75,16 +75,15 @@ impl HyperlaneProvider for KadenaProvider {
         Ok(true)
     }
 
-    async fn get_balance(&self, address: String) -> ChainResult<U256> {
+    async fn get_balance(&self, _address: String) -> ChainResult<U256> {
         let coin_contract = CoinContract::new(Arc::new(self.clone()));
 
+        // FIXME: get the balance of the address
         let balance: U256 = U256(coin_contract
             .get_balance("sender00".to_string())
             .await
             .map_err(ChainCommunicationError::from_other)?
             .into());
-
-        println!("get_balance address = {}", address);
 
         Ok(balance)
     }
