@@ -1,6 +1,9 @@
 mod coinbase_dto;
 pub use coinbase_dto::CoinbaseDto;
 
+mod continue_transfer_remote_dto;
+pub use continue_transfer_remote_dto::ContinueTransferRemoteDto;
+
 mod exec_dto;
 pub use exec_dto::ExecDto;
 

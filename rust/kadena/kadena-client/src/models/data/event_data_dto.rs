@@ -53,6 +53,7 @@ pub enum EventParam {
     IntObject(IntObject),
     DecimalObject(DecimalObject),
     Array(Vec<EventParam>),
+    Unknown(serde_json::Value),
 }
 
 impl ToString for EventParam {
@@ -73,6 +74,7 @@ impl ToString for EventParam {
                 s.push(']');
                 s
             }
+            EventParam::Unknown(j) => j.to_string(),
         }
     }
 }
@@ -89,6 +91,9 @@ impl TryInto<u64> for &EventParam {
             EventParam::DecimalObject(d) => Ok(d.decimal.as_u64()),
             EventParam::Array(_) => Err(KadenaClientError::TypeConversionError(
                 "Cannot convert array to u64".into(),
+            )),
+            EventParam::Unknown(_) => Err(KadenaClientError::TypeConversionError(
+                "Cannot convert unknown type to u64".into(),
             )),
         }
     }
@@ -107,6 +112,9 @@ impl TryInto<u32> for &EventParam {
             EventParam::Array(_) => Err(KadenaClientError::TypeConversionError(
                 "Cannot convert array to u32".into(),
             )),
+            EventParam::Unknown(_) => Err(KadenaClientError::TypeConversionError(
+                "Cannot convert unknown type to u32".into(),
+            )),
         }
     }
 }
@@ -124,6 +132,9 @@ impl TryInto<u8> for &EventParam {
             EventParam::Array(_) => Err(KadenaClientError::TypeConversionError(
                 "Cannot convert array to u8".into(),
             )),
+            EventParam::Unknown(_) => Err(KadenaClientError::TypeConversionError(
+                "Cannot convert unknown type to u8".into(),
+            )),
         }
     }
 }
@@ -140,6 +151,9 @@ impl TryInto<f64> for &EventParam {
             EventParam::DecimalObject(d) => Ok(d.decimal.as_u64() as f64),
             EventParam::Array(_) => Err(KadenaClientError::TypeConversionError(
                 "Cannot convert array to f64".into(),
+            )),
+            EventParam::Unknown(_) => Err(KadenaClientError::TypeConversionError(
+                "Cannot convert unknown type to f64".into(),
             )),
         }
     }
@@ -159,6 +173,9 @@ impl TryInto<U256> for &EventParam {
             EventParam::DecimalObject(d) => Ok(d.decimal),
             EventParam::Array(_) => Err(KadenaClientError::TypeConversionError(
                 "Cannot convert array to U256".into(),
+            )),
+            EventParam::Unknown(_) => Err(KadenaClientError::TypeConversionError(
+                "Cannot convert unknown type to U256".into(),
             )),
         }
     }

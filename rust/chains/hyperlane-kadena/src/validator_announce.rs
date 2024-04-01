@@ -166,7 +166,7 @@ impl ValidatorAnnounce for KadenaValidatorAnnounce {
             .announce_contract_call(announcement, tx_gas_limit)
             .await?;
 
-        let receipt = report_tx(contract_call)
+        let receipt = report_tx(&contract_call)
             .await
             .map_err(ChainCommunicationError::from_other)?;
 

@@ -6,11 +6,11 @@ pub struct MetaDto {
     #[serde(rename = "ttl")]
     pub ttl: u64,
     #[serde(rename = "gasLimit")]
-    pub gas_limit: f32,
+    pub gas_limit: u64,
     #[serde(rename = "chainId")]
     pub chain_id: String,
     #[serde(rename = "gasPrice")]
-    pub gas_price: f32,
+    pub gas_price: f64,
     #[serde(rename = "sender")]
     pub sender: String,
 }
@@ -19,9 +19,9 @@ impl MetaDto {
     pub fn new(
         creation_time: u64,
         ttl: u64,
-        gas_limit: f32,
+        gas_limit: u64,
         chain_id: String,
-        gas_price: f32,
+        gas_price: f64,
         sender: String,
     ) -> MetaDto {
         MetaDto {

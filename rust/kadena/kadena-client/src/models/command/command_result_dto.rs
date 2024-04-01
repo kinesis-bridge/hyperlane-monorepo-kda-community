@@ -55,4 +55,8 @@ impl CommandResultDto {
             }
         }
     }
+
+    pub fn continuation(&self) -> Option<&crate::models::PactExecDto> {
+        self.continuation.as_ref().map(|c| c.as_ref())
+    }
 }

@@ -75,4 +75,10 @@ pub trait ContractCall: Send + Sync {
         let local_rsp = client.local(cmd).await?;
         Ok(local_rsp.gas)
     }
+
+    /// Returns the destination chain id for this call.
+    /// None means transfer is local.   
+    fn with_transfer_remote(&self) -> Option<u8> {
+        None
+    }
 }

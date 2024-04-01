@@ -5174,6 +5174,8 @@ dependencies = [
  "dotenvy",
  "ed25519-dalek 2.0.0",
  "hex 0.4.3",
+ "hyperlane-core",
+ "hyperlane-kadena",
  "mockito",
  "more-asserts",
  "once_cell",

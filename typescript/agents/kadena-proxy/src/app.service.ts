@@ -6,7 +6,9 @@ import {
   ITransactionElement,
   IEventData,
 } from '@kadena/chainwebjs/lib/types';
-import { ChainId, IUnsignedCommand, Pact } from '@kadena/client';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { ChainId, IUnsignedCommand, Pact, createClient } from '@kadena/client';
+
 import {
   poll,
   IPollRequestBody,
@@ -18,6 +20,7 @@ import {
   LocalRequestBody,
   ICommandResult,
 } from '@kadena/chainweb-node-client';
+import { Verifier } from './dto/in/build-pact-tx.dto';
 
 @Injectable()
 export class AppService {
@@ -150,6 +153,7 @@ export class AppService {
     signer: string,
     senderAccount: string,
     gasLimit: number,
+    verifiers: Verifier[],
   ): Promise<IUnsignedCommand> {
     const creationTime = () => Math.round(new Date().getTime() / 1000);
 
@@ -166,6 +170,22 @@ export class AppService {
     if (signer.trim().length != 0) {
       builder = builder.addSigner(signer);
     }
+
+    verifiers.forEach((verifier) => {
+      builder.addVerifier(
+        {
+          name: verifier.name,
+          proof: verifier.proof,
+        },
+        (withCapability) => {
+          return verifier.capabilities.map((cap) => {
+            const [capName, ...args] = cap;
+            return withCapability(capName, ...args);
+          });
+        },
+      );
+    });
+
     return builder.createTransaction();
   }
 
@@ -181,6 +201,65 @@ export class AppService {
     apiHost: string,
   ): Promise<IRequestKeys> {
     return send(requestBody, apiHost);
+  }
+
+  async continueTransferRemote(
+    host: string,
+    network: string,
+    chain: number | string,
+    pactId: string,
+    destinationChainId: ChainId,
+    step: number,
+    rollback: boolean,
+  ): Promise<ICommandResult> {
+    const pollOptions = {
+      timeout: 60_000, // 60 seconds
+      interval: 5_000, // 5 seconds
+    };
+    const gasStationPayer = 'kadena-xchain-gas';
+    const gasStationGasLimit = 850;
+
+    const client = createClient(
+      ({ chainId, networkId }: { chainId: ChainId; networkId: string }) =>
+        `${host}chainweb/0.0/${networkId}/chain/${chainId}/pact`,
+    );
+
+    // 1. Create SPV proof
+    const proof = await client.pollCreateSpv(
+      {
+        requestKey: pactId,
+        networkId: network,
+        chainId: chain.toString() as ChainId,
+      },
+      destinationChainId,
+      pollOptions,
+    );
+
+    // 2. Build the continuation transaction
+    const builder = Pact.builder
+      .continuation({
+        pactId,
+        proof,
+        rollback,
+        step,
+      })
+      .setNetworkId(network)
+      .setMeta({
+        chainId: destinationChainId,
+        senderAccount: gasStationPayer,
+        gasLimit: gasStationGasLimit,
+      });
+    const tx = builder.createTransaction();
+
+    // 3. Submit the transaction
+    const finishTransactionDescriptor = await client.submit(tx);
+
+    // 4. Poll the status of the transaction
+    const result = await client.pollStatus(
+      finishTransactionDescriptor,
+      pollOptions,
+    );
+    return result[finishTransactionDescriptor.requestKey];
   }
 
   async local(

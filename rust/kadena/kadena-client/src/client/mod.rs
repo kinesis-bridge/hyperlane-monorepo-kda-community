@@ -5,17 +5,9 @@ use url::Url;
 use crate::{
     error::KadenaClientError,
     models::{
-        BlockHeaderDto,
-        BlockPayloadsDto,
-        BuildPactTxDto,
-        CommandDto,
-        CommandResultDto,
-        EventDataDto,
-        LocalRequestBodyDto,
-        PollRequestBodyDto,
-        RequestKeysDto,
-        SendRequestBodyDto,
-        TransactionElementDto,
+        BlockHeaderDto, BlockPayloadsDto, BuildPactTxDto, CommandDto, CommandResultDto,
+        ContinueTransferRemoteDto, EventDataDto, LocalRequestBodyDto, PollRequestBodyDto,
+        RequestKeysDto, SendRequestBodyDto, TransactionElementDto,
     },
 };
 
@@ -92,6 +84,17 @@ impl KadenaProxyClient {
     ) -> Result<CommandDto, KadenaClientError> {
         self.request_endpoint(Endpoint::BuildTx(build_pact_tx_dto))
             .await
+    }
+
+    /// Continues a remote transfer.
+    pub async fn continue_transfer_remote(
+        &self,
+        continue_transfer_remote_dto: ContinueTransferRemoteDto,
+    ) -> Result<CommandResultDto, KadenaClientError> {
+        self.request_endpoint(Endpoint::ContinueTransferRemote(
+            continue_transfer_remote_dto,
+        ))
+        .await
     }
 
     /// Polls for a transaction.

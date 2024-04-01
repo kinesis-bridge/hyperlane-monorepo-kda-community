@@ -2,7 +2,7 @@
 #[cfg_attr(test, derive(Default))]
 pub struct CoinbaseDto {
     #[serde(rename = "gas")]
-    pub gas: f32,
+    pub gas: u64,
     #[serde(rename = "result")]
     pub result: Box<crate::models::ResultDto>,
     #[serde(rename = "reqKey")]
@@ -22,7 +22,7 @@ pub struct CoinbaseDto {
 impl CoinbaseDto {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        gas: f32,
+        gas: u64,
         result: crate::models::ResultDto,
         req_key: String,
         logs: String,

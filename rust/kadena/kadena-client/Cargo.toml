@@ -31,3 +31,5 @@ more-asserts = "0.3"
 dotenvy = "0.15"
 once_cell = "1"
 mockito = "1.2"
+hyperlane-kadena = { path = "../../chains/hyperlane-kadena" }
+hyperlane-core = { path = "../../hyperlane-core" }

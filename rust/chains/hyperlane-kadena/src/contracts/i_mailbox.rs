@@ -3,19 +3,51 @@ use std::{str::FromStr, sync::Arc};
 use crate::{provider, KadenaProvider};
 
 use async_trait::async_trait;
-use hyperlane_core::{HyperlaneMessage, LogMeta, H160, H256, U256};
+use hyperlane_core::{HyperlaneMessage, LogMeta, RawHyperlaneMessage, H160, H256, U256};
 use kadena_client::{
     contract::{Contract, KadenaProxyProvider},
     contract_call::ContractCall,
     error::KadenaClientError,
     event::{Event, EventData},
-    models::{CommandDto, EventDataDto, EventParamType},
+    models::{CommandDto, EventDataDto, EventParamType, VerifierDto},
 };
+
+use base64::prelude::{Engine as _, BASE64_URL_SAFE_NO_PAD};
+
+use serde::{de::Error, Deserialize, Serialize};
+use serde_json::{json, Value};
 
 use tracing::{debug, info};
 
 use super::LogMetaProxy;
 use super::U256Proxy;
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PactHyperlaneMessage {
+    version: u8,
+    nonce: u32,
+    origin_domain: u32,
+    sender: H256,
+    destination_domain: u32,
+    recipient: H256,
+    token_message: serde_json::Value,
+}
+
+// This is a conversion from a tuple of HyperlaneMessage and decode token message (as serde_json::Value) to PactHyperlaneMessage
+impl From<(HyperlaneMessage, serde_json::Value)> for PactHyperlaneMessage {
+    fn from((msg, tm): (HyperlaneMessage, serde_json::Value)) -> Self {
+        PactHyperlaneMessage {
+            version: msg.version,
+            nonce: msg.nonce,
+            origin_domain: msg.origin,
+            sender: msg.sender,
+            destination_domain: msg.destination,
+            recipient: msg.recipient,
+            token_message: tm,
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct DispatchEventData {
@@ -301,6 +333,54 @@ impl Event for ProcessIdEvent<'_> {
     }
 }
 
+pub struct DecodeTokenMessageCall<'a> {
+    contract: &'a IMailbox,
+    token_message: Vec<u8>,
+    gas_limit: Option<u64>,
+}
+
+impl DecodeTokenMessageCall<'_> {
+    const METHOD_NAME: &'static str = "decode-token-message";
+    pub fn new(contract: &IMailbox, token_message: Vec<u8>) -> DecodeTokenMessageCall {
+        DecodeTokenMessageCall {
+            contract,
+            token_message,
+            gas_limit: None,
+        }
+    }
+}
+
+#[async_trait]
+impl ContractCall for DecodeTokenMessageCall<'_> {
+    fn contract(&self) -> &dyn Contract {
+        self.contract
+    }
+
+    fn set_gas_limit(&mut self, gas_limit: u64) {
+        self.gas_limit = Some(gas_limit);
+    }
+
+    fn gas_limit(&self) -> Option<u64> {
+        self.gas_limit
+    }
+
+    async fn cmd(&self) -> Result<CommandDto, KadenaClientError> {
+        self.contract
+            .build_pact_tx_with_expr(
+                &format!(
+                    "({}.{}.{} \"{}\")",
+                    self.contract.namespace(),
+                    self.contract.module_name(),
+                    Self::METHOD_NAME,
+                    BASE64_URL_SAFE_NO_PAD.encode(&self.token_message),
+                ),
+                self.gas_limit,
+            )
+            .await
+            .map_err(|e| e.into())
+    }
+}
+
 pub struct DeliveredCall<'a> {
     contract: &'a IMailbox,
     message_id: [u8; 32],
@@ -397,24 +477,41 @@ impl ContractCall for NonceCall<'_> {
 pub struct ProcessCall<'a> {
     contract: &'a IMailbox,
     metadata: Vec<u8>,
-    message: Vec<u8>,
+    message: HyperlaneMessage,
+    pact_tm: Value,
+    destination_chain_id: Option<u8>,
     gas_limit: Option<u64>,
 }
 
 impl ProcessCall<'_> {
     const METHOD_NAME: &'static str = "process";
-    pub fn new(contract: &IMailbox, metadata: Vec<u8>, message: Vec<u8>) -> ProcessCall {
+    pub fn new(
+        contract: &IMailbox,
+        metadata: Vec<u8>,
+        message: HyperlaneMessage,
+        pact_tm: Value,
+    ) -> ProcessCall {
         ProcessCall {
             contract,
             metadata,
             message,
+            pact_tm,
             gas_limit: None,
+            destination_chain_id: None,
         }
+    }
+
+    pub fn set_destination_chain_id(&mut self, destination_chain_id: Option<u8>) {
+        self.destination_chain_id = destination_chain_id;
     }
 }
 
 #[async_trait]
 impl ContractCall for ProcessCall<'_> {
+    fn with_transfer_remote(&self) -> Option<u8> {
+        self.destination_chain_id
+    }
+
     fn contract(&self) -> &dyn Contract {
         self.contract
     }
@@ -428,17 +525,46 @@ impl ContractCall for ProcessCall<'_> {
     }
 
     async fn cmd(&self) -> Result<CommandDto, KadenaClientError> {
+        // TODO: remove this when the smart contract side get signers on its own
+        let signer_address = "0x71239e00ae942b394b3a91ab229e5264ad836f6f";
+
+        let pact_msg = PactHyperlaneMessage::from((self.message.clone(), self.pact_tm.clone()));
+        let pact_msg_str = serde_json::to_string(&pact_msg)
+            .map_err(|e| KadenaClientError::OtherError(Box::new(e)))?;
+        let pact_tm_str = BASE64_URL_SAFE_NO_PAD.encode(&self.message.body);
+        let pact_recipient = String::from_utf8_lossy(&self.message.recipient.as_bytes());
+
         let pact_string = format!(
-            "({}.{}.{} \"0x{}\" \"0x{}\")",
+            "({}.{}.{} {} \"{}\" \"{}\")",
             self.contract.namespace(),
             self.contract.module_name(),
             Self::METHOD_NAME,
-            hex::encode(&self.metadata),
-            hex::encode(&self.message),
+            pact_msg_str,
+            pact_tm_str,
+            pact_recipient,
         );
-        info!("Pact string: {}", pact_string);
+
+        let verifier = VerifierDto {
+            name: "hyperlane_v3_message".to_string(),
+            proof: serde_json::json!([
+                BASE64_URL_SAFE_NO_PAD.encode(RawHyperlaneMessage::from(&self.message).to_vec()),
+                BASE64_URL_SAFE_NO_PAD.encode(&self.metadata),
+            ]),
+            capabilities: vec![serde_json::json!([
+                "free.mailbox.PROCESS-MLC",
+                pact_tm_str,
+                pact_recipient,
+                vec![signer_address],
+            ])],
+        };
+        info!("Pact string: {} with verfier {:?}", pact_string, verifier);
+
         self.contract
-            .build_pact_tx_with_expr(pact_string.as_str(), self.gas_limit)
+            .build_pact_tx_with_expr_and_verifiers(
+                pact_string.as_str(),
+                self.gas_limit,
+                vec![verifier],
+            )
             .await
             .map_err(|e| e.into())
     }
@@ -496,6 +622,9 @@ pub struct IMailbox {
 
 impl IMailbox {
     const MODULE_NAME: &'static str = "mailbox";
+    
+    /// Chain ID of the local chain. TODO: consider moving it to a better place
+    const LOCAL_CHAIN_ID: u8 = 0;
 
     pub fn new(provider: Arc<KadenaProvider>) -> Self {
         Self { provider }
@@ -509,12 +638,53 @@ impl IMailbox {
         NonceCall::new(self)
     }
 
-    pub fn process(&self, metadata: Vec<u8>, message: Vec<u8>) -> ProcessCall {
-        ProcessCall::new(self, metadata, message)
+    pub async fn process(&self, metadata: Vec<u8>, message: HyperlaneMessage) -> Result<ProcessCall, KadenaClientError> {
+        let mut pact_tm = self
+            .decode_token_message(message.body.clone())
+            .local()
+            .await?
+            .result()?;
+
+        // TODO: remove this when the smart contract side returns correct type formats
+
+        // Convert amount from u64 to f64 as it's expected in the smart contract
+        let amount = pact_tm["amount"].as_u64().ok_or_else(|| {
+            KadenaClientError::DeserializationError(serde_json::Error::custom(
+                "Failed to parse amount as u64",
+            ))
+        })?;
+        pact_tm["amount"] = json!(amount as f64);
+
+        // Convert chainId from int Object to int as it's expected in the smart contract
+        let chain_id = pact_tm["chainId"]
+            .as_object()
+            .and_then(|map| map.get("int").and_then(Value::as_u64))
+            .ok_or_else(|| {
+                KadenaClientError::DeserializationError(serde_json::Error::custom(
+                    "Failed to parse chainId as u64",
+                ))
+            })?;
+
+        pact_tm["chainId"] = json!(chain_id);
+
+        // Convert recipient from Object to String as it's expected in the smart contract
+        let recipient_obj = pact_tm["recipient"].clone();
+        let pact_tm_recipient = recipient_obj.to_string();
+        pact_tm["recipient"] = json!(pact_tm_recipient);
+
+        let mut call = ProcessCall::new(self, metadata, message, pact_tm);
+        if chain_id != Self::LOCAL_CHAIN_ID as u64 {
+            call.set_destination_chain_id(Some(chain_id as u8));
+        }
+        Ok(call)
     }
 
     pub fn recipient_ism(&self) -> RecipientIsmCall {
         RecipientIsmCall::new(self)
+    }
+
+    pub fn decode_token_message(&self, token_message: Vec<u8>) -> DecodeTokenMessageCall {
+        DecodeTokenMessageCall::new(self, token_message)
     }
 
     pub fn dispatch_event(&self) -> DispatchEvent {

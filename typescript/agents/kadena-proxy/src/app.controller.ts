@@ -18,6 +18,8 @@ import { RequestKeysDto } from './dto/out/request-keys.dto';
 import { PollResponseDto } from './dto/out/poll-response.dto';
 import { CommandResultDto } from './dto/out/command-result.dto';
 import { LocalRequestBodyDto } from './dto/in/local-request-body.dto';
+import { ContinueTransferRemoteDto } from './dto/in/continue-transfer-remote.dto';
+import { ChainId, ICommandResult } from '@kadena/client';
 
 @Controller()
 export class AppController {
@@ -83,6 +85,7 @@ export class AppController {
       buildPactTxDto.signer,
       buildPactTxDto.senderAccount,
       buildPactTxDto.gasLimit,
+      buildPactTxDto.verifiers || [],
     );
   }
 
@@ -259,6 +262,24 @@ export class AppController {
   @Post('send')
   async send(@Body() body: SendRequestBodyDto): Promise<RequestKeysDto> {
     return this.appService.send(body, body.hostapi);
+  }
+
+  @ApiResponse({
+    type: CommandResultDto,
+  })
+  @Post('continue_transfer_remote')
+  async continueTransferRemote(
+    @Body() body: ContinueTransferRemoteDto,
+  ): Promise<ICommandResult> {
+    return this.appService.continueTransferRemote(
+      body.host,
+      body.network,
+      body.chain_id,
+      body.pactId,
+      body.destinationChainId.toString() as ChainId,
+      body.step,
+      body.rollback,
+    );
   }
 
   @ApiResponse({

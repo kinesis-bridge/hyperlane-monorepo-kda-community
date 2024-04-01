@@ -10,12 +10,12 @@ use async_trait::async_trait;
 use hyperlane_core::H512;
 use kadena_client::event::Event;
 use kadena_client::signers::Signer;
-use tracing::{instrument, warn};
+use tracing::{info, instrument, warn};
 
 use hyperlane_core::{
     utils::bytes_to_hex, ChainCommunicationError, ChainResult, HyperlaneChain, HyperlaneContract,
     HyperlaneDomain, HyperlaneMessage, HyperlaneProvider, Indexer, LogMeta, Mailbox,
-    RawHyperlaneMessage, SequenceIndexer, TxCostEstimate, TxOutcome, H256, U256,
+    SequenceIndexer, TxCostEstimate, TxOutcome, H256, U256,
 };
 
 use crate::contracts::i_mailbox::{IMailbox, ProcessCall};
@@ -176,10 +176,11 @@ impl KadenaMailbox {
         metadata: &[u8],
         tx_gas_limit: Option<U256>,
     ) -> ChainResult<ProcessCall> {
-        let tx = self.contract.process(
-            metadata.to_vec(),
-            RawHyperlaneMessage::from(message).to_vec(),
-        );
+        let tx = self
+            .contract
+            .process(metadata.to_vec(), message.clone())
+            .await
+            .map_err(ChainCommunicationError::from_other)?;
         let tx_gas_limit_u64_op: Option<u64> = tx_gas_limit.and_then(|value| {
             if value > U256::from(u64::MAX) {
                 warn!(%value, "tx_gas_limit is too large to fit into a u64");
@@ -284,9 +285,11 @@ impl Mailbox for KadenaMailbox {
         let contract_call = self
             .process_contract_call(message, metadata, tx_gas_limit)
             .await?;
-        let receipt = report_tx(contract_call)
+        let receipt = report_tx(&contract_call)
             .await
             .map_err(ChainCommunicationError::from_other)?;
+
+        info!("Got receipt: {:?}", receipt);
 
         let (_req_key, res) =
             receipt
@@ -295,6 +298,40 @@ impl Mailbox for KadenaMailbox {
                 .ok_or(ChainCommunicationError::from_other_str(
                     "Error in getting receipt",
                 ))?;
+
+        // Check if the transaction was successful.
+        res.result().map_err(ChainCommunicationError::from_other)?;
+
+        // Check if the transaction was cross-chain (between two Kadena chains).
+        if let Some(dst_chain_id) = contract_call.with_transfer_remote() {
+            if let Some(continuation) = res.continuation() {
+                // If the transaction was cross-chain, we need to continue it.
+                let pact_id = continuation.pact_id.clone();
+                let step = continuation.step.saturating_add(1);
+                let rollback = continuation.step_has_rollback;
+                let cc_tx_res = self
+                    .contract
+                    .continue_transfer_remote(&pact_id, dst_chain_id, step as u8, rollback)
+                    .await
+                    .map_err(ChainCommunicationError::from_other)?;
+
+                // Check if the continuation was successful.
+                cc_tx_res
+                    .result()
+                    .map_err(ChainCommunicationError::from_other)?;
+            } else {
+                return Err(ChainCommunicationError::from_other_str(
+                    "Cross-chain transaction did not return a continuation",
+                ));
+            }
+        } else {
+            if let Some(_) = res.continuation() {
+                return Err(ChainCommunicationError::from_other_str(
+                    "Local transaction returned a continuation",
+                ));
+            }
+        }
+
         let tx_outcome = TxOutcome {
             transaction_id: H512::from_low_u64_be(
                 res.tx_id
@@ -302,11 +339,11 @@ impl Mailbox for KadenaMailbox {
             ),
             executed: true,
             gas_used: U256::from(res.gas),
-            gas_price: 
-                (res
-                    .meta_data
-                    .and_then(|meta| meta.public_meta.map(|public_meta| public_meta.gas_price))
-                    .unwrap_or_default() as u128).into(),
+            gas_price: (res
+                .meta_data
+                .and_then(|meta| meta.public_meta.map(|public_meta| public_meta.gas_price))
+                .unwrap_or_default() as u128)
+                .into(),
         };
 
         Ok(tx_outcome)

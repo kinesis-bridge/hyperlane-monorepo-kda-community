@@ -4,9 +4,9 @@ pub struct PactExecDto {
     #[serde(rename = "pactId")]
     pub pact_id: String,
     #[serde(rename = "step")]
-    pub step: f32,
+    pub step: u64,
     #[serde(rename = "stepCount")]
-    pub step_count: f32,
+    pub step_count: u64,
     #[serde(rename = "executed", deserialize_with = "Option::deserialize")]
     pub executed: Option<bool>,
     #[serde(rename = "stepHasRollback")]
@@ -20,8 +20,8 @@ pub struct PactExecDto {
 impl PactExecDto {
     pub fn new(
         pact_id: String,
-        step: f32,
-        step_count: f32,
+        step: u64,
+        step_count: u64,
         executed: Option<bool>,
         step_has_rollback: bool,
         continuation: serde_json::Value,

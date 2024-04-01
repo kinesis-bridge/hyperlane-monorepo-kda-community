@@ -1,9 +1,6 @@
 use super::KadenaProxyClient;
 use crate::models::{
-    BuildPactTxDto,
-    LocalRequestBodyDto,
-    PollRequestBodyDto,
-    SendRequestBodyDto,
+    BuildPactTxDto, ContinueTransferRemoteDto, LocalRequestBodyDto, PollRequestBodyDto, SendRequestBodyDto
 };
 use reqwest::{
     Method,
@@ -16,6 +13,7 @@ pub(crate) enum Endpoint {
     BlockByHash(String),
     BlockByHeight(u64),
     Blocks { from: u64, to: u64 },
+    ContinueTransferRemote(ContinueTransferRemoteDto),
     EventByHash(String),
     EventByHeight(u64),
     Events { from: u64, to: u64 },
@@ -36,6 +34,7 @@ impl Endpoint {
     pub(crate) const BLOCK_BY_HASH_PATH: &'static str = "/block_by_hash";
     pub(crate) const BLOCK_BY_HEIGHT_PATH: &'static str = "/block_by_height";
     pub(crate) const BLOCKS_PATH: &'static str = "/blocks";
+    pub(crate) const CONTINUE_TRANSFER_REMOTE_PATH: &'static str = "/continue_transfer_remote";
     pub(crate) const EVENT_BY_HASH_PATH: &'static str = "/event_by_hash";
     pub(crate) const EVENT_BY_HEIGHT_PATH: &'static str = "/event_by_height";
     pub(crate) const EVENTS_PATH: &'static str = "/events";
@@ -114,6 +113,16 @@ impl Endpoint {
                     .reqwest_client
                     .request(Method::GET, url.as_ref())
                     .query(&params)
+                    .build()
+                    .unwrap()
+            }
+
+            Endpoint::ContinueTransferRemote(continue_transfer_remote_dto) => {
+                let url = client.base_url().join(Self::CONTINUE_TRANSFER_REMOTE_PATH).unwrap();
+                client
+                    .reqwest_client
+                    .post(url.as_ref())
+                    .json(continue_transfer_remote_dto)
                     .build()
                     .unwrap()
             }

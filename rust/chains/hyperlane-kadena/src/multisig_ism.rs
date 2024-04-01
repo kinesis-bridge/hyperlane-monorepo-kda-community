@@ -95,7 +95,11 @@ impl MultisigIsm for KadenaMultisigIsm {
         let decoded_validators = validators
             .iter()
             .map(|validator| {
-                let bytes = hex::decode(validator.strip_prefix("0x").unwrap_or(&validator))
+                let validator = validator
+                    .trim()
+                    .strip_prefix("0x")
+                    .unwrap_or(&validator);
+                let bytes = hex::decode(validator)
                     .map_err(|_| ChainCommunicationError::from_other_str("Invalid hex string"))?;
                 let bytes_array: [u8; 20] = bytes[..]
                     .try_into()

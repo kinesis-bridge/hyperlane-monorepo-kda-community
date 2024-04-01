@@ -1,10 +1,7 @@
 use crate::{
     client::KadenaProxyClient,
     error::KadenaClientError,
-    models::{
-        BuildPactTxDto,
-        CommandDto,
-    },
+    models::{BuildPactTxDtoBuilder, CommandDto, CommandResultDto, ContinueTransferRemoteDto, VerifierDto},
     signers::Signer,
 };
 use async_trait::async_trait;
@@ -77,18 +74,60 @@ pub trait Contract: Send + Sync {
         expr: &str,
         gas_limit: Option<u64>,
     ) -> Result<CommandDto, KadenaClientError> {
-        let provider = self.provider();
-        let client = provider.proxy_client();
-        let conf = client.chainweb_conf();
-        let build_tx_dto = BuildPactTxDto::new(
-            conf.url.to_string(),
-            conf.network_id.clone(),
-            conf.chain_id as u32,
-            expr.to_owned(),
-            self.pubkey(),
-            self.account_name(),
-            gas_limit.unwrap_or(DEFAULT_GAS_LIMIT),
-        );
-        client.build_tx(build_tx_dto).await
+        //build_pact_tx_with_expr_internal(self, expr, gas_limit, None).await
+        build_pact_tx_with_expr_internal(self, expr, gas_limit, None).await
     }
+
+    /// Build a transaction using the given expression.
+    async fn build_pact_tx_with_expr_and_verifiers(
+        &self,
+        expr: &str,
+        gas_limit: Option<u64>,
+        verifiers: Vec<VerifierDto>,
+    ) -> Result<CommandDto, KadenaClientError> {
+        build_pact_tx_with_expr_internal(self, expr, gas_limit, Some(verifiers)).await
+    }
+
+    async fn continue_transfer_remote(
+        &self,
+        pact_id: &str,
+        dst_chain_id: u8,
+        step: u8,
+        rollback: bool,
+    ) -> Result<CommandResultDto, KadenaClientError> {
+        let client = self.provider().proxy_client();
+        let conf = client.chainweb_conf();
+        let continue_body = ContinueTransferRemoteDto::new(
+            conf,
+            pact_id.to_owned(),
+            dst_chain_id,
+            step,
+            rollback, 
+        );
+        client.continue_transfer_remote(continue_body).await
+    }
+}
+
+// This is the helper function
+async fn build_pact_tx_with_expr_internal<T: Contract + ?Sized + Send + Sync>(
+    instance: &T,
+    expr: &str,
+    gas_limit: Option<u64>,
+    verifiers: Option<Vec<VerifierDto>>,
+) -> Result<CommandDto, KadenaClientError> {
+    let provider = instance.provider();
+    let client = provider.proxy_client();
+    let conf = client.chainweb_conf();
+
+    let mut tx_dto_builder = BuildPactTxDtoBuilder::new(
+        &conf,
+        expr.to_owned(),
+        instance.pubkey(),
+        instance.account_name(),
+        gas_limit.unwrap_or(DEFAULT_GAS_LIMIT),
+    );
+    if let Some(verifiers) = verifiers {
+        tx_dto_builder = tx_dto_builder.with_verifiers(verifiers);
+    };
+    client.build_tx(tx_dto_builder.build()).await
 }
