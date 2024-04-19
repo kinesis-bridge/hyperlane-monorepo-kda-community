@@ -3,12 +3,14 @@ pub mod common;
 use std::sync::Arc;
 
 use common::prelude::*;
+use hyperlane_kadena::contracts::i_mailbox::DispatchEventData;
 use kadena_client::{
-    contract_call::ContractCall, contracts::CoinContract, models::CommandResultDtoResult, signers::{
+    contract_call::ContractCall, contracts::CoinContract, models::{CommandResultDtoResult, DecimalObject, EventDataDto, EventParam, IntObject, ModuleDto}, signers::{
         LocalWallet,
         VaultSigner,
     }, tx::{self, report_tx}
 };
+use primitive_types::U256;
 use serde::{Deserialize, Serialize};
 
 #[tokio::test]
@@ -153,7 +155,7 @@ pub async fn test_new_process() {
 }
 
 #[tokio::test]
-    pub async fn test_cc_transfer() {
+pub async fn test_cc_transfer() {
     use hyperlane_kadena::contracts::i_mailbox;
     use hyperlane_kadena::KadenaProvider;
     use hyperlane_core::HyperlaneMessage;
@@ -196,3 +198,42 @@ pub async fn test_new_process() {
 
     println!("res: {:?}", res);
 }
+
+
+#[tokio::test]
+pub async fn test_event_param() {
+    use hyperlane_kadena::contracts::i_mailbox;
+    use hyperlane_kadena::KadenaProvider;
+    use hyperlane_core::HyperlaneMessage;
+    use serde::{Deserialize, Serialize};
+    use hyperlane_core::H256;
+    use kadena_client::contract::Contract;
+
+    use base64::prelude::{
+        Engine as _,
+        BASE64_URL_SAFE_NO_PAD,
+    };
+
+    let event_data_dto = EventDataDto {
+        height: Some(1u64),
+        name: "event_name".to_string(),
+        params: vec![
+            EventParam::IntObject(IntObject{ int: 3}), // version
+            EventParam::IntObject(IntObject{ int: 0}), // nonce
+            EventParam::String("AAA".to_string()), // sender
+            EventParam::String("1".to_string()), // destination
+            EventParam::String("36594b7a7170444e41546d5068554a7a63354131376d4a624658482d64426b56".to_string()), // recipient
+            EventParam::String("36594b7a7170444e41546d5068554a7a63354131376d4a624658482d64426b56".to_string()), // recipient_tm
+            //EventParam::DecimalObject(DecimalObject{ decimal: U256::from(1) } ), // amount
+            EventParam::String("ds".to_string()), // amount
+        ],
+        module: Box::new(ModuleDto {namespace: Some("namespace".to_string()), name: "name".to_string()}),
+        module_hash: "".to_string(),
+    };
+
+    let event_data = DispatchEventData::try_from(event_data_dto).unwrap();
+
+    println!("event_data: {:?}", event_data);
+}
+
+

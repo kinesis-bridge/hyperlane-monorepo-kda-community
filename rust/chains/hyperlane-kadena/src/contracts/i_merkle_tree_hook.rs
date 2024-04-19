@@ -8,7 +8,7 @@ use kadena_client::{
     contract_call::ContractCall,
     error::KadenaClientError,
     event::{Event, EventData},
-    models::{CommandDto, EventDataDto, EventParamType},
+    models::{CommandDto, EventDataDto, EventParamMonoType, EventParamType},
 };
 
 pub struct InsertedIntoTreeEventData {
@@ -29,7 +29,10 @@ impl TryFrom<EventDataDto> for InsertedIntoTreeEventData {
 
 impl EventData for InsertedIntoTreeEventData {
     fn params() -> &'static [EventParamType] {
-        &[EventParamType::String, EventParamType::String]
+        &[
+            EventParamType::MonoType(EventParamMonoType::String), 
+            EventParamType::MonoType(EventParamMonoType::String),
+        ]
     }
 }
 

@@ -6,11 +6,7 @@ use tracing::warn;
 use crate::{
     contract::Contract,
     error::KadenaClientError,
-    models::{
-        EventDataDto,
-        EventParam,
-        EventParamType,
-    },
+    models::{EventDataDto, EventParam, EventParamMonoType, EventParamType},
 };
 
 pub trait EventData: Send + Sync + TryFrom<EventDataDto> {
@@ -28,11 +24,29 @@ pub trait EventData: Send + Sync + TryFrom<EventDataDto> {
         }
 
         for (arg, param) in args.iter().zip(params.iter()) {
-            if EventParamType::from(arg) != *param {
-                return Err(KadenaClientError::EventParamsTypeMismatchError {
-                    expected: *param,
-                    actual: arg.clone(),
-                });
+            match param {
+                EventParamType::MonoType(mono_type) => {
+                    if EventParamMonoType::from(arg) != *mono_type {
+                        return Err(KadenaClientError::EventParamsTypeMismatchError {
+                            expected: EventParamType::MonoType(*mono_type),
+                            actual: arg.clone(),
+                        });
+                    }
+                }
+                EventParamType::Number => {
+                    if !matches!(
+                        arg,
+                        EventParam::Integer(_)
+                            | EventParam::Float(_)
+                            | EventParam::IntObject(_)
+                            | EventParam::DecimalObject(_)
+                    ) {
+                        return Err(KadenaClientError::EventParamsTypeMismatchError {
+                            expected: param.clone(),
+                            actual: arg.clone(),
+                        });
+                    }
+                }
             }
         }
         Ok(args)

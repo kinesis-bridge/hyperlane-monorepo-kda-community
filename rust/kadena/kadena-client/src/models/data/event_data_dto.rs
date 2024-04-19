@@ -16,7 +16,7 @@ pub struct DecimalObject {
         deserialize_with = "deserialize_decimal",
         serialize_with = "serialize_decimal"
     )]
-    decimal: U256,
+    pub decimal: U256,
 }
 
 fn deserialize_decimal<'de, D>(deserializer: D) -> Result<U256, D::Error>
@@ -37,15 +37,17 @@ where
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct IntObject {
-    int: u64,
+    pub int: u64,
 }
+
+// TODO: move the code below to PactType and an appropriate module.
 
 /// EventParam is a type that can be used to represent any of the possible types of event
 /// parameter EventParamType is an associated enum that can be used to determine the type of the
 /// EventParam
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, EnumDiscriminants)]
 #[serde(untagged)]
-#[strum_discriminants(name(EventParamType))]
+#[strum_discriminants(name(EventParamMonoType))]
 pub enum EventParam {
     String(String),
     Integer(u64),
@@ -54,6 +56,13 @@ pub enum EventParam {
     DecimalObject(DecimalObject),
     Array(Vec<EventParam>),
     Unknown(serde_json::Value),
+}
+
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum EventParamType {
+    MonoType(EventParamMonoType),
+    Number, // Integer or Float
 }
 
 impl ToString for EventParam {

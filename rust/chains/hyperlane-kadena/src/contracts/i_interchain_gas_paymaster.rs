@@ -7,7 +7,7 @@ use kadena_client::{
     contract::{Contract, KadenaProxyProvider},
     error::KadenaClientError,
     event::{Event, EventData},
-    models::{EventDataDto, EventParamType},
+    models::{EventDataDto, EventParamMonoType, EventParamType},
 };
 
 use super::LogMetaProxy;
@@ -46,10 +46,10 @@ impl TryFrom<EventDataDto> for GasPaymentEventData {
 impl EventData for GasPaymentEventData {
     fn params() -> &'static [EventParamType] {
         &[
-            EventParamType::String,
-            EventParamType::String,
-            EventParamType::Integer,
-            EventParamType::Integer,
+            EventParamType::MonoType(EventParamMonoType::String),
+            EventParamType::MonoType(EventParamMonoType::String),
+            EventParamType::MonoType(EventParamMonoType::Integer),
+            EventParamType::MonoType(EventParamMonoType::Integer),
         ]
     }
 }

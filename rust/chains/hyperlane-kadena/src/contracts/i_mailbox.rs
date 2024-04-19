@@ -9,7 +9,7 @@ use kadena_client::{
     contract_call::ContractCall,
     error::KadenaClientError,
     event::{Event, EventData},
-    models::{CommandDto, EventDataDto, EventParamType, VerifierDto},
+    models::{CommandDto, EventDataDto, EventParamMonoType, EventParamType, VerifierDto},
 };
 
 use base64::prelude::{Engine as _, BASE64_URL_SAFE_NO_PAD};
@@ -134,13 +134,13 @@ impl TryFrom<EventDataDto> for DispatchEventData {
 impl EventData for DispatchEventData {
     fn params() -> &'static [EventParamType] {
         &[
-            EventParamType::IntObject,
-            EventParamType::IntObject,
-            EventParamType::String,
-            EventParamType::String,
-            EventParamType::String,
-            EventParamType::String,
-            EventParamType::DecimalObject,
+            EventParamType::MonoType(EventParamMonoType::IntObject), // version
+            EventParamType::MonoType(EventParamMonoType::IntObject), // nonce
+            EventParamType::MonoType(EventParamMonoType::String),    // sender
+            EventParamType::MonoType(EventParamMonoType::String),    // destination
+            EventParamType::MonoType(EventParamMonoType::String),    // recipient
+            EventParamType::MonoType(EventParamMonoType::String),    // recipient_tm
+            EventParamType::Number,                                  // amount
         ]
     }
 }
@@ -193,7 +193,7 @@ impl TryFrom<EventDataDto> for DispatchIdEventData {
 
 impl EventData for DispatchIdEventData {
     fn params() -> &'static [EventParamType] {
-        &[EventParamType::String]
+        &[EventParamType::MonoType(EventParamMonoType::String)] // id
     }
 }
 
@@ -250,9 +250,9 @@ impl TryFrom<EventDataDto> for ProcessEventData {
 impl EventData for ProcessEventData {
     fn params() -> &'static [EventParamType] {
         &[
-            EventParamType::String,
-            EventParamType::String,
-            EventParamType::String,
+            EventParamType::MonoType(EventParamMonoType::String),
+            EventParamType::MonoType(EventParamMonoType::String),
+            EventParamType::MonoType(EventParamMonoType::String),
         ]
     }
 }
@@ -304,7 +304,7 @@ impl TryFrom<EventDataDto> for ProcessIdEventData {
 
 impl EventData for ProcessIdEventData {
     fn params() -> &'static [EventParamType] {
-        &[EventParamType::String]
+        &[EventParamType::MonoType(EventParamMonoType::String)]
     }
 }
 
@@ -622,7 +622,7 @@ pub struct IMailbox {
 
 impl IMailbox {
     const MODULE_NAME: &'static str = "mailbox";
-    
+
     /// Chain ID of the local chain. TODO: consider moving it to a better place
     const LOCAL_CHAIN_ID: u8 = 0;
 
@@ -638,7 +638,11 @@ impl IMailbox {
         NonceCall::new(self)
     }
 
-    pub async fn process(&self, metadata: Vec<u8>, message: HyperlaneMessage) -> Result<ProcessCall, KadenaClientError> {
+    pub async fn process(
+        &self,
+        metadata: Vec<u8>,
+        message: HyperlaneMessage,
+    ) -> Result<ProcessCall, KadenaClientError> {
         let mut pact_tm = self
             .decode_token_message(message.body.clone())
             .local()
@@ -654,18 +658,17 @@ impl IMailbox {
                     let amount = num.as_u64().unwrap();
                     pact_tm["amount"] = json!(amount as f64);
                 } else if num.is_i64() {
-                    return Err(KadenaClientError::DeserializationError(serde_json::Error::custom(
-                        "Amount is negative",
-                    )));
+                    return Err(KadenaClientError::DeserializationError(
+                        serde_json::Error::custom("Amount is negative"),
+                    ));
                 }
             }
             _ => {
-                return Err(KadenaClientError::DeserializationError(serde_json::Error::custom(
-                    "Failed to parse amount as u64",
-                )));
+                return Err(KadenaClientError::DeserializationError(
+                    serde_json::Error::custom("Failed to parse amount as u64"),
+                ));
             }
         };
-
 
         // let amount = pact_tm["amount"].as_u64().ok_or_else(|| {
         //     KadenaClientError::DeserializationError(serde_json::Error::custom(
