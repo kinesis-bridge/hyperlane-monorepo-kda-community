@@ -10,42 +10,110 @@ use kadena_client::{
     error::KadenaClientError,
     event::{Event, EventData},
     models::{CommandDto, EventDataDto, EventParamMonoType, EventParamType, VerifierDto},
+    pact::IntObject,
 };
 
 use base64::prelude::{Engine as _, BASE64_URL_SAFE_NO_PAD};
 
-use serde::{de::Error, Deserialize, Serialize};
+use serde::ser::SerializeStruct;
+use serde::{
+    de::{self, Error},
+    Deserialize, Serialize, Serializer,
+};
 use serde_json::{json, Value};
 
 use tracing::{debug, info};
 
 use super::LogMetaProxy;
-use super::U256Proxy;
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct PactHyperlaneMessage {
-    version: u8,
-    nonce: u32,
-    origin_domain: u32,
-    sender: H256,
-    destination_domain: u32,
-    recipient: H256,
-    token_message: serde_json::Value,
+pub struct PactHyperlaneMessage(HyperlaneMessage);
+
+impl Serialize for PactHyperlaneMessage {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let HyperlaneMessage {
+            version,
+            nonce,
+            origin,
+            sender,
+            destination,
+            recipient,
+            body,
+        } = &self.0;
+
+        let sender = BASE64_URL_SAFE_NO_PAD.encode(sender);
+        let recipient = BASE64_URL_SAFE_NO_PAD.encode(recipient);
+        let body = BASE64_URL_SAFE_NO_PAD.encode(body);
+
+        let mut state = serializer.serialize_struct("HyperlaneMessage", 7)?;
+        state.serialize_field("version", &version)?;
+        state.serialize_field("nonce", &nonce)?;
+        state.serialize_field("originDomain", &origin)?;
+        state.serialize_field("sender", &sender)?;
+        state.serialize_field("destinationDomain", &destination)?;
+        state.serialize_field("recipient", &recipient)?;
+        state.serialize_field("messageBody", &body)?;
+        state.end()
+    }
 }
 
 // This is a conversion from a tuple of HyperlaneMessage and decode token message (as serde_json::Value) to PactHyperlaneMessage
-impl From<(HyperlaneMessage, serde_json::Value)> for PactHyperlaneMessage {
-    fn from((msg, tm): (HyperlaneMessage, serde_json::Value)) -> Self {
-        PactHyperlaneMessage {
-            version: msg.version,
-            nonce: msg.nonce,
-            origin_domain: msg.origin,
-            sender: msg.sender,
-            destination_domain: msg.destination,
-            recipient: msg.recipient,
-            token_message: tm,
-        }
+impl From<HyperlaneMessage> for PactHyperlaneMessage {
+    fn from(msg: HyperlaneMessage) -> Self {
+        PactHyperlaneMessage(msg)
+    }
+}
+
+pub struct VerifierHyperlaneMessage(HyperlaneMessage);
+
+impl Serialize for VerifierHyperlaneMessage {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let HyperlaneMessage {
+            version,
+            nonce,
+            origin,
+            sender,
+            destination,
+            recipient,
+            body,
+        } = &self.0;
+
+        let version = IntObject {
+            int: *version as u64,
+        };
+        let nonce = IntObject { int: *nonce as u64 };
+        let origin = IntObject {
+            int: *origin as u64,
+        };
+        let destination = IntObject {
+            int: *destination as u64,
+        };
+
+        let sender = BASE64_URL_SAFE_NO_PAD.encode(sender);
+        let recipient = BASE64_URL_SAFE_NO_PAD.encode(recipient);
+        let body = BASE64_URL_SAFE_NO_PAD.encode(body);
+
+        let mut state = serializer.serialize_struct("HyperlaneMessage", 7)?;
+        state.serialize_field("version", &version)?;
+        state.serialize_field("nonce", &nonce)?;
+        state.serialize_field("originDomain", &origin)?;
+        state.serialize_field("sender", &sender)?;
+        state.serialize_field("destinationDomain", &destination)?;
+        state.serialize_field("recipient", &recipient)?;
+        state.serialize_field("messageBody", &body)?;
+        state.end()
+    }
+}
+
+// This is a conversion from a tuple of HyperlaneMessage and decode token message (as serde_json::Value) to PactHyperlaneMessage
+impl From<HyperlaneMessage> for VerifierHyperlaneMessage {
+    fn from(msg: HyperlaneMessage) -> Self {
+        VerifierHyperlaneMessage(msg)
     }
 }
 
@@ -63,7 +131,7 @@ impl TryFrom<EventDataDto> for DispatchEventData {
     fn try_from(mut event_data_dto: EventDataDto) -> Result<Self, KadenaClientError> {
         let args = Self::check_params(std::mem::take(&mut event_data_dto.params), Self::params())?;
 
-        // Assembling message since it can't be stored in Event due to verify-spv
+        // Assembling message from event data
 
         let version = (&args[0]).try_into()?;
         let nonce = (&args[1]).try_into()?;
@@ -72,8 +140,16 @@ impl TryFrom<EventDataDto> for DispatchEventData {
         let origin = 626u32;
 
         // As of now, sender is base64 url encoded string, it should be just bypassed as H256
-        let sender_str = args[2].to_string();
-        let sender_vec = sender_str.as_bytes();
+        let sender_vec = BASE64_URL_SAFE_NO_PAD
+            .decode(&args[2].to_string())
+            .map_err(|e| KadenaClientError::OtherError(Box::new(e)))?;
+
+        if sender_vec.len() > 32 {
+            return Err(KadenaClientError::DeserializationError(de::Error::custom(
+                "Sender is too long",
+            )));
+        }
+
         let mut sender = [0u8; 32];
         let start_index = sender.len().saturating_sub(sender_vec.len());
         sender[start_index..].copy_from_slice(&sender_vec);
@@ -81,35 +157,25 @@ impl TryFrom<EventDataDto> for DispatchEventData {
 
         let destination = (&args[3]).try_into()?;
 
-        let recipient = match H160::from_str(&args[4].to_string()) {
-            Ok(recipient) => H256::from(recipient),
-            Err(e) => {
-                debug!(
-                    "Failed to parse recipient as H160, trying to parse as H256: {}",
-                    e
-                );
-                H256::from_str(&args[4].to_string())
-                    .map_err(|e| KadenaClientError::OtherError(Box::new(e)))?
-            }
-        };
+        let recipient_vec = BASE64_URL_SAFE_NO_PAD
+            .decode(&args[4].to_string())
+            .map_err(|e| KadenaClientError::OtherError(Box::new(e)))?;
 
-        let recipient_tm = match H160::from_str(&args[5].to_string()) {
-            Ok(recipient) => H256::from(recipient),
-            Err(e) => {
-                debug!(
-                    "Failed to parse recipient_tm as H160, trying to parse as H256: {}",
-                    e
-                );
-                H256::from_str(&args[5].to_string())
-                    .map_err(|e| KadenaClientError::OtherError(Box::new(e)))?
-            }
-        };
+        if recipient_vec.len() > 32 {
+            return Err(KadenaClientError::DeserializationError(de::Error::custom(
+                "Recipient is too long",
+            )));
+        }
 
-        let amount: U256 = U256Proxy::try_from(&args[6])?.into();
+        let mut recipient_arr = [0u8; 32];
+        let start_index = recipient_arr.len().saturating_sub(recipient_vec.len());
+        recipient_arr[start_index..].copy_from_slice(&recipient_vec);
 
-        let mut message_body = [0u8; 64];
-        message_body[0..32].copy_from_slice(recipient_tm.as_bytes());
-        amount.to_big_endian(&mut message_body[32..64]);
+        let recipient = H256::from(recipient_arr);
+
+        let message_body = BASE64_URL_SAFE_NO_PAD
+            .decode(&args[5].to_string())
+            .map_err(|e| KadenaClientError::OtherError(Box::new(e)))?;
 
         let message = HyperlaneMessage {
             version,
@@ -139,8 +205,7 @@ impl EventData for DispatchEventData {
             EventParamType::MonoType(EventParamMonoType::String),    // sender
             EventParamType::MonoType(EventParamMonoType::String),    // destination
             EventParamType::MonoType(EventParamMonoType::String),    // recipient
-            EventParamType::MonoType(EventParamMonoType::String),    // recipient_tm
-            EventParamType::Number,                                  // amount
+            EventParamType::MonoType(EventParamMonoType::String),    // message-body
         ]
     }
 }
@@ -181,8 +246,7 @@ impl TryFrom<EventDataDto> for DispatchIdEventData {
     fn try_from(mut event_data_dto: EventDataDto) -> Result<Self, Self::Error> {
         let args = Self::check_params(std::mem::take(&mut event_data_dto.params), Self::params())?;
 
-        let id = H256::from_str(&args[0].to_string())
-            .map_err(|e| KadenaClientError::OtherError(Box::new(e)))?;
+        let id = H256::from_slice(&BASE64_URL_SAFE_NO_PAD.decode(args[0].to_string())?);
 
         Ok(Self {
             id,
@@ -292,8 +356,7 @@ impl TryFrom<EventDataDto> for ProcessIdEventData {
     type Error = KadenaClientError;
     fn try_from(mut event_data_dto: EventDataDto) -> Result<Self, KadenaClientError> {
         let args = Self::check_params(std::mem::take(&mut event_data_dto.params), Self::params())?;
-        let id = H256::from_str(&args[0].to_string())
-            .map_err(|e| KadenaClientError::OtherError(Box::new(e)))?;
+        let id = H256::from_slice(&BASE64_URL_SAFE_NO_PAD.decode(args[0].to_string())?);
 
         Ok(Self {
             id,
@@ -420,7 +483,7 @@ impl ContractCall for DeliveredCall<'_> {
                     self.contract.namespace(),
                     self.contract.module_name(),
                     Self::METHOD_NAME,
-                    hex::encode(self.message_id),
+                    BASE64_URL_SAFE_NO_PAD.encode(&self.message_id),
                 ),
                 self.gas_limit,
             )
@@ -479,7 +542,7 @@ pub struct ProcessCall<'a> {
     metadata: Vec<u8>,
     message: HyperlaneMessage,
     pact_tm: Value,
-    destination_chain_id: Option<u8>,
+    destination_chain_id: Option<u16>,
     gas_limit: Option<u64>,
 }
 
@@ -501,14 +564,14 @@ impl ProcessCall<'_> {
         }
     }
 
-    pub fn set_destination_chain_id(&mut self, destination_chain_id: Option<u8>) {
+    pub fn set_destination_chain_id(&mut self, destination_chain_id: Option<u16>) {
         self.destination_chain_id = destination_chain_id;
     }
 }
 
 #[async_trait]
 impl ContractCall for ProcessCall<'_> {
-    fn with_transfer_remote(&self) -> Option<u8> {
+    fn with_transfer_remote(&self) -> Option<u16> {
         self.destination_chain_id
     }
 
@@ -528,20 +591,24 @@ impl ContractCall for ProcessCall<'_> {
         // TODO: remove this when the smart contract side get signers on its own
         let signer_address = "0x71239e00ae942b394b3a91ab229e5264ad836f6f";
 
-        let pact_msg = PactHyperlaneMessage::from((self.message.clone(), self.pact_tm.clone()));
+        let pact_msg = PactHyperlaneMessage::from((self.message.clone()));
         let pact_msg_str = serde_json::to_string(&pact_msg)
             .map_err(|e| KadenaClientError::OtherError(Box::new(e)))?;
+
+        let verifier_msg = VerifierHyperlaneMessage::from((self.message.clone()));
+        let verifier_msg_str = serde_json::to_string(&verifier_msg)
+            .map_err(|e| KadenaClientError::OtherError(Box::new(e)))?;
+
         let pact_tm_str = BASE64_URL_SAFE_NO_PAD.encode(&self.message.body);
         let pact_recipient = String::from_utf8_lossy(&self.message.recipient.as_bytes());
 
         let pact_string = format!(
-            "({}.{}.{} {} \"{}\" \"{}\")",
+            "({}.{}.{} \"{}\" {})",
             self.contract.namespace(),
             self.contract.module_name(),
             Self::METHOD_NAME,
+            BASE64_URL_SAFE_NO_PAD.encode(self.message.id().as_bytes()),
             pact_msg_str,
-            pact_tm_str,
-            pact_recipient,
         );
 
         let verifier = VerifierDto {
@@ -552,11 +619,13 @@ impl ContractCall for ProcessCall<'_> {
             ]),
             capabilities: vec![serde_json::json!([
                 "free.mailbox.PROCESS-MLC",
-                pact_tm_str,
-                pact_recipient,
+                format!("{}", BASE64_URL_SAFE_NO_PAD.encode(self.message.id().as_bytes())),
+                verifier_msg_str,
                 vec![signer_address],
+                IntObject { int: 1 },
             ])],
         };
+        println!("Pact string: {} with verfier {:?}", pact_string, verifier);
         info!("Pact string: {} with verfier {:?}", pact_string, verifier);
 
         self.contract
@@ -624,7 +693,7 @@ impl IMailbox {
     const MODULE_NAME: &'static str = "mailbox";
 
     /// Chain ID of the local chain. TODO: consider moving it to a better place
-    const LOCAL_CHAIN_ID: u8 = 0;
+    const LOCAL_CHAIN_ID: u16 = 0;
 
     pub fn new(provider: Arc<KadenaProvider>) -> Self {
         Self { provider }
@@ -696,7 +765,7 @@ impl IMailbox {
 
         let mut call = ProcessCall::new(self, metadata, message, pact_tm);
         if chain_id != Self::LOCAL_CHAIN_ID as u64 {
-            call.set_destination_chain_id(Some(chain_id as u8));
+            call.set_destination_chain_id(Some(chain_id as u16));
         }
         Ok(call)
     }

@@ -180,7 +180,21 @@ export class AppService {
         (withCapability) => {
           return verifier.capabilities.map((cap) => {
             const [capName, ...args] = cap;
-            return withCapability(capName, ...args);
+            const parsedArgs = args.map(arg => {
+              if (typeof arg === 'string') {
+                try {
+                  // Try to parse arg as JSON
+                  return JSON.parse(arg);
+                } catch (e) {
+                  // If parsing fails, return the original string
+                  return arg;
+                }
+              } else {
+                // If arg is not a string, return it as is
+                return arg;
+              }
+            });
+            return withCapability(capName, ...parsedArgs);
           });
         },
       );

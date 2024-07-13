@@ -149,7 +149,7 @@ pub fn build_kadena_connection_conf(
         // Extract the host, network_id, and chain_id
         let host_with_scheme = url.as_str().trim_end_matches(url.path());
         let network_id = path_segments[2];
-        let chain_id: u8 = path_segments[4].parse().unwrap();
+        let chain_id: u16 = path_segments[4].parse().unwrap();
         let kadena_proxy_url = kadena_proxy_url.unwrap();
 
         Some(ChainConnectionConf::Kadena(h_kadena::ConnectionConf {

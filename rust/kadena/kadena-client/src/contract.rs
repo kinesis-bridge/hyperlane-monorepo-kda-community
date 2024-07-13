@@ -91,7 +91,7 @@ pub trait Contract: Send + Sync {
     async fn continue_transfer_remote(
         &self,
         pact_id: &str,
-        dst_chain_id: u8,
+        dst_chain_id: u16,
         step: u8,
         rollback: bool,
     ) -> Result<CommandResultDto, KadenaClientError> {

@@ -8,12 +8,12 @@ pub struct ChainwebConf {
     /// Network ID.
     pub network_id: String,
     /// Chain ID.
-    pub chain_id: u8,
+    pub chain_id: u16,
 }
 
 impl ChainwebConf {
     /// Creates a new configuration with the given url, network id and chain id.
-    pub fn new(url: Url, network_id: String, chain_id: u8) -> Self {
+    pub fn new(url: Url, network_id: String, chain_id: u16) -> Self {
         ChainwebConf {
             url,
             network_id,

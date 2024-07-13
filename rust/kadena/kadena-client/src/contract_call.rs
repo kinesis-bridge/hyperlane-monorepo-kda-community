@@ -51,10 +51,10 @@ pub trait ContractCall: Send + Sync {
         client.send(send_body).await
     }
 
-    /// Preforms a local call to the blockchain via the proxy.
+    /// Performs a local call to the blockchain via the proxy.
     async fn local(&self) -> Result<CommandResultDto, KadenaClientError> {
         let client = self.proxy_client();
-        let local_body = LocalRequestBodyDto::new(self.cmd().await?, client.hostapi(), true, false);
+        let local_body = LocalRequestBodyDto::new(self.cmd().await?, client.hostapi(), false, false);
         client.local(local_body).await
     }
 
@@ -78,7 +78,7 @@ pub trait ContractCall: Send + Sync {
 
     /// Returns the destination chain id for this call.
     /// None means transfer is local.   
-    fn with_transfer_remote(&self) -> Option<u8> {
+    fn with_transfer_remote(&self) -> Option<u16> {
         None
     }
 }

@@ -15,7 +15,7 @@ pub struct ConnectionConf {
 
     /// Chain ID
     #[allow(dead_code)]
-    pub chain_id: u8,
+    pub chain_id: u16,
 
     /// Chain ID
     #[allow(dead_code)]

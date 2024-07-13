@@ -3,7 +3,7 @@ pub mod common;
 use std::sync::Arc;
 
 use common::prelude::*;
-use hyperlane_kadena::contracts::i_mailbox::DispatchEventData;
+use hyperlane_kadena::contracts::i_mailbox::{DispatchEventData, PactHyperlaneMessage};
 use kadena_client::{
     contract_call::ContractCall, contracts::CoinContract, models::{CommandResultDtoResult, DecimalObject, EventDataDto, EventParam, IntObject, ModuleDto}, signers::{
         LocalWallet,
@@ -117,6 +117,7 @@ pub async fn test_new_process() {
     use hyperlane_kadena::contracts::i_mailbox;
     use hyperlane_kadena::KadenaProvider;
     use hyperlane_core::HyperlaneMessage;
+    use hyperlane_core::RawHyperlaneMessage;
     use serde::{Deserialize, Serialize};
     use hyperlane_core::H256;
 
@@ -139,10 +140,10 @@ pub async fn test_new_process() {
         Arc::new(LocalWallet::new(CONTEXT.default_privkey.clone())),
     ));
 
-    let msg_str = "AwAAAAAAAHppAAAAAAAAAAAAAAAAYXFHmgA9HYmRXdnnFldiAxOHAoMAAAJyZ2pfRVV6RFNPblRJek1yZ2xucl93WEtWSURURnp3NGUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARWORgkT0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAX3sicHJlZCI6ImtleXMtYWxsIiwia2V5cyI6WyJlNWRiMzU5NzNmNTQ0NjQyY2I4YjE1MzljYjhiZGYwMzljZmUxMWU1ZjdlMTEyN2ExNDZiZDJhNmQxM2QyOGM0Il19AA";
+    let msg_str = "AwAAAAAAAHppAAAAAAAAAAAAAAAAciB23PdvTc0wk7Alth8XcrurorkAAAJyZ2pfRVV6RFNPblRJek1yZ2xucl93WEtWSURURnp3NGUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARWORgkT0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAX3sicHJlZCI6ImtleXMtYWxsIiwia2V5cyI6WyJlNWRiMzU5NzNmNTQ0NjQyY2I4YjE1MzljYjhiZGYwMzljZmUxMWU1ZjdlMTEyN2ExNDZiZDJhNmQxM2QyOGM0Il19AA";
     let msg = HyperlaneMessage::from(BASE64_URL_SAFE_NO_PAD.decode(msg_str).unwrap());
 
-    let metadata_str = "AAAAAAAAAAAAAAAAN0asnTO8HoUOhVMT8nrsCfnA6CvochCwimdS8frnb6dFmAW0bSQtFZOHjWOQLMEoQyHBfgAAAAC4wXUH149ooajFPSPQogPWBeFS-Mg2c3WHi9DmWxQR11PzcQDSO9avB4e4o5Rdk-PTpkeKLeY6ta3B-M5APSlrHA";
+    let metadata_str = "AAAAAAAAAAAAAAAAN0asnTO8HoUOhVMT8nrsCfnA6CuIEteqlm10hGSGU5zzm162lVvwAmLOebwEJo1CQtdekwAAAACTyJbULVNtH3Hc1KcSuA2Q4x4RqOoJWXwecA9_LPGsVQBHI6kt7Y-Q-5O-5UsnUJBp3LiqMnyWxIleGiHVvFVWHA";
     let metadata = BASE64_URL_SAFE_NO_PAD.decode(metadata_str).unwrap();
 
 

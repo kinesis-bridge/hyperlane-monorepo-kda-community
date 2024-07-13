@@ -10,6 +10,8 @@ use kadena_client::{
     models::{EventDataDto, EventParamMonoType, EventParamType},
 };
 
+use base64::prelude::{Engine as _, BASE64_URL_SAFE_NO_PAD};
+
 use super::LogMetaProxy;
 use super::U256Proxy;
 
@@ -26,9 +28,7 @@ impl TryFrom<EventDataDto> for GasPaymentEventData {
     type Error = KadenaClientError;
     fn try_from(mut event_data_dto: EventDataDto) -> Result<Self, Self::Error> {
         let args = Self::check_params(std::mem::take(&mut event_data_dto.params), Self::params())?;
-
-        let id = H256::from_str(&args[0].to_string())
-            .map_err(|e| KadenaClientError::OtherError(Box::new(e)))?;
+        let id = H256::from_slice(&BASE64_URL_SAFE_NO_PAD.decode(args[0].to_string())?);
         let domain = (&args[1]).try_into()?;
         let gas_amount = U256Proxy::try_from(&args[2])?.into();
         let kda_amount = U256Proxy::try_from(&args[3])?.into();
