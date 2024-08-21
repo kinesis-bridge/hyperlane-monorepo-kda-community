@@ -255,22 +255,30 @@ impl Mailbox for KadenaMailbox {
 
     #[instrument(skip(self))]
     async fn recipient_ism(&self, _recipient: H256) -> ChainResult<H256> {
-        let ism = self
+        let ism_obj = self
             .contract
             .recipient_ism()
             .local()
             .await
             .map_err(ChainCommunicationError::from_other)?
             .result()
-            .map_err(ChainCommunicationError::from_other)?
-            .as_str()
-            .ok_or(ChainCommunicationError::from_other_str(
-                "ISM is not a string",
-            ))?
-            .to_string();
+            .map_err(ChainCommunicationError::from_other)?;
+
+        let ism_namespace = ism_obj["refName"]["namespace"].as_str().ok_or(
+            ChainCommunicationError::from_other_str("ISM namespace is missing"),
+        )?;
+        let ism_name =
+            ism_obj["refName"]["name"]
+                .as_str()
+                .ok_or(ChainCommunicationError::from_other_str(
+                    "ISM name is missing",
+                ))?;
+
+        let ism = format!("{}.{}", ism_namespace, ism_name);
 
         let mut ism_bytes: [u8; 32] = [0; 32];
-        ism_bytes[..ism.as_bytes().len()].copy_from_slice(ism.as_bytes());
+        let bytes_to_copy = std::cmp::min(ism.as_bytes().len(), 32);
+        ism_bytes[..bytes_to_copy].copy_from_slice(&ism.as_bytes()[..bytes_to_copy]);
 
         Ok(H256::from(ism_bytes))
     }

@@ -1,14 +1,17 @@
 pub mod common;
 
-use std::sync::Arc;
+use std::{fmt::format, sync::Arc};
 
 use common::prelude::*;
 use hyperlane_kadena::contracts::i_mailbox::{DispatchEventData, PactHyperlaneMessage};
 use kadena_client::{
-    contract_call::ContractCall, contracts::CoinContract, models::{CommandResultDtoResult, DecimalObject, EventDataDto, EventParam, IntObject, ModuleDto}, signers::{
-        LocalWallet,
-        VaultSigner,
-    }, tx::{self, report_tx}
+    contract_call::ContractCall,
+    contracts::CoinContract,
+    models::{
+        CommandResultDtoResult, DecimalObject, EventDataDto, EventParam, IntObject, ModuleDto,
+    },
+    signers::{LocalWallet, VaultSigner},
+    tx::{self, report_tx},
 };
 use primitive_types::U256;
 use serde::{Deserialize, Serialize};
@@ -55,10 +58,7 @@ pub async fn test_estimate_gas() {
 
 #[tokio::test]
 pub async fn test_add_two_numbers_vault_tx() {
-    use vaultrs::client::{
-        VaultClient,
-        VaultClientSettingsBuilder,
-    };
+    use vaultrs::client::{VaultClient, VaultClientSettingsBuilder};
 
     let a = 1;
     let b = 2;
@@ -100,32 +100,35 @@ pub async fn test_add_two_numbers_vault_tx() {
 
 #[tokio::test]
 pub async fn test_get_balance_local_tx() {
-    let coin_contract =
-        CoinContract::new(Arc::new(TestProvider {
-            client: CONTEXT.client.clone(),
-            signer: Arc::new(LocalWallet::new(CONTEXT.default_privkey.clone())),
-        }));
-    let balance = coin_contract.get_balance("sender00".to_string()).await.unwrap();
+    let coin_contract = CoinContract::new(Arc::new(TestProvider {
+        client: CONTEXT.client.clone(),
+        signer: Arc::new(LocalWallet::new(CONTEXT.default_privkey.clone())),
+    }));
+    let balance = coin_contract
+        .get_balance("sender00".to_string())
+        .await
+        .unwrap();
     println!("res: {:?}", balance);
 
-    let balance = coin_contract.get_balance("k:94c35ab1bd70243ec670495077f7846373b4dc5e9779d7a6732b5ceb6fde059c".to_string()).await.unwrap();
+    let balance = coin_contract
+        .get_balance(
+            "k:94c35ab1bd70243ec670495077f7846373b4dc5e9779d7a6732b5ceb6fde059c".to_string(),
+        )
+        .await
+        .unwrap();
     println!("res: {:?}", balance);
 }
 
 #[tokio::test]
 pub async fn test_new_process() {
-    use hyperlane_kadena::contracts::i_mailbox;
-    use hyperlane_kadena::KadenaProvider;
     use hyperlane_core::HyperlaneMessage;
     use hyperlane_core::RawHyperlaneMessage;
-    use serde::{Deserialize, Serialize};
     use hyperlane_core::H256;
+    use hyperlane_kadena::contracts::i_mailbox;
+    use hyperlane_kadena::KadenaProvider;
+    use serde::{Deserialize, Serialize};
 
-    use base64::prelude::{
-        Engine as _,
-        BASE64_URL_SAFE_NO_PAD,
-    };
-
+    use base64::prelude::{Engine as _, BASE64_URL_SAFE_NO_PAD};
 
     let domain = hyperlane_core::HyperlaneDomain::Unknown {
         domain_id: 0,
@@ -146,7 +149,6 @@ pub async fn test_new_process() {
     let metadata_str = "AAAAAAAAAAAAAAAAN0asnTO8HoUOhVMT8nrsCfnA6CuIEteqlm10hGSGU5zzm162lVvwAmLOebwEJo1CQtdekwAAAACTyJbULVNtH3Hc1KcSuA2Q4x4RqOoJWXwecA9_LPGsVQBHI6kt7Y-Q-5O-5UsnUJBp3LiqMnyWxIleGiHVvFVWHA";
     let metadata = BASE64_URL_SAFE_NO_PAD.decode(metadata_str).unwrap();
 
-
     let mailbox_contract = i_mailbox::IMailbox::new(provider);
     let call = mailbox_contract.process(metadata, msg).await.unwrap();
     let res = call.local().await;
@@ -157,18 +159,14 @@ pub async fn test_new_process() {
 
 #[tokio::test]
 pub async fn test_cc_transfer() {
+    use hyperlane_core::HyperlaneMessage;
+    use hyperlane_core::H256;
     use hyperlane_kadena::contracts::i_mailbox;
     use hyperlane_kadena::KadenaProvider;
-    use hyperlane_core::HyperlaneMessage;
-    use serde::{Deserialize, Serialize};
-    use hyperlane_core::H256;
     use kadena_client::contract::Contract;
+    use serde::{Deserialize, Serialize};
 
-    use base64::prelude::{
-        Engine as _,
-        BASE64_URL_SAFE_NO_PAD,
-    };
-
+    use base64::prelude::{Engine as _, BASE64_URL_SAFE_NO_PAD};
 
     let domain = hyperlane_core::HyperlaneDomain::Unknown {
         domain_id: 0,
@@ -189,46 +187,47 @@ pub async fn test_cc_transfer() {
     let step = 1;
     let rollback = false;
 
-    let res = mailbox_contract.continue_transfer_remote(
-        pact_id,
-        destination_chain_id,
-        step,
-        rollback,
-    ).await.unwrap();
+    let res = mailbox_contract
+        .continue_transfer_remote(pact_id, destination_chain_id, step, rollback)
+        .await
+        .unwrap();
     //let res = tx::report_tx(call).await.unwrap();
 
     println!("res: {:?}", res);
 }
 
-
 #[tokio::test]
 pub async fn test_event_param() {
+    use hyperlane_core::HyperlaneMessage;
+    use hyperlane_core::H256;
     use hyperlane_kadena::contracts::i_mailbox;
     use hyperlane_kadena::KadenaProvider;
-    use hyperlane_core::HyperlaneMessage;
-    use serde::{Deserialize, Serialize};
-    use hyperlane_core::H256;
     use kadena_client::contract::Contract;
+    use serde::{Deserialize, Serialize};
 
-    use base64::prelude::{
-        Engine as _,
-        BASE64_URL_SAFE_NO_PAD,
-    };
+    use base64::prelude::{Engine as _, BASE64_URL_SAFE_NO_PAD};
 
     let event_data_dto = EventDataDto {
         height: Some(1u64),
         name: "event_name".to_string(),
         params: vec![
-            EventParam::IntObject(IntObject{ int: 3}), // version
-            EventParam::IntObject(IntObject{ int: 0}), // nonce
-            EventParam::String("AAA".to_string()), // sender
-            EventParam::String("1".to_string()), // destination
-            EventParam::String("36594b7a7170444e41546d5068554a7a63354131376d4a624658482d64426b56".to_string()), // recipient
-            EventParam::String("36594b7a7170444e41546d5068554a7a63354131376d4a624658482d64426b56".to_string()), // recipient_tm
+            EventParam::IntObject(IntObject { int: 3 }), // version
+            EventParam::IntObject(IntObject { int: 0 }), // nonce
+            EventParam::String("AAA".to_string()),       // sender
+            EventParam::String("1".to_string()),         // destination
+            EventParam::String(
+                "36594b7a7170444e41546d5068554a7a63354131376d4a624658482d64426b56".to_string(),
+            ), // recipient
+            EventParam::String(
+                "36594b7a7170444e41546d5068554a7a63354131376d4a624658482d64426b56".to_string(),
+            ), // recipient_tm
             //EventParam::DecimalObject(DecimalObject{ decimal: U256::from(1) } ), // amount
             EventParam::String("ds".to_string()), // amount
         ],
-        module: Box::new(ModuleDto {namespace: Some("namespace".to_string()), name: "name".to_string()}),
+        module: Box::new(ModuleDto {
+            namespace: Some("namespace".to_string()),
+            name: "name".to_string(),
+        }),
         module_hash: "".to_string(),
     };
 
@@ -237,4 +236,31 @@ pub async fn test_event_param() {
     println!("event_data: {:?}", event_data);
 }
 
+#[tokio::test]
+pub async fn test_recipient_ism() {
+    use hyperlane_kadena::contracts::i_mailbox;
+    use hyperlane_kadena::KadenaProvider;
+    use serde::{Deserialize, Serialize};
 
+    let domain = hyperlane_core::HyperlaneDomain::Unknown {
+        domain_id: 0,
+        domain_name: "kadena".to_string(),
+        domain_type: hyperlane_core::HyperlaneDomainType::Unknown,
+        domain_protocol: hyperlane_core::HyperlaneDomainProtocol::Kadena,
+    };
+
+    let provider = Arc::new(KadenaProvider::new(
+        domain,
+        CONTEXT.client.clone(),
+        Arc::new(LocalWallet::new(CONTEXT.default_privkey.clone())),
+    ));
+
+    let mb_contract = i_mailbox::IMailbox::new(provider);
+    let call = mb_contract.recipient_ism();
+    let res = call.local().await.unwrap().result().unwrap();
+
+    let ism_name = res["refName"]["name"].as_str().unwrap();
+    let ism_namespace = res["refName"]["namespace"].as_str().unwrap();
+
+    println!("{}.{}", ism_namespace, ism_name);
+}
