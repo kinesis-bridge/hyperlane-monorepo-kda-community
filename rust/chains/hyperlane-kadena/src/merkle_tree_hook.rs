@@ -10,11 +10,13 @@ use kadena_client::signers::Signer;
 use tracing::instrument;
 
 use hyperlane_core::{
-    ChainCommunicationError, ChainResult, Checkpoint, HyperlaneChain, HyperlaneContract, HyperlaneDomain, HyperlaneProvider, Indexer, LogMeta, MerkleTreeHook, MerkleTreeInsertion, SequenceIndexer, H256
+    ChainCommunicationError, ChainResult, Checkpoint, HyperlaneChain, HyperlaneContract,
+    HyperlaneDomain, HyperlaneProvider, Indexer, LogMeta, MerkleTreeHook, MerkleTreeInsertion,
+    SequenceIndexer, H256,
 };
 
-use crate::contracts::i_merkle_tree_hook::IMerlkeTreeHook;
 use crate::contracts::i_mailbox::IMailbox;
+use crate::contracts::i_merkle_tree_hook::IMerlkeTreeHook;
 use crate::{ConnectionConf, KadenaProvider};
 use kadena_client::contract::{Contract, KadenaProxyProvider};
 
@@ -84,14 +86,9 @@ impl SequenceIndexer<MerkleTreeInsertion> for KadenaMerkleTreeHookIndexer {
         let sequence = self
             .contract
             .nonce()
-            .local()
+            .local_typed()
             .await
-            .map_err(ChainCommunicationError::from_other)?
-            .result()
-            .map_err(ChainCommunicationError::from_other)?
-            .as_u64()
-            .ok_or_else(|| ChainCommunicationError::from_other_str("Nonce is not a u64"))?
-            as u32;
+            .map_err(ChainCommunicationError::from_other)?;
 
         Ok((Some(sequence), tip))
     }
@@ -168,22 +165,25 @@ impl MerkleTreeHook for KadenaMerkleTreeHook {
     #[instrument(skip(self))]
     #[allow(clippy::needless_range_loop)]
     async fn tree(&self, _maybe_lag: Option<NonZeroU64>) -> ChainResult<IncrementalMerkle> {
-        unimplemented!()
-        /*
-        let call = call_with_lag(self.contract.tree(), &self.provider, maybe_lag).await?;
+        let tree = self
+            .contract
+            .tree()
+            .local_typed()
+            .await
+            .map_err(ChainCommunicationError::from_other)?;
 
-        Ok(call.call().await?.into())
-
-        */
+        Ok(tree)
     }
 
     #[instrument(skip(self))]
     async fn count(&self, _maybe_lag: Option<NonZeroU64>) -> ChainResult<u32> {
-        unimplemented!()
-        /*
-        let call = call_with_lag(self.contract.count(), &self.provider, maybe_lag).await?;
-        let count = call.call().await?;
+        let count = self
+            .contract
+            .count()
+            .local_typed()
+            .await
+            .map_err(ChainCommunicationError::from_other)?;
+
         Ok(count)
-        */
     }
 }

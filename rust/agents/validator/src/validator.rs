@@ -277,10 +277,13 @@ impl Validator {
             mailbox_domain: self.mailbox.domain().id(),
             storage_location: announcement_location.clone(),
         };
+        info!(?announcement, "Announcing validator {}", address);
+
         let signed_announcement = self.signer.sign(announcement.clone()).await?;
         self.checkpoint_syncer
             .write_announcement(&signed_announcement)
             .await?;
+        info!(?signed_announcement, "Announced validator");
 
         // Ensure that the validator has announced themselves before we enter
         // the main validator submit loop. This is to avoid a situation in
@@ -295,6 +298,7 @@ impl Validator {
                 .await?
                 .first()
             {
+                info!("locations {:?}", locations);
                 if locations.contains(&announcement_location) {
                     info!(
                         ?locations,

@@ -68,13 +68,10 @@ impl InterchainSecurityModule for KadenaInterchainSecurityModule {
         let module = self
             .contract
             .module_type()
-            .local()
+            .local_typed()
             .await
-            .map_err(ChainCommunicationError::from_other)?
-            .result()
-            .map_err(ChainCommunicationError::from_other)?
-            .as_u64()
-            .ok_or_else(|| ChainCommunicationError::from_other_str("Module type is not a u64"))?;
+            .map_err(ChainCommunicationError::from_other)?;
+
         if let Some(module_type) = ModuleType::from_u8(module as u8) {
             Ok(module_type)
         } else {

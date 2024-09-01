@@ -1,8 +1,10 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::{provider, KadenaProvider};
 
 use async_trait::async_trait;
+use hyperlane_core::{H160, H256};
 use kadena_client::{
     contract::{Contract, KadenaProxyProvider},
     contract_call::ContractCall,
@@ -27,6 +29,8 @@ impl ValidatorsAndThresholdCall<'_> {
 
 #[async_trait]
 impl ContractCall for ValidatorsAndThresholdCall<'_> {
+    type Output = (Vec<H256>, u8);
+
     fn contract(&self) -> &dyn Contract {
         self.contract
     }
@@ -52,6 +56,47 @@ impl ContractCall for ValidatorsAndThresholdCall<'_> {
             )
             .await
             .map_err(|e| e.into())
+    }
+
+    async fn local_typed(&self) -> Result<Self::Output, KadenaClientError> {
+        #[derive(Debug, serde::Deserialize)]
+        struct ValidatorsAndThresholdJson {
+            validators: Vec<String>,
+            threshold: HashMap<String, u8>,
+        }
+
+        let validators_and_threshold_value = self.local().await?.result()?;
+
+        let validators_and_threshold: ValidatorsAndThresholdJson =
+            serde_json::from_value(validators_and_threshold_value)
+                .map_err(KadenaClientError::from)?;
+
+        let validators: Vec<String> = validators_and_threshold.validators;
+
+        let decoded_validators = validators
+            .iter()
+            .map(|validator| {
+                let validator = validator.trim().strip_prefix("0x").unwrap_or(&validator);
+                let bytes = hex::decode(validator).map_err(|_| {
+                    KadenaClientError::TypeConversionError("Invalid hex string".to_string())
+                })?;
+                let bytes_array: [u8; 20] = bytes[..].try_into().map_err(|_| {
+                    KadenaClientError::TypeConversionError("Invalid byte length".to_string())
+                })?;
+                Ok(H256::from(H160::from(bytes_array)))
+            })
+            .collect::<Result<Vec<H256>, KadenaClientError>>()?;
+
+        let threshhold = validators_and_threshold
+            .threshold
+            .iter()
+            .next()
+            .ok_or(KadenaClientError::TypeConversionError(
+                "Threshold not found".to_string(),
+            ))?
+            .1;
+
+        Ok((decoded_validators, *threshhold))
     }
 }
 

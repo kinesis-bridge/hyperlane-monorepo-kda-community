@@ -22,7 +22,7 @@ use serde::{
 };
 use serde_json::{json, Value};
 
-use tracing::{debug, info};
+use tracing::info;
 
 use super::LogMetaProxy;
 
@@ -415,6 +415,8 @@ impl DecodeTokenMessageCall<'_> {
 
 #[async_trait]
 impl ContractCall for DecodeTokenMessageCall<'_> {
+    type Output = Value;
+
     fn contract(&self) -> &dyn Contract {
         self.contract
     }
@@ -442,6 +444,50 @@ impl ContractCall for DecodeTokenMessageCall<'_> {
             .await
             .map_err(|e| e.into())
     }
+
+    async fn local_typed(&self) -> Result<Self::Output, KadenaClientError> {
+        let mut pact_tm: Value = self.local().await?.result()?;
+
+        // TODO: remove this when the smart contract side returns correct type formats
+
+        // Convert amount from u64 to f64 as it's expected in the smart contract
+        match pact_tm["amount"] {
+            Value::Number(ref num) => {
+                if num.is_u64() {
+                    let amount = num.as_u64().unwrap();
+                    pact_tm["amount"] = json!(amount as f64);
+                } else if num.is_i64() {
+                    return Err(KadenaClientError::DeserializationError(
+                        serde_json::Error::custom("Amount is negative"),
+                    ));
+                }
+            }
+            _ => {
+                return Err(KadenaClientError::DeserializationError(
+                    serde_json::Error::custom("Failed to parse amount as u64"),
+                ));
+            }
+        };
+
+        // Convert chainId from int Object to int as it's expected in the smart contract
+        let chain_id = pact_tm["chainId"]
+            .as_object()
+            .and_then(|map| map.get("int").and_then(Value::as_u64))
+            .ok_or_else(|| {
+                KadenaClientError::DeserializationError(serde_json::Error::custom(
+                    "Failed to parse chainId as u64",
+                ))
+            })?;
+
+        pact_tm["chainId"] = json!(chain_id);
+
+        // Convert recipient from Object to String as it's expected in the smart contract
+        let recipient_obj = pact_tm["recipient"].clone();
+        let pact_tm_recipient = recipient_obj.to_string();
+        pact_tm["recipient"] = json!(pact_tm_recipient);
+
+        Ok(pact_tm)
+    }
 }
 
 pub struct DeliveredCall<'a> {
@@ -463,6 +509,7 @@ impl DeliveredCall<'_> {
 
 #[async_trait]
 impl ContractCall for DeliveredCall<'_> {
+    type Output = bool;
     fn contract(&self) -> &dyn Contract {
         self.contract
     }
@@ -490,6 +537,12 @@ impl ContractCall for DeliveredCall<'_> {
             .await
             .map_err(|e| e.into())
     }
+
+    async fn local_typed(&self) -> Result<Self::Output, KadenaClientError> {
+        Ok(self.local().await?.result()?.as_bool().ok_or_else(|| {
+            KadenaClientError::TypeConversionError("Failed to convert result to bool".to_string())
+        })?)
+    }
 }
 
 pub struct NonceCall<'a> {
@@ -509,6 +562,8 @@ impl NonceCall<'_> {
 
 #[async_trait]
 impl ContractCall for NonceCall<'_> {
+    type Output = u32;
+
     fn contract(&self) -> &dyn Contract {
         self.contract
     }
@@ -534,6 +589,12 @@ impl ContractCall for NonceCall<'_> {
             )
             .await
             .map_err(|e| e.into())
+    }
+
+    async fn local_typed(&self) -> Result<Self::Output, KadenaClientError> {
+        Ok(self.local().await?.result()?.as_u64().ok_or_else(|| {
+            KadenaClientError::TypeConversionError("Failed to convert result to u32".to_string())
+        })? as u32)
     }
 }
 
@@ -571,6 +632,8 @@ impl ProcessCall<'_> {
 
 #[async_trait]
 impl ContractCall for ProcessCall<'_> {
+    type Output = ();
+
     fn with_transfer_remote(&self) -> Option<u16> {
         self.destination_chain_id
     }
@@ -619,13 +682,15 @@ impl ContractCall for ProcessCall<'_> {
             ]),
             capabilities: vec![serde_json::json!([
                 "free.mailbox.PROCESS-MLC",
-                format!("{}", BASE64_URL_SAFE_NO_PAD.encode(self.message.id().as_bytes())),
+                format!(
+                    "{}",
+                    BASE64_URL_SAFE_NO_PAD.encode(self.message.id().as_bytes())
+                ),
                 verifier_msg_str,
                 vec![signer_address],
                 IntObject { int: 1 },
             ])],
         };
-        println!("Pact string: {} with verfier {:?}", pact_string, verifier);
         info!("Pact string: {} with verfier {:?}", pact_string, verifier);
 
         self.contract
@@ -636,6 +701,11 @@ impl ContractCall for ProcessCall<'_> {
             )
             .await
             .map_err(|e| e.into())
+    }
+
+    async fn local_typed(&self) -> Result<Self::Output, KadenaClientError> {
+        let res = self.local().await?.result()?;
+        Ok(())
     }
 }
 
@@ -656,6 +726,8 @@ impl RecipientIsmCall<'_> {
 
 #[async_trait]
 impl ContractCall for RecipientIsmCall<'_> {
+    type Output = H256;
+
     fn contract(&self) -> &dyn Contract {
         self.contract
     }
@@ -681,6 +753,29 @@ impl ContractCall for RecipientIsmCall<'_> {
             )
             .await
             .map_err(|e| e.into())
+    }
+
+    async fn local_typed(&self) -> Result<Self::Output, KadenaClientError> {
+        let ism_obj = self.local().await?.result()?;
+
+        let ism_namespace = ism_obj["refName"]["namespace"].as_str().ok_or_else(|| {
+            KadenaClientError::DeserializationError(serde_json::Error::custom(
+                "ISM namespace is missing",
+            ))
+        })?;
+        let ism_name = ism_obj["refName"]["name"].as_str().ok_or_else(|| {
+            KadenaClientError::DeserializationError(serde_json::Error::custom(
+                "ISM name is missing",
+            ))
+        })?;
+
+        let ism = format!("{}.{}", ism_namespace, ism_name);
+
+        let mut ism_bytes: [u8; 32] = [0; 32];
+        let bytes_to_copy = std::cmp::min(ism.as_bytes().len(), 32);
+        ism_bytes[..bytes_to_copy].copy_from_slice(&ism.as_bytes()[..bytes_to_copy]);
+
+        Ok(H256::from(ism_bytes))
     }
 }
 
@@ -712,7 +807,7 @@ impl IMailbox {
         metadata: Vec<u8>,
         message: HyperlaneMessage,
     ) -> Result<ProcessCall, KadenaClientError> {
-        let mut pact_tm = self
+        let mut pact_tm: Value = self
             .decode_token_message(message.body.clone())
             .local()
             .await?
@@ -738,13 +833,6 @@ impl IMailbox {
                 ));
             }
         };
-
-        // let amount = pact_tm["amount"].as_u64().ok_or_else(|| {
-        //     KadenaClientError::DeserializationError(serde_json::Error::custom(
-        //         "Failed to parse amount as u64",
-        //     ))
-        // })?;
-        // pact_tm["amount"] = json!(amount as f64);
 
         // Convert chainId from int Object to int as it's expected in the smart contract
         let chain_id = pact_tm["chainId"]

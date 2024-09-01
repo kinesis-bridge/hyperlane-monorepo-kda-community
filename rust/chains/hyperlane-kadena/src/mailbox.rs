@@ -102,14 +102,9 @@ impl SequenceIndexer<HyperlaneMessage> for KadenaMailboxIndexer {
         let sequence = self
             .contract
             .nonce()
-            .local()
+            .local_typed()
             .await
-            .map_err(ChainCommunicationError::from_other)?
-            .result()
-            .map_err(ChainCommunicationError::from_other)?
-            .as_u64()
-            .ok_or_else(|| ChainCommunicationError::from_other_str("Nonce is not a u64"))?
-            as u32;
+            .map_err(ChainCommunicationError::from_other)?;
 
         Ok((Some(sequence), tip))
     }
@@ -223,29 +218,25 @@ impl Mailbox for KadenaMailbox {
         let call = call_with_lag(self.contract.nonce(), maybe_lag)
             .await
             .map_err(ChainCommunicationError::from_other)?;
+
         let nonce = call
-            .local()
+            .local_typed()
             .await
-            .map_err(ChainCommunicationError::from_other)?
-            .result()
-            .map_err(ChainCommunicationError::from_other)?
-            .as_u64()
-            .ok_or_else(|| ChainCommunicationError::from_other_str("Nonce is not a u64"))?;
-        Ok(nonce as u32)
+            .map_err(ChainCommunicationError::from_other)?;
+
+        Ok(nonce)
     }
 
     #[instrument(skip(self))]
     async fn delivered(&self, id: H256) -> ChainResult<bool> {
-        Ok(self
+        let delivered = self
             .contract
             .delivered(id.into())
-            .local()
+            .local_typed()
             .await
-            .map_err(ChainCommunicationError::from_other)?
-            .result()
-            .map_err(ChainCommunicationError::from_other)?
-            .as_bool()
-            .ok_or_else(|| ChainCommunicationError::from_other_str("Delivered is not a bool"))?)
+            .map_err(ChainCommunicationError::from_other)?;
+
+        Ok(delivered)
     }
 
     #[instrument(skip(self))]
@@ -255,32 +246,14 @@ impl Mailbox for KadenaMailbox {
 
     #[instrument(skip(self))]
     async fn recipient_ism(&self, _recipient: H256) -> ChainResult<H256> {
-        let ism_obj = self
+        let recipient_ism = self
             .contract
             .recipient_ism()
-            .local()
+            .local_typed()
             .await
-            .map_err(ChainCommunicationError::from_other)?
-            .result()
             .map_err(ChainCommunicationError::from_other)?;
 
-        let ism_namespace = ism_obj["refName"]["namespace"].as_str().ok_or(
-            ChainCommunicationError::from_other_str("ISM namespace is missing"),
-        )?;
-        let ism_name =
-            ism_obj["refName"]["name"]
-                .as_str()
-                .ok_or(ChainCommunicationError::from_other_str(
-                    "ISM name is missing",
-                ))?;
-
-        let ism = format!("{}.{}", ism_namespace, ism_name);
-
-        let mut ism_bytes: [u8; 32] = [0; 32];
-        let bytes_to_copy = std::cmp::min(ism.as_bytes().len(), 32);
-        ism_bytes[..bytes_to_copy].copy_from_slice(&ism.as_bytes()[..bytes_to_copy]);
-
-        Ok(H256::from(ism_bytes))
+        Ok(recipient_ism)
     }
 
     #[instrument(skip(self), fields(metadata=%bytes_to_hex(metadata)))]

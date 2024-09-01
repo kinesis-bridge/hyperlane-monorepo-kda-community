@@ -10,6 +10,7 @@ use hyperlane_core::{
     HyperlaneDomain, HyperlaneProvider, SignedType, TxOutcome, ValidatorAnnounce, H160, H256, H512,
     U256,
 };
+use tracing::info;
 use tracing::instrument;
 use tracing::warn;
 
@@ -99,30 +100,16 @@ impl ValidatorAnnounce for KadenaValidatorAnnounce {
         &self,
         validators: &[H256],
     ) -> ChainResult<Vec<Vec<String>>> {
-        #[derive(serde::Deserialize, Debug, Default)]
-        struct StorageLocationsJson {
-            storage_locations: Vec<Vec<String>>,
-        }
-
         let storage_locations = self
             .contract
             .get_announced_storage_locations(
                 validators.iter().map(|v| H160::from(*v).into()).collect(),
             )
-            .local()
+            .local_typed()
             .await
-            .map_err(ChainCommunicationError::from_other)?
-            .result()
-            .unwrap_or_default(); // TODO: should be removed when the smart contract side is fixed
-                                  // TODO: handle error when the smart contract side is fixed
-                                  //.map_err(|_| ChainCommunicationError::from_other_str("Error returned while calling get_announced_storage_locations"))?;
+            .map_err(ChainCommunicationError::from_other)?;
 
-        let locations: StorageLocationsJson =
-            serde_json::from_value(storage_locations).unwrap_or_default();
-        // TODO: handle error when the smart contract side is fixed
-        //.map_err(|_| ChainCommunicationError::from_other_str("Error returned while parsing storage_locations"))?;
-
-        Ok(locations.storage_locations)
+        Ok(storage_locations)
     }
 
     #[instrument(ret, skip(self))]
@@ -162,6 +149,7 @@ impl ValidatorAnnounce for KadenaValidatorAnnounce {
         announcement: SignedType<Announcement>,
         tx_gas_limit: Option<U256>,
     ) -> ChainResult<TxOutcome> {
+        info!("Announcing validator on Kadena chain");
         let contract_call = self
             .announce_contract_call(announcement, tx_gas_limit)
             .await?;
@@ -184,11 +172,11 @@ impl ValidatorAnnounce for KadenaValidatorAnnounce {
             ),
             executed: true,
             gas_used: U256::from(res.gas),
-            gas_price: 
-                (res
-                    .meta_data
-                    .and_then(|meta| meta.public_meta.map(|public_meta| public_meta.gas_price))
-                    .unwrap_or_default() as u128).into(),
+            gas_price: (res
+                .meta_data
+                .and_then(|meta| meta.public_meta.map(|public_meta| public_meta.gas_price))
+                .unwrap_or_default() as u128)
+                .into(),
         };
 
         Ok(tx_outcome)

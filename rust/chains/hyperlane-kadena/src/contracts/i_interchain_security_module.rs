@@ -26,6 +26,8 @@ impl ModuleTypeCall<'_> {
 
 #[async_trait]
 impl ContractCall for ModuleTypeCall<'_> {
+    type Output = u8;
+
     fn contract(&self) -> &dyn Contract {
         self.contract
     }
@@ -51,6 +53,19 @@ impl ContractCall for ModuleTypeCall<'_> {
             )
             .await
             .map_err(|e| e.into())
+    }
+
+    async fn local_typed(&self) -> Result<Self::Output, KadenaClientError> {
+        Ok(self
+            .contract
+            .module_type()
+            .local()
+            .await?
+            .result()?
+            .as_u64()
+            .ok_or(KadenaClientError::TypeConversionError(
+                "Module type is not a u64".to_string(),
+            ))? as u8)
     }
 }
 
@@ -79,6 +94,8 @@ impl VerifyCall<'_> {
 
 #[async_trait]
 impl ContractCall for VerifyCall<'_> {
+    type Output = bool;
+
     fn contract(&self) -> &dyn Contract {
         self.contract
     }
@@ -106,6 +123,19 @@ impl ContractCall for VerifyCall<'_> {
             )
             .await
             .map_err(|e| e.into())
+    }
+
+    async fn local_typed(&self) -> Result<Self::Output, KadenaClientError> {
+        Ok(self
+            .contract
+            .verify(self.metadata.clone(), self.message.clone())
+            .local()
+            .await?
+            .result()?
+            .as_bool()
+            .ok_or(KadenaClientError::TypeConversionError(
+                "Verify result is not a bool".to_string(),
+            ))?)
     }
 }
 

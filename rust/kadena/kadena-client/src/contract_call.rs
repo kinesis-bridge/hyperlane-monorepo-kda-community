@@ -1,18 +1,11 @@
-use std::{
-    collections::HashMap,
-    sync::Arc,
-};
+use std::{collections::HashMap, sync::Arc};
 
 use crate::{
     client::KadenaProxyClient,
     contract::Contract,
     error::KadenaClientError,
     models::{
-        CommandDto,
-        CommandResultDto,
-        LocalRequestBodyDto,
-        PollRequestBodyDto,
-        RequestKeysDto,
+        CommandDto, CommandResultDto, LocalRequestBodyDto, PollRequestBodyDto, RequestKeysDto,
         SendRequestBodyDto,
     },
 };
@@ -20,6 +13,8 @@ use async_trait::async_trait;
 
 #[async_trait]
 pub trait ContractCall: Send + Sync {
+    type Output;
+
     /// Returns the contract that this call is for.
     fn contract(&self) -> &dyn Contract;
 
@@ -54,9 +49,12 @@ pub trait ContractCall: Send + Sync {
     /// Performs a local call to the blockchain via the proxy.
     async fn local(&self) -> Result<CommandResultDto, KadenaClientError> {
         let client = self.proxy_client();
-        let local_body = LocalRequestBodyDto::new(self.cmd().await?, client.hostapi(), false, false);
+        let local_body =
+            LocalRequestBodyDto::new(self.cmd().await?, client.hostapi(), false, false);
         client.local(local_body).await
     }
+
+    async fn local_typed(&self) -> Result<Self::Output, KadenaClientError>;
 
     /// Polls the blockchain via the proxy.
     async fn poll(

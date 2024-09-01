@@ -1,9 +1,12 @@
 pub mod common;
 
-use std::{fmt::format, sync::Arc};
+use std::{fmt::format, str::FromStr, sync::Arc};
 
 use common::prelude::*;
-use hyperlane_kadena::contracts::i_mailbox::{DispatchEventData, PactHyperlaneMessage};
+use hyperlane_kadena::contracts::{
+    i_mailbox::{DispatchEventData, PactHyperlaneMessage},
+    i_merkle_tree_hook::IMerlkeTreeHook,
+};
 use kadena_client::{
     contract_call::ContractCall,
     contracts::CoinContract,
@@ -13,6 +16,7 @@ use kadena_client::{
     signers::{LocalWallet, VaultSigner},
     tx::{self, report_tx},
 };
+use primitive_types::H160;
 use primitive_types::U256;
 use serde::{Deserialize, Serialize};
 
@@ -263,4 +267,37 @@ pub async fn test_recipient_ism() {
     let ism_namespace = res["refName"]["namespace"].as_str().unwrap();
 
     println!("{}.{}", ism_namespace, ism_name);
+}
+
+#[tokio::test]
+pub async fn test_merkle_tree() {
+    use base64::prelude::{Engine as _, BASE64_URL_SAFE_NO_PAD};
+    use hyperlane_kadena::contracts::i_merkle_tree_hook;
+    use hyperlane_kadena::KadenaProvider;
+    use primitive_types::H256;
+    use serde::{Deserialize, Serialize};
+
+    let domain = hyperlane_core::HyperlaneDomain::Unknown {
+        domain_id: 0,
+        domain_name: "kadena".to_string(),
+        domain_type: hyperlane_core::HyperlaneDomainType::Unknown,
+        domain_protocol: hyperlane_core::HyperlaneDomainProtocol::Kadena,
+    };
+
+    let provider = Arc::new(KadenaProvider::new(
+        domain,
+        CONTEXT.client.clone(),
+        Arc::new(LocalWallet::new(CONTEXT.default_privkey.clone())),
+    ));
+
+    let merkle_tree_hook_contract = IMerlkeTreeHook::new(provider);
+    let count_call = merkle_tree_hook_contract.count();
+    let count = count_call.local().await.unwrap().result().unwrap();
+
+    println!("res: {:?}", count);
+
+    let tree_call = merkle_tree_hook_contract.latest_checkpoint();
+    let tree = tree_call.local().await.unwrap().result().unwrap();
+
+    println!("res: {:?}", tree);
 }

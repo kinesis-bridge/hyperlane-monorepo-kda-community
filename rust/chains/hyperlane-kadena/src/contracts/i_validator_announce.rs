@@ -36,6 +36,8 @@ impl AnnounceCall<'_> {
 
 #[async_trait]
 impl ContractCall for AnnounceCall<'_> {
+    type Output = ();
+
     fn contract(&self) -> &dyn Contract {
         self.contract
     }
@@ -52,7 +54,7 @@ impl ContractCall for AnnounceCall<'_> {
         self.contract
             .build_pact_tx_with_expr(
                 &format!(
-                    "({}.{}.{} \"{}\",\"{}\",\"{}\")",
+                    "({}.{}.{} \"0x{}\" \"{}\" \"0x{}\")",
                     self.contract.namespace(),
                     self.contract.module_name(),
                     Self::METHOD_NAME,
@@ -64,6 +66,11 @@ impl ContractCall for AnnounceCall<'_> {
             )
             .await
             .map_err(|e| e.into())
+    }
+
+    async fn local_typed(&self) -> Result<Self::Output, KadenaClientError> {
+        let res = self.local().await?.result()?;
+        Ok(())
     }
 }
 
@@ -89,6 +96,8 @@ impl GetAnnouncedStorageLocationsCall<'_> {
 
 #[async_trait]
 impl ContractCall for GetAnnouncedStorageLocationsCall<'_> {
+    type Output = Vec<Vec<String>>;
+
     fn contract(&self) -> &dyn Contract {
         self.contract
     }
@@ -111,7 +120,7 @@ impl ContractCall for GetAnnouncedStorageLocationsCall<'_> {
                     Self::METHOD_NAME,
                     self.validators
                         .iter()
-                        .map(|v| format!("\"{}\"", hex::encode(v)))
+                        .map(|v| format!("\"0x{}\"", hex::encode(v)))
                         .collect::<Vec<String>>()
                         .join(","),
                 ),
@@ -119,6 +128,11 @@ impl ContractCall for GetAnnouncedStorageLocationsCall<'_> {
             )
             .await
             .map_err(|e| e.into())
+    }
+
+    async fn local_typed(&self) -> Result<Self::Output, KadenaClientError> {
+        Ok(serde_json::from_value(self.local().await?.result()?)
+            .map_err(KadenaClientError::from)?)
     }
 }
 
