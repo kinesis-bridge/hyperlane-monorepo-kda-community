@@ -147,19 +147,14 @@ impl HyperlaneContract for KadenaMerkleTreeHook {
 impl MerkleTreeHook for KadenaMerkleTreeHook {
     #[instrument(skip(self))]
     async fn latest_checkpoint(&self, _maybe_lag: Option<NonZeroU64>) -> ChainResult<Checkpoint> {
-        unimplemented!()
-        /*
-        let call =
-            call_with_lag(self.contract.latest_checkpoint(), &self.provider, maybe_lag).await?;
+        let latest_checkpoint = self
+            .contract
+            .latest_checkpoint()
+            .local_typed()
+            .await
+            .map_err(ChainCommunicationError::from_other)?;
 
-        let (root, index) = call.call().await?;
-        Ok(Checkpoint {
-            merkle_tree_hook_address: self.address(),
-            mailbox_domain: self.domain.id(),
-            root: root.into(),
-            index,
-        })
-        */
+        Ok(latest_checkpoint)
     }
 
     #[instrument(skip(self))]

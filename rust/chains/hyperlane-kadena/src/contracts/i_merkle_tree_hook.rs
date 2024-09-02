@@ -3,14 +3,18 @@ use std::sync::Arc;
 use crate::{provider, KadenaProvider};
 use async_trait::async_trait;
 use base64::prelude::{Engine as _, BASE64_URL_SAFE_NO_PAD};
-use hyperlane_core::{accumulator::incremental::IncrementalMerkle, ChainCommunicationError, H256};
+use hyperlane_core::{
+    accumulator::incremental::IncrementalMerkle, ChainCommunicationError, Checkpoint, H256,
+};
 use kadena_client::{
     contract::{Contract, KadenaProxyProvider},
     contract_call::ContractCall,
     error::KadenaClientError,
     event::{Event, EventData},
     models::{CommandDto, EventDataDto, EventParamMonoType, EventParamType},
+    pact::IntObject,
 };
+use serde::Deserialize;
 
 pub struct InsertedIntoTreeEventData {
     message_id: String,
@@ -132,7 +136,7 @@ impl LatestCheckpointCall<'_> {
 
 #[async_trait]
 impl ContractCall for LatestCheckpointCall<'_> {
-    type Output = ();
+    type Output = Checkpoint;
 
     fn contract(&self) -> &dyn Contract {
         self.contract
@@ -162,8 +166,26 @@ impl ContractCall for LatestCheckpointCall<'_> {
     }
 
     async fn local_typed(&self) -> Result<Self::Output, KadenaClientError> {
-        let res = self.local().await?.result()?;
-        Ok(())
+        #[derive(Debug, Deserialize)]
+        pub struct LatestCheckpointResponse {
+            count: IntObject,
+            root: String,
+        }
+
+        let latest_checkpoint_response: LatestCheckpointResponse =
+            serde_json::from_value(self.local().await?.result()?)
+                .map_err(KadenaClientError::from)?;
+
+        let root_bytes = BASE64_URL_SAFE_NO_PAD
+            .decode(latest_checkpoint_response.root)
+            .map_err(KadenaClientError::from)?;
+
+        Ok(Checkpoint {
+            merkle_tree_hook_address: H256::from(self.contract.address()),
+            mailbox_domain: 626,
+            root: H256::from_slice(&root_bytes),
+            index: latest_checkpoint_response.count.int as u32,
+        })
     }
 }
 
@@ -214,21 +236,23 @@ impl ContractCall for TreeCall<'_> {
     }
 
     async fn local_typed(&self) -> Result<Self::Output, KadenaClientError> {
-        let tree = self.local().await?.result()?;
-        let tree_array = tree.as_array().ok_or_else(|| {
-            KadenaClientError::TypeConversionError("Tree is not an array".to_string())
-        })?;
+        #[derive(Deserialize, Debug)]
+        struct TreeResponse {
+            branch: Vec<String>,
+            count: IntObject,
+        }
 
-        let tree_array = tree_array
-            .iter()
-            .map(|x| {
-                let base64_str = x.as_str().ok_or_else(|| {
-                    KadenaClientError::TypeConversionError(
-                        "Tree array element is not a string".to_string(),
-                    )
-                })?;
+        let tree_response: TreeResponse = serde_json::from_value(self.local().await?.result()?)
+            .map_err(KadenaClientError::from)?;
+
+        let count = tree_response.count.int as usize;
+
+        let branch_vec = tree_response
+            .branch
+            .into_iter()
+            .map(|s| {
                 let decoded_bytes = BASE64_URL_SAFE_NO_PAD
-                    .decode(base64_str)
+                    .decode(s)
                     .map_err(KadenaClientError::from)?;
                 if decoded_bytes.len() != H256::len_bytes() {
                     return Err(KadenaClientError::TypeConversionError(
@@ -240,18 +264,13 @@ impl ContractCall for TreeCall<'_> {
             .collect::<Result<Vec<H256>, KadenaClientError>>()?;
 
         // Convert Vec<H256> to [H256; 32]
-        let tree_array: [H256; 32] = tree_array.try_into().map_err(|_| {
+        let branch: [H256; 32] = branch_vec.try_into().map_err(|_| {
             KadenaClientError::TypeConversionError(
                 "Failed to convert tree array to [H256; 32]".to_string(),
             )
         })?;
 
-        let count = self.contract.count().local_typed().await? as usize;
-
-        let inc_tree = IncrementalMerkle {
-            branch: tree_array,
-            count,
-        };
+        let inc_tree = IncrementalMerkle { branch, count };
 
         Ok(inc_tree)
     }
@@ -263,7 +282,6 @@ pub struct IMerlkeTreeHook {
 }
 
 impl IMerlkeTreeHook {
-    // refers to the mailbox module unless the merkle tree hook is not implemented on the pact side
     const MODULE_NAME: &'static str = "merkle-tree-hook";
 
     pub fn new(provider: Arc<KadenaProvider>) -> Self {
