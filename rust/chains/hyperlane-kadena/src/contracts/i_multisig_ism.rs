@@ -106,7 +106,7 @@ pub struct IMultisigIsm {
 }
 
 impl IMultisigIsm {
-    const MODULE_NAME: &'static str = "ism";
+    const MODULE_NAME: &'static str = "merkle-tree-ism";
 
     pub fn new(provider: Arc<KadenaProvider>) -> Self {
         Self { provider }

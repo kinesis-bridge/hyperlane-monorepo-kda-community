@@ -16,19 +16,36 @@ use kadena_client::{
 };
 use serde::Deserialize;
 
+use super::LogMetaProxy;
+
 pub struct InsertedIntoTreeEventData {
-    message_id: String,
-    index: String,
+    pub message_id: H256,
+    pub leaf_index: u32,
+    pub log: LogMetaProxy,
 }
 
 impl TryFrom<EventDataDto> for InsertedIntoTreeEventData {
     type Error = KadenaClientError;
-    fn try_from(event_data_dto: EventDataDto) -> Result<Self, Self::Error> {
-        let args = Self::check_params(event_data_dto.params, Self::params())?;
-        let message_id = args[0].to_string();
-        let index = args[1].to_string();
+    fn try_from(mut event_data_dto: EventDataDto) -> Result<Self, Self::Error> {
+        let args = Self::check_params(std::mem::take(&mut event_data_dto.params), Self::params())?;
+        let message_id_str = args[0].to_string();
+        let leaf_index = (&args[1]).try_into()?;
 
-        Ok(Self { message_id, index })
+        let message_id_vec = BASE64_URL_SAFE_NO_PAD
+            .decode(message_id_str)
+            .map_err(KadenaClientError::from)?;
+
+        if message_id_vec.len() != H256::len_bytes() {
+            return Err(KadenaClientError::TypeConversionError(
+                "Message ID is not 32 bytes".to_string(),
+            ));
+        }
+
+        Ok(Self {
+            message_id: H256::from_slice(&message_id_vec),
+            leaf_index,
+            log: event_data_dto.into(),
+        })
     }
 }
 
@@ -36,7 +53,7 @@ impl EventData for InsertedIntoTreeEventData {
     fn params() -> &'static [EventParamType] {
         &[
             EventParamType::MonoType(EventParamMonoType::String),
-            EventParamType::MonoType(EventParamMonoType::String),
+            EventParamType::MonoType(EventParamMonoType::IntObject),
         ]
     }
 }

@@ -1,7 +1,9 @@
 use crate::{
     client::KadenaProxyClient,
     error::KadenaClientError,
-    models::{BuildPactTxDtoBuilder, CommandDto, CommandResultDto, ContinueTransferRemoteDto, VerifierDto},
+    models::{
+        BuildPactTxDtoBuilder, CommandDto, CommandResultDto, ContinueTransferRemoteDto, VerifierDto,
+    },
     signers::Signer,
 };
 use async_trait::async_trait;
@@ -9,7 +11,6 @@ use std::sync::Arc;
 
 const CONFIRMATION_DEPTH: u64 = 0;
 pub const DEFAULT_GAS_LIMIT: u64 = 100_000;
-pub const DEFAULT_NAMESPACE: &str = "free";
 
 #[async_trait]
 pub trait KadenaProxyProvider {
@@ -49,8 +50,12 @@ pub trait Contract: Send + Sync {
     }
 
     /// Returns the namespace for this contract.
-    fn namespace(&self) -> &'static str {
-        DEFAULT_NAMESPACE
+    fn namespace(&self) -> String {
+        self.provider()
+            .proxy_client()
+            .contracts_conf()
+            .namespace()
+            .to_owned()
     }
 
     /// Returns the public key for this contract signer.
@@ -97,13 +102,8 @@ pub trait Contract: Send + Sync {
     ) -> Result<CommandResultDto, KadenaClientError> {
         let client = self.provider().proxy_client();
         let conf = client.chainweb_conf();
-        let continue_body = ContinueTransferRemoteDto::new(
-            conf,
-            pact_id.to_owned(),
-            dst_chain_id,
-            step,
-            rollback, 
-        );
+        let continue_body =
+            ContinueTransferRemoteDto::new(conf, pact_id.to_owned(), dst_chain_id, step, rollback);
         client.continue_transfer_remote(continue_body).await
     }
 }

@@ -17,6 +17,9 @@ pub use chainweb_conf::ChainwebConf;
 mod proxy_conf;
 pub use proxy_conf::ProxyConf;
 
+mod contracts_conf;
+pub use contracts_conf::ContractsConf;
+
 mod endpoint;
 use endpoint::Endpoint;
 
@@ -26,16 +29,22 @@ pub struct KadenaProxyClient {
     reqwest_client: reqwest::Client,
     proxy_conf: ProxyConf,
     chainweb_conf: ChainwebConf,
+    contracts_conf: ContractsConf,
 }
 
 impl KadenaProxyClient {
     /// Creates a new client with the given base url, proxy configuration, and chainweb
     /// configuration.
-    pub fn new(proxy_conf: ProxyConf, chainweb_conf: ChainwebConf) -> Self {
+    pub fn new(
+        proxy_conf: ProxyConf,
+        chainweb_conf: ChainwebConf,
+        contracts_conf: ContractsConf,
+    ) -> Self {
         KadenaProxyClient {
             reqwest_client: reqwest::Client::new(),
             proxy_conf,
             chainweb_conf,
+            contracts_conf,
         }
     }
 
@@ -47,6 +56,11 @@ impl KadenaProxyClient {
     /// Returns the proxy configuration.
     pub fn proxy_conf(&self) -> &ProxyConf {
         &self.proxy_conf
+    }
+
+    /// Returns the contracts configuration.
+    pub fn contracts_conf(&self) -> &ContractsConf {
+        &self.contracts_conf
     }
 
     /// Returns the base url.

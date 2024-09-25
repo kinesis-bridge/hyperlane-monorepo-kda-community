@@ -1,5 +1,5 @@
 use hyperlane_core::ChainCommunicationError;
-use kadena_client::client::{ChainwebConf, KadenaProxyClient, ProxyConf};
+use kadena_client::client::{ChainwebConf, ContractsConf, KadenaProxyClient, ProxyConf};
 use std::num::ParseIntError;
 use url::Url;
 
@@ -19,7 +19,11 @@ pub struct ConnectionConf {
 
     /// Chain ID
     #[allow(dead_code)]
-    pub kadena_proxy_url: Url, // TODO: change to Url
+    pub kadena_proxy_url: Url,
+
+    /// Namespace
+    #[allow(dead_code)]
+    pub kadena_namespace: String,
 }
 
 /// An error type when parsing a connection configuration.
@@ -57,6 +61,7 @@ impl Into<KadenaProxyClient> for &ConnectionConf {
         KadenaProxyClient::new(
             ProxyConf::new_with_url(self.kadena_proxy_url.clone()),
             ChainwebConf::new(self.url.clone(), self.network_id.clone(), self.chain_id),
+            ContractsConf::new(self.kadena_namespace.clone()),
         )
     }
 }

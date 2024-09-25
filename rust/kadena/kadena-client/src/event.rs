@@ -76,7 +76,7 @@ pub trait Event: Send + Sync {
                 .module
                 .namespace
                 .as_ref()
-                .is_some_and(|ns| ns == contract.namespace())
+                .is_some_and(|ns| *ns == contract.namespace())
                 && self.event_name() == event.name
                 && contract.module_name() == event.module.name
         });

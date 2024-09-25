@@ -120,6 +120,17 @@ pub fn build_kadena_connection_conf(
     err: &mut ConfigParsingError,
 ) -> Option<ChainConnectionConf> {
     let mut local_err = ConfigParsingError::default();
+
+    let kadena_namespace = chain
+        .chain(&mut local_err)
+        .get_key("namespace")
+        .parse_string()
+        .end()
+        .or_else(|| {
+            local_err.push(&chain.cwp + "namespace", eyre!("Missing namespace"));
+            None
+        });
+
     let kadena_proxy_url = chain
         .chain(&mut local_err)
         .get_key("proxyUrl")
@@ -151,12 +162,14 @@ pub fn build_kadena_connection_conf(
         let network_id = path_segments[2];
         let chain_id: u16 = path_segments[4].parse().unwrap();
         let kadena_proxy_url = kadena_proxy_url.unwrap();
+        let kadena_namespace = kadena_namespace.unwrap().to_owned();
 
         Some(ChainConnectionConf::Kadena(h_kadena::ConnectionConf {
             url: url::Url::parse(host_with_scheme).unwrap(),
             network_id: network_id.to_string(),
             chain_id,
             kadena_proxy_url,
+            kadena_namespace,
         }))
     })
 }

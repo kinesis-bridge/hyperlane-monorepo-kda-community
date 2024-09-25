@@ -681,7 +681,11 @@ impl ContractCall for ProcessCall<'_> {
                 BASE64_URL_SAFE_NO_PAD.encode(&self.metadata),
             ]),
             capabilities: vec![serde_json::json!([
-                "free.mailbox.PROCESS-MLC",
+                format!(
+                    "{}.{}.PROCESS-MLC",
+                    self.contract.namespace(),
+                    self.contract.module_name()
+                ),
                 format!(
                     "{}",
                     BASE64_URL_SAFE_NO_PAD.encode(self.message.id().as_bytes())

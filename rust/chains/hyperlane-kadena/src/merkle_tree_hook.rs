@@ -6,6 +6,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use hyperlane_core::accumulator::incremental::IncrementalMerkle;
 use kadena_client::contract_call::ContractCall;
+use kadena_client::event::Event;
 use kadena_client::signers::Signer;
 use tracing::instrument;
 
@@ -15,7 +16,6 @@ use hyperlane_core::{
     SequenceIndexer, H256,
 };
 
-use crate::contracts::i_mailbox::IMailbox;
 use crate::contracts::i_merkle_tree_hook::IMerlkeTreeHook;
 use crate::{ConnectionConf, KadenaProvider};
 use kadena_client::contract::{Contract, KadenaProxyProvider};
@@ -25,7 +25,7 @@ use kadena_client::contract::{Contract, KadenaProxyProvider};
 pub struct KadenaMerkleTreeHookIndexer {
     // The Kadena implementation doesn't have the merkleTreeHook contract yet, so we use the mailbox contract
     #[allow(dead_code)]
-    contract: Arc<IMailbox>,
+    contract: Arc<IMerlkeTreeHook>,
     #[allow(dead_code)]
     provider: Arc<KadenaProvider>,
     #[allow(dead_code)]
@@ -48,7 +48,7 @@ impl KadenaMerkleTreeHookIndexer {
         ));
 
         Self {
-            contract: Arc::new(IMailbox::new(provider.clone())),
+            contract: Arc::new(IMerlkeTreeHook::new(provider.clone())),
             provider,
             reorg_period,
         }
@@ -60,9 +60,23 @@ impl Indexer<MerkleTreeInsertion> for KadenaMerkleTreeHookIndexer {
     #[instrument(err, skip(self))]
     async fn fetch_logs(
         &self,
-        _range: RangeInclusive<u32>,
+        range: RangeInclusive<u32>,
     ) -> ChainResult<Vec<(MerkleTreeInsertion, LogMeta)>> {
-        Ok(vec![])
+        let events: Vec<(MerkleTreeInsertion, LogMeta)> = self
+            .contract
+            .inserted_into_tree_event()
+            .query_events_range(range)
+            .await
+            .map_err(ChainCommunicationError::from_other)?
+            .into_iter()
+            .map(|event| {
+                (
+                    MerkleTreeInsertion::new(event.leaf_index, event.message_id),
+                    event.log.into(),
+                )
+            })
+            .collect();
+        Ok(events)
     }
 
     #[instrument(level = "debug", err, ret, skip(self))]
@@ -85,7 +99,7 @@ impl SequenceIndexer<MerkleTreeInsertion> for KadenaMerkleTreeHookIndexer {
         //let sequence = self.contract.nonce().block(u64::from(tip)).call().await?;
         let sequence = self
             .contract
-            .nonce()
+            .count()
             .local_typed()
             .await
             .map_err(ChainCommunicationError::from_other)?;
