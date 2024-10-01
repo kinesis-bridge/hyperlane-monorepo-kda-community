@@ -121,6 +121,12 @@ pub fn build_kadena_connection_conf(
 ) -> Option<ChainConnectionConf> {
     let mut local_err = ConfigParsingError::default();
 
+    let account_name = chain
+        .chain(&mut local_err)
+        .get_opt_key("accountName")
+        .parse_string()
+        .end();
+
     let kadena_namespace = chain
         .chain(&mut local_err)
         .get_key("namespace")
@@ -163,6 +169,7 @@ pub fn build_kadena_connection_conf(
         let chain_id: u16 = path_segments[4].parse().unwrap();
         let kadena_proxy_url = kadena_proxy_url.unwrap();
         let kadena_namespace = kadena_namespace.unwrap().to_owned();
+        let account_name = account_name.map(str::to_owned);
 
         Some(ChainConnectionConf::Kadena(h_kadena::ConnectionConf {
             url: url::Url::parse(host_with_scheme).unwrap(),
@@ -170,6 +177,7 @@ pub fn build_kadena_connection_conf(
             chain_id,
             kadena_proxy_url,
             kadena_namespace,
+            account_name,
         }))
     })
 }

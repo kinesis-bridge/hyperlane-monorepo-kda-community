@@ -63,11 +63,14 @@ pub trait Contract: Send + Sync {
         self.provider().signer().pubkey_str()
     }
 
-    // TODO: consider moving it to a better place. Account name is not a part of the contract.
-    /// Returns the account name for this contract.
+    /// Returns the account name of the signer.
     fn account_name(&self) -> String {
-        // TODO: remove this hardcode when the smart contract side supports k accounts for agents
-        "sender00".to_string()
+        let account_name_from_conf = self
+            .provider()
+            .proxy_client()
+            .contracts_conf()
+            .account_name();
+        account_name_from_conf.unwrap_or(self.provider().signer().k_account())
     }
 
     /// Returns the provider for this contract.

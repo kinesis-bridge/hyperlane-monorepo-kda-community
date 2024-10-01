@@ -24,6 +24,10 @@ pub struct ConnectionConf {
     /// Namespace
     #[allow(dead_code)]
     pub kadena_namespace: String,
+
+    /// Account name
+    #[allow(dead_code)]
+    pub account_name: Option<String>,
 }
 
 /// An error type when parsing a connection configuration.
@@ -61,7 +65,7 @@ impl Into<KadenaProxyClient> for &ConnectionConf {
         KadenaProxyClient::new(
             ProxyConf::new_with_url(self.kadena_proxy_url.clone()),
             ChainwebConf::new(self.url.clone(), self.network_id.clone(), self.chain_id),
-            ContractsConf::new(self.kadena_namespace.clone()),
+            ContractsConf::new(self.kadena_namespace.clone(), self.account_name.clone()),
         )
     }
 }
