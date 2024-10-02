@@ -3,10 +3,14 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use hyperlane_core::{
-    BlockInfo, ChainCommunicationError, ChainInfo, ChainResult, HyperlaneChain, HyperlaneDomain, HyperlaneProvider, TxnInfo, H256, U256
+    BlockInfo, ChainCommunicationError, ChainInfo, ChainResult, HyperlaneChain, HyperlaneDomain,
+    HyperlaneProvider, TxnInfo, H256, U256,
 };
 
-use kadena_client::{client::KadenaProxyClient, contract::KadenaProxyProvider, signers::Signer, contracts::CoinContract};
+use kadena_client::{
+    client::KadenaProxyClient, contract::KadenaProxyProvider, contracts::CoinContract,
+    signers::Signer,
+};
 
 /// A wrapper around a Kadena provider to get generic blockchain information.
 #[derive(Debug, Clone)]
@@ -79,11 +83,18 @@ impl HyperlaneProvider for KadenaProvider {
         let coin_contract = CoinContract::new(Arc::new(self.clone()));
 
         // FIXME: get the balance of the address
-        let balance: U256 = U256(coin_contract
-            .get_balance("sender00".to_string())
-            .await
-            .map_err(ChainCommunicationError::from_other)?
-            .into());
+        let balance: U256 = U256(
+            coin_contract
+                .get_balance(
+                    self.client
+                        .contracts_conf()
+                        .account_name()
+                        .unwrap_or(self.signer.k_account()),
+                )
+                .await
+                .map_err(ChainCommunicationError::from_other)?
+                .into(),
+        );
 
         Ok(balance)
     }
