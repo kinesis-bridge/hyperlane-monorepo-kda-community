@@ -312,6 +312,7 @@ export abstract class HyperlaneDeployer<
     initializeArgs?: Parameters<Awaited<ReturnType<F['deploy']>>['initialize']>,
     shouldRecover = false,
   ): Promise<ReturnType<F['deploy']>> {
+    this.logger(`Deploy ${contractName} on ${chain} Cached: ${shouldRecover}`);
     if (shouldRecover) {
       const cachedContract = this.readCache(chain, factory, contractName);
       if (cachedContract) {
@@ -508,6 +509,7 @@ export abstract class HyperlaneDeployer<
     factory: F,
     contractName: string,
   ): Awaited<ReturnType<F['deploy']>> | undefined {
+    this.logger(`Reading cache for ${contractName} on ${chain}`);
     const cachedAddress = this.cachedAddresses[chain]?.[contractName];
     const hit =
       !!cachedAddress && cachedAddress !== ethers.constants.AddressZero;
