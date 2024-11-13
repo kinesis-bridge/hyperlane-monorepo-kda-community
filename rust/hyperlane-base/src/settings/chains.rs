@@ -738,7 +738,9 @@ impl ChainConf {
                     Box::new(conf.build::<h_sealevel::Keypair>().await?)
                 }
                 ChainConnectionConf::Cosmos(_) => Box::new(conf.build::<h_cosmos::Signer>().await?),
-                ChainConnectionConf::Kadena(_) => Box::new(conf.build::<h_kadena::Signers>().await?),
+                ChainConnectionConf::Kadena(_) => {
+                    Box::new(conf.build::<h_kadena::Signers>().await?)
+                }
             };
             Ok(Some(chain_signer))
         } else {

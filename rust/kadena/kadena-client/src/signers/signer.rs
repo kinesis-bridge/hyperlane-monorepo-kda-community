@@ -1,12 +1,6 @@
-use ed25519_dalek::{
-    Signature,
-    VerifyingKey,
-};
+use ed25519_dalek::{Signature, VerifyingKey};
 
-use crate::{
-    error::KadenaClientError,
-    models::CommandDto,
-};
+use crate::{error::KadenaClientError, models::CommandDto};
 use async_trait::async_trait;
 
 #[async_trait]

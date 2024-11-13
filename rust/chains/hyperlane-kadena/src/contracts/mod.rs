@@ -9,10 +9,15 @@ pub mod i_merkle_tree_hook;
 pub mod i_multisig_ism;
 pub mod i_validator_announce;
 
+use serde::ser::SerializeStruct;
+use serde::{
+    de::{self, Error},
+    Deserialize, Serialize, Serializer,
+};
 use std::primitive;
 
 use base64::prelude::{Engine as _, BASE64_URL_SAFE_NO_PAD};
-use hyperlane_core::{LogMeta, H256, H512, U256};
+use hyperlane_core::{HyperlaneMessage, LogMeta, H256, H512, U256};
 use kadena_client::{
     error::KadenaClientError,
     models::{EventDataDto, EventParam},
@@ -61,5 +66,45 @@ impl TryFrom<&EventParam> for U256Proxy {
     fn try_from(param: &EventParam) -> Result<Self, KadenaClientError> {
         let primitive_u256: primitive_types::U256 = param.try_into()?;
         Ok(U256Proxy(U256(primitive_u256.0)))
+    }
+}
+
+pub struct PactHyperlaneMessage(HyperlaneMessage);
+
+impl Serialize for PactHyperlaneMessage {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let HyperlaneMessage {
+            version,
+            nonce,
+            origin,
+            sender,
+            destination,
+            recipient,
+            body,
+        } = &self.0;
+
+        let sender = BASE64_URL_SAFE_NO_PAD.encode(sender);
+        let recipient = BASE64_URL_SAFE_NO_PAD.encode(recipient);
+        let body = BASE64_URL_SAFE_NO_PAD.encode(body);
+
+        let mut state = serializer.serialize_struct("HyperlaneMessage", 7)?;
+        state.serialize_field("version", &version)?;
+        state.serialize_field("nonce", &nonce)?;
+        state.serialize_field("originDomain", &origin)?;
+        state.serialize_field("sender", &sender)?;
+        state.serialize_field("destinationDomain", &destination)?;
+        state.serialize_field("recipient", &recipient)?;
+        state.serialize_field("messageBody", &body)?;
+        state.end()
+    }
+}
+
+// This is a conversion from a tuple of HyperlaneMessage and decode token message (as serde_json::Value) to PactHyperlaneMessage
+impl From<HyperlaneMessage> for PactHyperlaneMessage {
+    fn from(msg: HyperlaneMessage) -> Self {
+        PactHyperlaneMessage(msg)
     }
 }

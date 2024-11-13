@@ -1,25 +1,24 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
-import { ApiExtraModels, ApiResponse, getSchemaPath } from '@nestjs/swagger';
 import { AppService } from './app.service';
-import { BlockHeaderDto } from './dto/out/block-header.dto';
-import { BlockPayloadsDto } from './dto/out/block-payloads.dto';
 import { BuildPactTxDto } from './dto/in/build-pact-tx.dto';
-import { EventDataDto } from './dto/out/event-data.dto';
-import { TransactionElementDto } from './dto/out/transaction-element.dto';
+import { ContinueTransferRemoteDto } from './dto/in/continue-transfer-remote.dto';
+import { GetHeightDto } from './dto/in/get-height.dto';
+import { GetItemByHashDto } from './dto/in/get-item-by-hash.dto';
 import { GetItemByHeightDto } from './dto/in/get-item-by-height.dto';
 import { GetItemsDto } from './dto/in/get-items.dto';
-import { GetItemByHashDto } from './dto/in/get-item-by-hash.dto';
-import { GetHeightDto } from './dto/in/get-height.dto';
-import { CommandDto } from './dto/out/command.dto';
-
+import { LocalRequestBodyDto } from './dto/in/local-request-body.dto';
 import { PollRequestBodyDto } from './dto/in/poll-request-body.dto';
 import { SendRequestBodyDto } from './dto/in/send-request-body';
-import { RequestKeysDto } from './dto/out/request-keys.dto';
-import { PollResponseDto } from './dto/out/poll-response.dto';
+import { BlockHeaderDto } from './dto/out/block-header.dto';
+import { BlockPayloadsDto } from './dto/out/block-payloads.dto';
 import { CommandResultDto } from './dto/out/command-result.dto';
-import { LocalRequestBodyDto } from './dto/in/local-request-body.dto';
-import { ContinueTransferRemoteDto } from './dto/in/continue-transfer-remote.dto';
-import { ChainId, ICommandResult } from '@kadena/client';
+import { CommandDto } from './dto/out/command.dto';
+import { EventDataDto } from './dto/out/event-data.dto';
+import { PollResponseDto } from './dto/out/poll-response.dto';
+import { RequestKeysDto } from './dto/out/request-keys.dto';
+import { TransactionElementDto } from './dto/out/transaction-element.dto';
+import { ChainId, ICommandResult, IUnsignedCommand } from '@kadena/client';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { ApiExtraModels, ApiResponse, getSchemaPath } from '@nestjs/swagger';
 
 @Controller()
 export class AppController {
@@ -77,7 +76,7 @@ export class AppController {
   })
   @Post('build_pact_tx')
   async buildTx(@Body() buildPactTxDto: BuildPactTxDto): Promise<CommandDto> {
-    return this.appService.buildPactTx(
+    const unsignedCommand = await this.appService.buildPactTx(
       buildPactTxDto.host,
       buildPactTxDto.network,
       buildPactTxDto.chain_id,
@@ -87,6 +86,8 @@ export class AppController {
       buildPactTxDto.gasLimit,
       buildPactTxDto.verifiers || [],
     );
+
+    return new CommandDto(unsignedCommand);
   }
 
   @ApiResponse({

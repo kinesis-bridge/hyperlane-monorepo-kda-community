@@ -1,14 +1,4 @@
-import { Injectable } from '@nestjs/common';
-import chainweb from '@kadena/chainwebjs';
-import {
-  IBlockHeader,
-  IBlockPayloads,
-  ITransactionElement,
-  IEventData,
-} from '@kadena/chainwebjs/lib/types';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { ChainId, IUnsignedCommand, Pact, createClient } from '@kadena/client';
-
+import { Verifier } from './dto/in/build-pact-tx.dto';
 import {
   poll,
   IPollRequestBody,
@@ -20,7 +10,22 @@ import {
   LocalRequestBody,
   ICommandResult,
 } from '@kadena/chainweb-node-client';
-import { Verifier } from './dto/in/build-pact-tx.dto';
+import chainweb from '@kadena/chainwebjs';
+import {
+  IBlockHeader,
+  IBlockPayloads,
+  ITransactionElement,
+  IEventData,
+} from '@kadena/chainwebjs/lib/types';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import {
+  ChainId,
+  ICommand,
+  IUnsignedCommand,
+  Pact,
+  createClient,
+} from '@kadena/client';
+import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class AppService {
@@ -180,7 +185,7 @@ export class AppService {
         (withCapability) => {
           return verifier.capabilities.map((cap) => {
             const [capName, ...args] = cap;
-            const parsedArgs = args.map(arg => {
+            const parsedArgs = args.map((arg) => {
               if (typeof arg === 'string') {
                 try {
                   // Try to parse arg as JSON
@@ -266,7 +271,7 @@ export class AppService {
     const tx = builder.createTransaction();
 
     // 3. Submit the transaction
-    const finishTransactionDescriptor = await client.submit(tx);
+    const finishTransactionDescriptor = await client.submit(tx as ICommand);
 
     // 4. Poll the status of the transaction
     const result = await client.pollStatus(

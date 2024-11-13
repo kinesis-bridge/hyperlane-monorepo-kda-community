@@ -2,15 +2,8 @@ pub mod prelude {
     use async_trait::async_trait;
     use ed25519_dalek::SigningKey;
     use kadena_client::{
-        client::{
-            ChainwebConf,
-            KadenaProxyClient,
-            ProxyConf,
-        },
-        contract::{
-            Contract,
-            KadenaProxyProvider,
-        },
+        client::{ChainwebConf, KadenaProxyClient, ProxyConf},
+        contract::{Contract, KadenaProxyProvider},
         contract_call::ContractCall,
         error::KadenaClientError,
         models::CommandDto,
@@ -18,10 +11,7 @@ pub mod prelude {
     };
     pub use more_asserts::*;
     use once_cell::sync::Lazy;
-    use std::{
-        path::Path,
-        sync::Arc,
-    };
+    use std::{path::Path, sync::Arc};
     use url::Url;
 
     pub struct TestProvider {
@@ -98,7 +88,7 @@ pub mod prelude {
 
         pub async fn add_two_numbers(&self, a: u64, b: u64) -> AddTwoNumbersCall {
             AddTwoNumbersCall::new(self, a, b).await
-        }   
+        }
     }
 
     impl Contract for TestContract {

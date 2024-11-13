@@ -1,8 +1,8 @@
 use primitive_types::U256;
-use serde::{Deserialize, Deserializer, de::Error};
+use serde::{de::Error, Deserialize, Deserializer};
 use serde_json::Value;
 
-use super::{IntObject, DecimalObjectNormalized};
+use super::{DecimalObjectNormalized, IntObject};
 use crate::constants::KDA_SCALING_FACTOR;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -25,7 +25,7 @@ impl<'de> Deserialize<'de> for PicoKda {
                 } else {
                     return Err(D::Error::custom("Invalid number type for PicoKda"));
                 }
-            },
+            }
             Value::Object(_) => {
                 if let Ok(int_object) = IntObject::deserialize(&value) {
                     U256::from(int_object.int).checked_mul(U256::from(KDA_SCALING_FACTOR))
@@ -34,7 +34,7 @@ impl<'de> Deserialize<'de> for PicoKda {
                 } else {
                     return Err(D::Error::custom("Invalid object type for PicoKda"));
                 }
-            },
+            }
             _ => return Err(D::Error::custom("Invalid type for PicoKda")),
         };
 
@@ -53,6 +53,6 @@ impl Into<U256> for PicoKda {
 
 impl Into<[u64; 4]> for PicoKda {
     fn into(self) -> [u64; 4] {
-        self.0.0
+        self.0 .0
     }
 }

@@ -1,9 +1,6 @@
 use thiserror::Error;
 
-use crate::models::{
-    EventParam,
-    EventParamType,
-};
+use crate::models::{EventParam, EventParamType};
 
 #[derive(Error, Debug)]
 pub enum KadenaClientError {

@@ -1,17 +1,7 @@
-use std::{
-    collections::HashMap,
-    num::NonZeroU64,
-};
+use std::{collections::HashMap, num::NonZeroU64};
 
-use crate::{
-    contract_call::ContractCall,
-    error::KadenaClientError,
-    models::CommandResultDto,
-};
-use tracing::{
-    error,
-    info,
-};
+use crate::{contract_call::ContractCall, error::KadenaClientError, models::CommandResultDto};
+use tracing::{error, info};
 
 /// Buffer to add to gas estimate
 const GAS_ESTIMATE_BUFFER: u64 = 50000;

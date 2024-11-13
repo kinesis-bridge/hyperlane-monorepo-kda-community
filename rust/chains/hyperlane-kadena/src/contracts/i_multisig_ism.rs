@@ -4,7 +4,7 @@ use std::sync::Arc;
 use crate::{provider, KadenaProvider};
 
 use async_trait::async_trait;
-use hyperlane_core::{H160, H256};
+use hyperlane_core::{HyperlaneMessage, H160, H256};
 use kadena_client::{
     contract::{Contract, KadenaProxyProvider},
     contract_call::ContractCall,
@@ -12,15 +12,22 @@ use kadena_client::{
     models::CommandDto,
 };
 
+use super::PactHyperlaneMessage;
+
 pub struct ValidatorsAndThresholdCall<'a> {
+    message: HyperlaneMessage,
     contract: &'a IMultisigIsm,
     gas_limit: Option<u64>,
 }
 
-impl ValidatorsAndThresholdCall<'_> {
+impl<'a> ValidatorsAndThresholdCall<'a> {
     const METHOD_NAME: &'static str = "validators-and-threshold";
-    pub fn new(contract: &IMultisigIsm) -> ValidatorsAndThresholdCall {
+    pub fn new(
+        contract: &'a IMultisigIsm,
+        message: &'a HyperlaneMessage,
+    ) -> ValidatorsAndThresholdCall<'a> {
         ValidatorsAndThresholdCall {
+            message: message.clone(),
             contract,
             gas_limit: None,
         }
@@ -44,13 +51,17 @@ impl ContractCall for ValidatorsAndThresholdCall<'_> {
     }
 
     async fn cmd(&self) -> Result<CommandDto, KadenaClientError> {
+        let pact_msg = PactHyperlaneMessage::from((self.message.clone()));
+        let pact_msg_str = serde_json::to_string(&pact_msg)
+            .map_err(|e| KadenaClientError::OtherError(Box::new(e)))?;
         self.contract
             .build_pact_tx_with_expr(
                 &format!(
-                    "({}.{}.{})",
+                    "({}.{}.{} {})",
                     self.contract.namespace(),
                     self.contract.module_name(),
                     Self::METHOD_NAME,
+                    pact_msg_str
                 ),
                 self.gas_limit,
             )
@@ -112,8 +123,11 @@ impl IMultisigIsm {
         Self { provider }
     }
 
-    pub fn validators_and_threshold(&self) -> ValidatorsAndThresholdCall {
-        ValidatorsAndThresholdCall::new(self)
+    pub fn validators_and_threshold<'a>(
+        &'a self,
+        message: &'a HyperlaneMessage,
+    ) -> ValidatorsAndThresholdCall {
+        ValidatorsAndThresholdCall::new(self, message)
     }
 }
 

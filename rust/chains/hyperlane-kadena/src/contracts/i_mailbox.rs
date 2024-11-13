@@ -24,47 +24,7 @@ use serde_json::{json, Value};
 
 use tracing::info;
 
-use super::LogMetaProxy;
-
-pub struct PactHyperlaneMessage(HyperlaneMessage);
-
-impl Serialize for PactHyperlaneMessage {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let HyperlaneMessage {
-            version,
-            nonce,
-            origin,
-            sender,
-            destination,
-            recipient,
-            body,
-        } = &self.0;
-
-        let sender = BASE64_URL_SAFE_NO_PAD.encode(sender);
-        let recipient = BASE64_URL_SAFE_NO_PAD.encode(recipient);
-        let body = BASE64_URL_SAFE_NO_PAD.encode(body);
-
-        let mut state = serializer.serialize_struct("HyperlaneMessage", 7)?;
-        state.serialize_field("version", &version)?;
-        state.serialize_field("nonce", &nonce)?;
-        state.serialize_field("originDomain", &origin)?;
-        state.serialize_field("sender", &sender)?;
-        state.serialize_field("destinationDomain", &destination)?;
-        state.serialize_field("recipient", &recipient)?;
-        state.serialize_field("messageBody", &body)?;
-        state.end()
-    }
-}
-
-// This is a conversion from a tuple of HyperlaneMessage and decode token message (as serde_json::Value) to PactHyperlaneMessage
-impl From<HyperlaneMessage> for PactHyperlaneMessage {
-    fn from(msg: HyperlaneMessage) -> Self {
-        PactHyperlaneMessage(msg)
-    }
-}
+use super::{LogMetaProxy, PactHyperlaneMessage};
 
 pub struct VerifierHyperlaneMessage(HyperlaneMessage);
 

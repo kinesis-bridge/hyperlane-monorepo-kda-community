@@ -7,7 +7,7 @@ use crate::client::ChainwebConf;
 pub struct VerifierDto {
     pub name: String,
     pub proof: Value,
-    pub capabilities: Vec<Value>
+    pub capabilities: Vec<Value>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -38,8 +38,7 @@ impl BuildPactTxDtoBuilder {
         sender_account: String,
         gas_limit: u64,
     ) -> Self {
-        let dto =
-        BuildPactTxDto {
+        let dto = BuildPactTxDto {
             host: conf.url.to_string(),
             network: conf.network_id.to_string(),
             chain_id: conf.chain_id as u32,

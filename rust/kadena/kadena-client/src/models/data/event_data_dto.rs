@@ -1,11 +1,5 @@
 use primitive_types::U256;
-use serde::{
-    de::Error,
-    Deserialize,
-    Deserializer,
-    Serialize,
-    Serializer,
-};
+use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
 use strum_macros::EnumDiscriminants;
 
 use crate::error::KadenaClientError;
@@ -57,7 +51,6 @@ pub enum EventParam {
     Array(Vec<EventParam>),
     Unknown(serde_json::Value),
 }
-
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum EventParamType {

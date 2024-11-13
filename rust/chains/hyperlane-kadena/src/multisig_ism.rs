@@ -65,11 +65,11 @@ impl MultisigIsm for KadenaMultisigIsm {
     #[instrument(err)]
     async fn validators_and_threshold(
         &self,
-        _message: &HyperlaneMessage,
+        message: &HyperlaneMessage,
     ) -> ChainResult<(Vec<H256>, u8)> {
         let validators_and_threshold = self
             .contract
-            .validators_and_threshold()
+            .validators_and_threshold(message)
             .local_typed()
             .await
             .map_err(ChainCommunicationError::from_other)?;

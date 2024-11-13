@@ -5,12 +5,15 @@ ENV NODE_ENV build
 USER node
 WORKDIR /home/node
 
-COPY package*.json ./
-RUN npm ci
+# Copy package.json with correct ownership
+COPY --chown=node:node package.json ./
+# Install all dependencies, including development dependencies
+RUN yarn install
 
+# Copy the rest of the application files with correct ownership
 COPY --chown=node:node . .
-RUN npm run build \
-    && npm prune --omit=dev
+# Build the application
+RUN yarn build
 
 FROM node:20-alpine
 
@@ -19,8 +22,12 @@ ENV NODE_ENV production
 USER node
 WORKDIR /home/node
 
-COPY --from=builder --chown=node:node /home/node/package*.json ./
-COPY --from=builder --chown=node:node /home/node/node_modules/ ./node_modules/
+# Copy package.json with correct ownership
+COPY --chown=node:node package.json ./
+# Install only production dependencies
+RUN yarn install --production
+
+# Copy built application from the builder stage
 COPY --from=builder --chown=node:node /home/node/dist/ ./dist/
 
 CMD ["node", "dist/main.js"]

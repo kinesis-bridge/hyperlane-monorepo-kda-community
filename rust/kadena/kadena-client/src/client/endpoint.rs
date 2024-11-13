@@ -1,11 +1,9 @@
 use super::KadenaProxyClient;
 use crate::models::{
-    BuildPactTxDto, ContinueTransferRemoteDto, LocalRequestBodyDto, PollRequestBodyDto, SendRequestBodyDto
+    BuildPactTxDto, ContinueTransferRemoteDto, LocalRequestBodyDto, PollRequestBodyDto,
+    SendRequestBodyDto,
 };
-use reqwest::{
-    Method,
-    Request,
-};
+use reqwest::{Method, Request};
 
 /// Endpoint enum that represents all possible endpoints.
 pub(crate) enum Endpoint {
@@ -118,7 +116,10 @@ impl Endpoint {
             }
 
             Endpoint::ContinueTransferRemote(continue_transfer_remote_dto) => {
-                let url = client.base_url().join(Self::CONTINUE_TRANSFER_REMOTE_PATH).unwrap();
+                let url = client
+                    .base_url()
+                    .join(Self::CONTINUE_TRANSFER_REMOTE_PATH)
+                    .unwrap();
                 client
                     .reqwest_client
                     .post(url.as_ref())

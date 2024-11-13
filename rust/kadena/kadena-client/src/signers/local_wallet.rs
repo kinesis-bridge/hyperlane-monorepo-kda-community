@@ -1,20 +1,9 @@
-use base64::prelude::{
-    Engine as _,
-    BASE64_URL_SAFE_NO_PAD,
-};
-use ed25519_dalek::{
-    Signature,
-    Signer,
-    SigningKey,
-    VerifyingKey,
-};
+use base64::prelude::{Engine as _, BASE64_URL_SAFE_NO_PAD};
+use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use hex;
 use tracing::instrument;
 
-use crate::{
-    error::KadenaClientError,
-    models::CommandDto,
-};
+use crate::{error::KadenaClientError, models::CommandDto};
 use async_trait::async_trait;
 
 #[derive(Debug)]

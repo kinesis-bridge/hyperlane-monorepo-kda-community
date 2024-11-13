@@ -1,7 +1,4 @@
-use crate::{
-    error::KadenaClientError,
-    models::CommandResultDtoResult,
-};
+use crate::{error::KadenaClientError, models::CommandResultDtoResult};
 use serde_json::Value;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

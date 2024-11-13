@@ -1,12 +1,9 @@
 use primitive_types::U256;
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use serde::{Deserialize, Serialize};
 use strum_macros::EnumDiscriminants;
 
+use super::{DecimalObject, IntObject};
 use crate::error::KadenaClientError;
-use super::{IntObject, DecimalObject};
 
 /// PactValueType is an associated enum that can be used to determine the type of the PactValue
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, EnumDiscriminants)]

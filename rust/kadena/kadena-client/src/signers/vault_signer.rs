@@ -1,22 +1,9 @@
-use crate::{
-    error::KadenaClientError,
-    models::CommandDto,
-};
+use crate::{error::KadenaClientError, models::CommandDto};
 use async_trait::async_trait;
-use base64::prelude::{
-    Engine as _,
-    BASE64_STANDARD,
-    BASE64_URL_SAFE_NO_PAD,
-};
-use ed25519_dalek::{
-    Signature,
-    VerifyingKey,
-};
+use base64::prelude::{Engine as _, BASE64_STANDARD, BASE64_URL_SAFE_NO_PAD};
+use ed25519_dalek::{Signature, VerifyingKey};
 use tracing::instrument;
-use vaultrs::{
-    client::VaultClient,
-    transit::data,
-};
+use vaultrs::{client::VaultClient, transit::data};
 
 pub struct VaultSigner {
     client: VaultClient,

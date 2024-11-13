@@ -1,11 +1,5 @@
 use primitive_types::U256;
-use serde::{
-    de::Error,
-    Deserialize,
-    Deserializer,
-    Serialize,
-    Serializer,
-};
+use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum DecimalValue {
