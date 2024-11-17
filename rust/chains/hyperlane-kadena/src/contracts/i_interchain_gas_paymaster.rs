@@ -47,7 +47,7 @@ impl EventData for GasPaymentEventData {
     fn params() -> &'static [EventParamType] {
         &[
             EventParamType::MonoType(EventParamMonoType::String),
-            EventParamType::MonoType(EventParamMonoType::String),
+            EventParamType::MonoType(EventParamMonoType::IntObject),
             EventParamType::MonoType(EventParamMonoType::Integer),
             EventParamType::MonoType(EventParamMonoType::Integer),
         ]

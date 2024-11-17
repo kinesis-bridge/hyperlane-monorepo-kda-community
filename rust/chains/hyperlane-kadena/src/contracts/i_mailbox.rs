@@ -163,7 +163,7 @@ impl EventData for DispatchEventData {
             EventParamType::MonoType(EventParamMonoType::IntObject), // version
             EventParamType::MonoType(EventParamMonoType::IntObject), // nonce
             EventParamType::MonoType(EventParamMonoType::String),    // sender
-            EventParamType::MonoType(EventParamMonoType::String),    // destination
+            EventParamType::MonoType(EventParamMonoType::IntObject), // destination
             EventParamType::MonoType(EventParamMonoType::String),    // recipient
             EventParamType::MonoType(EventParamMonoType::String),    // message-body
         ]
@@ -390,6 +390,16 @@ impl ContractCall for DecodeTokenMessageCall<'_> {
     }
 
     async fn cmd(&self) -> Result<CommandDto, KadenaClientError> {
+        let cmd = &format!(
+            "({}.{}.{} \"{}\")",
+            self.contract.namespace(),
+            self.contract.module_name(),
+            Self::METHOD_NAME,
+            BASE64_URL_SAFE_NO_PAD.encode(&self.token_message),
+        );
+
+        info!("DecodeTokenMessageCall cmd: {}", cmd);
+
         self.contract
             .build_pact_tx_with_expr(
                 &format!(
@@ -430,9 +440,12 @@ impl ContractCall for DecodeTokenMessageCall<'_> {
         };
 
         // Convert chainId from int Object to int as it's expected in the smart contract
-        let chain_id = pact_tm["chainId"]
-            .as_object()
-            .and_then(|map| map.get("int").and_then(Value::as_u64))
+
+        info!("Pact TM: {:?}", pact_tm);
+
+        let chain_id: u64 = pact_tm["chainId"]
+            .as_str()
+            .and_then(|id| id.parse::<u64>().ok())
             .ok_or_else(|| {
                 KadenaClientError::DeserializationError(serde_json::Error::custom(
                     "Failed to parse chainId as u64",
@@ -798,10 +811,12 @@ impl IMailbox {
             }
         };
 
+        info!("Process Pact TM: {:?}", pact_tm);
+
         // Convert chainId from int Object to int as it's expected in the smart contract
-        let chain_id = pact_tm["chainId"]
-            .as_object()
-            .and_then(|map| map.get("int").and_then(Value::as_u64))
+        let chain_id: u64 = pact_tm["chainId"]
+            .as_str()
+            .and_then(|id| id.parse::<u64>().ok())
             .ok_or_else(|| {
                 KadenaClientError::DeserializationError(serde_json::Error::custom(
                     "Failed to parse chainId as u64",
