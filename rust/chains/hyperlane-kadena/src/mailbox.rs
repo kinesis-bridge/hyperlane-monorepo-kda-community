@@ -5,6 +5,7 @@ use std::num::NonZeroU64;
 use std::ops::RangeInclusive;
 use std::sync::Arc;
 
+use crate::contracts::i_multisig_ism::IMultisigIsm;
 use crate::ConnectionConf;
 use async_trait::async_trait;
 use hyperlane_core::H512;
@@ -171,9 +172,19 @@ impl KadenaMailbox {
         metadata: &[u8],
         tx_gas_limit: Option<U256>,
     ) -> ChainResult<ProcessCall> {
+        // Get the validators and threshold from the multisig ISM contract.
+        // It's a necessary workaround required by Kadena limitations (SPI and Verifiers).
+        let multisig_ism_contract = IMultisigIsm::new(self.provider.clone());
+
+        let validators_and_threshold = multisig_ism_contract
+            .validators_and_threshold(message)
+            .local_typed()
+            .await
+            .map_err(ChainCommunicationError::from_other)?;
+
         let tx = self
             .contract
-            .process(metadata.to_vec(), message.clone())
+            .process(metadata.to_vec(), message.clone(), validators_and_threshold)
             .await
             .map_err(ChainCommunicationError::from_other)?;
         let tx_gas_limit_u64_op: Option<u64> = tx_gas_limit.and_then(|value| {

@@ -3,6 +3,7 @@ use std::{str::FromStr, sync::Arc};
 use crate::{provider, KadenaProvider};
 
 use async_trait::async_trait;
+use hex::ToHex;
 use hyperlane_core::{HyperlaneMessage, LogMeta, RawHyperlaneMessage, H160, H256, U256};
 use kadena_client::{
     contract::{Contract, KadenaProxyProvider},
@@ -576,6 +577,7 @@ pub struct ProcessCall<'a> {
     metadata: Vec<u8>,
     message: HyperlaneMessage,
     pact_tm: Value,
+    validators_and_threshold: (Vec<H256>, u8),
     destination_chain_id: Option<u16>,
     gas_limit: Option<u64>,
 }
@@ -587,12 +589,14 @@ impl ProcessCall<'_> {
         metadata: Vec<u8>,
         message: HyperlaneMessage,
         pact_tm: Value,
+        validators_and_threshold: (Vec<H256>, u8),
     ) -> ProcessCall {
         ProcessCall {
             contract,
             metadata,
             message,
             pact_tm,
+            validators_and_threshold,
             gas_limit: None,
             destination_chain_id: None,
         }
@@ -624,8 +628,14 @@ impl ContractCall for ProcessCall<'_> {
     }
 
     async fn cmd(&self) -> Result<CommandDto, KadenaClientError> {
-        // TODO: remove this when the smart contract side get signers on its own
-        let signer_address = "0x71239e00ae942b394b3a91ab229e5264ad836f6f";
+        let signer_addresses = self
+            .validators_and_threshold
+            .0
+            .iter()
+            .map(|addr| format!("0x{}", H160::from(addr.clone()).encode_hex::<String>()))
+            .collect::<Vec<String>>();
+
+        let threshhold = self.validators_and_threshold.1;
 
         let pact_msg = PactHyperlaneMessage::from((self.message.clone()));
         let pact_msg_str = serde_json::to_string(&pact_msg)
@@ -664,8 +674,10 @@ impl ContractCall for ProcessCall<'_> {
                     BASE64_URL_SAFE_NO_PAD.encode(self.message.id().as_bytes())
                 ),
                 verifier_msg_str,
-                vec![signer_address],
-                IntObject { int: 1 },
+                signer_addresses,
+                IntObject {
+                    int: threshhold as u64
+                },
             ])],
         };
         info!("Pact string: {} with verfier {:?}", pact_string, verifier);
@@ -764,9 +776,6 @@ pub struct IMailbox {
 impl IMailbox {
     const MODULE_NAME: &'static str = "mailbox";
 
-    /// Chain ID of the local chain. TODO: consider moving it to a better place
-    const LOCAL_CHAIN_ID: u16 = 0;
-
     pub fn new(provider: Arc<KadenaProvider>) -> Self {
         Self { provider }
     }
@@ -783,6 +792,7 @@ impl IMailbox {
         &self,
         metadata: Vec<u8>,
         message: HyperlaneMessage,
+        validators_and_threshold: (Vec<H256>, u8),
     ) -> Result<ProcessCall, KadenaClientError> {
         let mut pact_tm: Value = self
             .decode_token_message(message.body.clone())
@@ -830,8 +840,11 @@ impl IMailbox {
         let pact_tm_recipient = recipient_obj.to_string();
         pact_tm["recipient"] = json!(pact_tm_recipient);
 
-        let mut call = ProcessCall::new(self, metadata, message, pact_tm);
-        if chain_id != Self::LOCAL_CHAIN_ID as u64 {
+        let mut call = ProcessCall::new(self, metadata, message, pact_tm, validators_and_threshold);
+
+        let local_chain_id = self.provider.proxy_client().chainweb_conf().chain_id;
+
+        if chain_id != local_chain_id as u64 {
             call.set_destination_chain_id(Some(chain_id as u16));
         }
         Ok(call)

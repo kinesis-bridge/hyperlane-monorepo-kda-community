@@ -21,14 +21,49 @@ import {
 import {
   ChainId,
   ICommand,
+  IKeyPair,
+  ISignFunction,
   IUnsignedCommand,
   Pact,
   createClient,
+  createSignWithKeypair,
+  isSignedTransaction,
 } from '@kadena/client';
+import { genKeyPair, sign } from '@kadena/cryptography-utils';
+import { PactNumber } from '@kadena/pactjs';
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AppService {
+  private readonly pollOptions: { timeout: number; interval: number };
+  private readonly kadenaGasStationModuleName: string;
+  private readonly gasStationGasLimit: number;
+  private readonly gasStationGasPrice: number;
+  private readonly gasStationPayer: string;
+  private readonly keypairSigner: ISignFunction;
+  private readonly keypair: IKeyPair;
+
+  constructor(private readonly configService: ConfigService) {
+    this.pollOptions = {
+      timeout: this.configService.get<number>('POLL_TIMEOUT'),
+      interval: this.configService.get<number>('POLL_INTERVAL'),
+    };
+    this.kadenaGasStationModuleName = this.configService.get<string>(
+      'KADENA_GAS_STATION_MODULE_NAME',
+    );
+    this.gasStationGasLimit = Number(
+      this.configService.get<number>('GAS_STATION_GAS_LIMIT'),
+    );
+    this.gasStationGasPrice = Number(
+      this.configService.get<number>('GAS_STATION_GAS_PRICE'),
+    );
+    this.gasStationPayer = this.configService.get<string>('GAS_STATION_PAYER');
+
+    this.keypair = genKeyPair();
+    this.keypairSigner = createSignWithKeypair(this.keypair);
+  }
+
   async getBlocks(
     host: string,
     network: string,
@@ -231,13 +266,6 @@ export class AppService {
     step: number,
     rollback: boolean,
   ): Promise<ICommandResult> {
-    const pollOptions = {
-      timeout: 60_000, // 60 seconds
-      interval: 5_000, // 5 seconds
-    };
-    const gasStationPayer = 'kadena-xchain-gas';
-    const gasStationGasLimit = 850;
-
     const client = createClient(
       ({ chainId, networkId }: { chainId: ChainId; networkId: string }) =>
         `${host}chainweb/0.0/${networkId}/chain/${chainId}/pact`,
@@ -251,7 +279,7 @@ export class AppService {
         chainId: chain.toString() as ChainId,
       },
       destinationChainId,
-      pollOptions,
+      this.pollOptions,
     );
 
     // 2. Build the continuation transaction
@@ -265,18 +293,32 @@ export class AppService {
       .setNetworkId(network)
       .setMeta({
         chainId: destinationChainId,
-        senderAccount: gasStationPayer,
-        gasLimit: gasStationGasLimit,
-      });
+        senderAccount: this.gasStationPayer,
+        gasLimit: this.gasStationGasLimit,
+      })
+      .addSigner(this.keypair.publicKey, (withCapability: any) => [
+        withCapability(
+          `${this.kadenaGasStationModuleName}.GAS_PAYER`,
+          this.gasStationPayer,
+          new PactNumber(this.gasStationGasLimit).toPactInteger(),
+          this.gasStationGasPrice,
+        ),
+      ]);
+
     const tx = builder.createTransaction();
 
-    // 3. Submit the transaction
-    const finishTransactionDescriptor = await client.submit(tx as ICommand);
+    // 3. Sign the transaction
+    const signedTx = await this.keypairSigner(tx);
 
-    // 4. Poll the status of the transaction
+    // 4. Submit the transaction
+    const finishTransactionDescriptor = await client.submit(
+      signedTx as ICommand,
+    );
+
+    // 5. Poll the status of the transaction
     const result = await client.pollStatus(
       finishTransactionDescriptor,
-      pollOptions,
+      this.pollOptions,
     );
     return result[finishTransactionDescriptor.requestKey];
   }
