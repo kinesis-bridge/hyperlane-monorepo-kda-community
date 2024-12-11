@@ -1,6 +1,6 @@
-FROM node:20-alpine as builder
+FROM node:20-alpine AS builder
 
-ENV NODE_ENV build
+ENV NODE_ENV=build
 
 USER node
 WORKDIR /home/node
@@ -16,8 +16,8 @@ COPY --chown=node:node . .
 RUN yarn build
 
 FROM node:20-alpine
-
-ENV NODE_ENV production
+RUN apk add --no-cache jq
+ENV NODE_ENV=production
 
 USER node
 WORKDIR /home/node
@@ -30,4 +30,5 @@ RUN yarn install --production
 # Copy built application from the builder stage
 COPY --from=builder --chown=node:node /home/node/dist/ ./dist/
 
-CMD ["node", "dist/main.js"]
+ENTRYPOINT ["node"]
+CMD ["dist/main.js"]

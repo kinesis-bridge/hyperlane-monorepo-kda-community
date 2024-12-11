@@ -31,11 +31,12 @@ import {
 } from '@kadena/client';
 import { genKeyPair, sign } from '@kadena/cryptography-utils';
 import { PactNumber } from '@kadena/pactjs';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AppService {
+  private readonly logger = new Logger(AppService.name);
   private readonly pollOptions: { timeout: number; interval: number };
   private readonly kadenaGasStationModuleName: string;
   private readonly gasStationGasLimit: number;
@@ -62,6 +63,22 @@ export class AppService {
 
     this.keypair = genKeyPair();
     this.keypairSigner = createSignWithKeypair(this.keypair);
+
+    this.logConfiguration();
+  }
+
+  private logConfiguration() {
+    const config = {
+      pollOptions: this.pollOptions,
+      kadenaGasStationModuleName: this.kadenaGasStationModuleName,
+      gasStationGasLimit: this.gasStationGasLimit,
+      gasStationGasPrice: this.gasStationGasPrice,
+      gasStationPayer: this.gasStationPayer,
+      keypair: this.keypair,
+    };
+    this.logger.log(
+      `AppService Configuration:\n${JSON.stringify(config, null, 2)}`,
+    );
   }
 
   async getBlocks(
