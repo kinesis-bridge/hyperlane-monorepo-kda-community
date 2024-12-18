@@ -3,6 +3,10 @@ import { IsNotEmpty, IsNumber, IsString, Min } from 'class-validator';
 export class AppConfig {
   @IsNumber()
   @Min(0)
+  CONT_CONFIRMATION_DEPTH: number;
+
+  @IsNumber()
+  @Min(0)
   POLL_TIMEOUT: number;
 
   @IsNumber()

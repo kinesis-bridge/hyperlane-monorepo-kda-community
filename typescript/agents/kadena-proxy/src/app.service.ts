@@ -37,6 +37,7 @@ import { ConfigService } from '@nestjs/config';
 @Injectable()
 export class AppService {
   private readonly logger = new Logger(AppService.name);
+  private readonly contConfirmationDepth: number;
   private readonly pollOptions: { timeout: number; interval: number };
   private readonly kadenaGasStationModuleName: string;
   private readonly gasStationGasLimit: number;
@@ -46,6 +47,9 @@ export class AppService {
   private readonly keypair: IKeyPair;
 
   constructor(private readonly configService: ConfigService) {
+    this.contConfirmationDepth = this.configService.get<number>(
+      'CONT_CONFIRMATION_DEPTH',
+    );
     this.pollOptions = {
       timeout: this.configService.get<number>('POLL_TIMEOUT'),
       interval: this.configService.get<number>('POLL_INTERVAL'),
@@ -69,6 +73,7 @@ export class AppService {
 
   private logConfiguration() {
     const config = {
+      contConfirmationDepth: this.contConfirmationDepth,
       pollOptions: this.pollOptions,
       kadenaGasStationModuleName: this.kadenaGasStationModuleName,
       gasStationGasLimit: this.gasStationGasLimit,
@@ -286,6 +291,7 @@ export class AppService {
     const client = createClient(
       ({ chainId, networkId }: { chainId: ChainId; networkId: string }) =>
         `${host}chainweb/0.0/${networkId}/chain/${chainId}/pact`,
+      { confirmationDepth: this.contConfirmationDepth },
     );
 
     // 1. Create SPV proof
