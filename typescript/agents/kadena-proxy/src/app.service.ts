@@ -121,7 +121,18 @@ export class AppService {
     from: number,
     to: number,
   ): Promise<IEventData[]> {
-    return chainweb.event.range(chainId, from, to, network, host);
+    const events = await chainweb.event.range(chainId, from, to, network, host);
+    if (Logger.isLevelEnabled('debug')) {
+      this.logger.debug(
+        `Fetching events with params:\n${JSON.stringify(
+          { host, network, chainId, from, to },
+          null,
+          2,
+        )}`,
+      );
+      this.logger.debug(`Events: ${JSON.stringify(events)}`);
+    }
+    return events;
   }
 
   async getEventByHash(

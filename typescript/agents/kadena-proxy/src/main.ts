@@ -1,11 +1,12 @@
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { ValidationPipe } from '@nestjs/common';
 import { AllExceptionsFilter } from './all-exceptions.filter';
+import { AppModule } from './app.module';
+import { LogLevel, ValidationPipe } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const logLevels = (process.env.LOG_LEVEL || 'log').split(',') as LogLevel[];
+  const app = await NestFactory.create(AppModule, { logger: logLevels });
   const config = new DocumentBuilder()
     .setTitle('Kadena proxy')
     .setDescription('The kadena-proxy API description')
