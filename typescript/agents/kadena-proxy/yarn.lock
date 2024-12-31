@@ -903,7 +903,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@kadena/chainweb-node-client@npm:0.7.0, @kadena/chainweb-node-client@npm:^0.7.0":
+"@kadena/chainweb-node-client@npm:0.7.0":
   version: 0.7.0
   resolution: "@kadena/chainweb-node-client@npm:0.7.0"
   dependencies:
@@ -911,6 +911,17 @@ __metadata:
     "@kadena/pactjs": "npm:0.4.3"
     cross-fetch: "npm:~3.1.5"
   checksum: 837602b2175b22fdbe9a82dee78a444c14a1475746380792db82c15cad2b669c03168847186f84c3ddb537c41b5cacdd2ca20b03297486fb4a7c937a1cb95335
+  languageName: node
+  linkType: hard
+
+"@kadena/chainweb-node-client@npm:^0.8.0":
+  version: 0.8.0
+  resolution: "@kadena/chainweb-node-client@npm:0.8.0"
+  dependencies:
+    "@kadena/cryptography-utils": "npm:0.4.4"
+    "@kadena/pactjs": "npm:0.4.3"
+    cross-fetch: "npm:~3.1.5"
+  checksum: 6ece20c30d01a46e3c772fc4d2dd9b3ffd11bbaa043289995428d89d94584b37f77b7d867e7bad9f4fd479a47796ccf9d13f7b3f84cf05624a8377f0305fb2f0
   languageName: node
   linkType: hard
 
@@ -5864,7 +5875,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "kadena-proxy@workspace:."
   dependencies:
-    "@kadena/chainweb-node-client": "npm:^0.7.0"
+    "@kadena/chainweb-node-client": "npm:^0.8.0"
     "@kadena/chainwebjs": "npm:^0.1.4"
     "@kadena/client": "npm:^1.15.0"
     "@kadena/client-utils": "npm:^0.11.0"

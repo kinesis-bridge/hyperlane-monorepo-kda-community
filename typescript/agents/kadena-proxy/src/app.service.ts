@@ -4,11 +4,14 @@ import {
   IPollRequestBody,
   IPollResponse,
   send,
-  localRaw,
   IRequestKeys,
   ISendRequestBody,
   LocalRequestBody,
   ICommandResult,
+  ILocalOptions,
+  IPreflightResult,
+  parseResponse,
+  ClientRequestInit,
 } from '@kadena/chainweb-node-client';
 import chainweb from '@kadena/chainwebjs';
 import {
@@ -357,15 +360,84 @@ export class AppService {
     return result[finishTransactionDescriptor.requestKey];
   }
 
+  private stringifyAndMakePOSTRequest<T>(
+    body: T,
+    requestInit?: ClientRequestInit,
+  ) {
+    return {
+      ...requestInit,
+      headers: {
+        'Content-Type': 'application/json',
+        ...requestInit?.headers,
+      },
+      method: 'POST',
+      body: JSON.stringify(body),
+    };
+  }
+
+  private async localRaw(
+    requestBody: LocalRequestBody,
+    apiHost: string,
+    {
+      preflight,
+      signatureVerification,
+      rewindDepth,
+      ...requestInit
+    }: ILocalOptions & {
+      signatureVerification: boolean;
+      preflight: boolean;
+      rewindDepth: number;
+    },
+  ): Promise<IPreflightResult | ICommandResult> {
+    if (Logger.isLevelEnabled('debug')) {
+      this.logger.debug(
+        `Local request with command: ${JSON.stringify(requestBody.cmd, null, 2)}
+and options: ${JSON.stringify(
+          {
+            preflight,
+            signatureVerification,
+            rewindDepth,
+          },
+          null,
+          2,
+        )}`,
+      );
+    }
+
+    const request = this.stringifyAndMakePOSTRequest(requestBody, requestInit);
+    const localUrlWithQueries = new URL(`${apiHost}/api/v1/local`);
+
+    if (rewindDepth < 0) {
+      throw new Error('Rewind depth must be a non-negative integer');
+    }
+
+    if (rewindDepth > 0) {
+      localUrlWithQueries.searchParams.append(
+        'rewindDepth',
+        rewindDepth.toString(),
+      );
+    }
+    localUrlWithQueries.searchParams.append('preflight', preflight.toString());
+    localUrlWithQueries.searchParams.append(
+      'signatureVerification',
+      signatureVerification.toString(),
+    );
+
+    const response = await fetch(localUrlWithQueries.toString(), request);
+    return parseResponse<IPreflightResult | ICommandResult>(response);
+  }
+
   async local(
     requestBody: LocalRequestBody,
     apiHost: string,
     preflight: boolean,
     signatureVerification: boolean,
+    rewindDepth: number,
   ): Promise<ICommandResult> {
-    const rsp = await localRaw(requestBody, apiHost, {
-      signatureVerification: signatureVerification,
-      preflight: preflight,
+    const rsp = await this.localRaw(requestBody, apiHost, {
+      signatureVerification,
+      preflight,
+      rewindDepth,
     });
     if ('preflightResult' in rsp) {
       return rsp.preflightResult;

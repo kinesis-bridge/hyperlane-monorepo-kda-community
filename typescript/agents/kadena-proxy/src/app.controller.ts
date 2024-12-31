@@ -293,6 +293,7 @@ export class AppController {
       body.hostapi,
       body.preflight,
       body.signatureVerification,
+      body.rewindDepth,
     );
   }
 }

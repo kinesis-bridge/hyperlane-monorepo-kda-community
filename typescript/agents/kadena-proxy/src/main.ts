@@ -16,7 +16,18 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
-  app.useGlobalPipes(new ValidationPipe({ transform: true }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      disableErrorMessages: false,
+      validationError: {
+        target: false,
+        value: false,
+      },
+    }),
+  );
   app.useGlobalFilters(new AllExceptionsFilter());
 
   const server = app.getHttpServer();
