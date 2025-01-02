@@ -1,4 +1,4 @@
-use std::{collections::HashMap, num::NonZeroU64};
+use std::collections::HashMap;
 
 use crate::{contract_call::ContractCall, error::KadenaClientError, models::CommandResultDto};
 use tracing::{error, info};
@@ -55,16 +55,4 @@ pub async fn fill_tx_gas_params<C: ContractCall>(
     let mut tx = tx;
     tx.set_gas_limit(gas_limit);
     Ok(tx)
-}
-
-pub async fn call_with_lag<C: ContractCall>(
-    call: C,
-    maybe_lag: Option<NonZeroU64>,
-) -> Result<C, KadenaClientError> {
-    if let Some(_lag) = maybe_lag {
-        // TODO: implement lag
-        Ok(call)
-    } else {
-        Ok(call)
-    }
 }

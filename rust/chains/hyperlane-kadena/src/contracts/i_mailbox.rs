@@ -416,8 +416,11 @@ impl ContractCall for DecodeTokenMessageCall<'_> {
             .map_err(|e| e.into())
     }
 
-    async fn local_typed(&self) -> Result<Self::Output, KadenaClientError> {
-        let mut pact_tm: Value = self.local().await?.result()?;
+    async fn local_typed_impl(
+        &self,
+        rewind_depth: Option<u64>,
+    ) -> Result<Self::Output, KadenaClientError> {
+        let mut pact_tm: Value = self.local(rewind_depth).await?.result()?;
 
         // TODO: remove this when the smart contract side returns correct type formats
 
@@ -512,10 +515,20 @@ impl ContractCall for DeliveredCall<'_> {
             .map_err(|e| e.into())
     }
 
-    async fn local_typed(&self) -> Result<Self::Output, KadenaClientError> {
-        Ok(self.local().await?.result()?.as_bool().ok_or_else(|| {
-            KadenaClientError::TypeConversionError("Failed to convert result to bool".to_string())
-        })?)
+    async fn local_typed_impl(
+        &self,
+        rewind_depth: Option<u64>,
+    ) -> Result<Self::Output, KadenaClientError> {
+        Ok(self
+            .local(rewind_depth)
+            .await?
+            .result()?
+            .as_bool()
+            .ok_or_else(|| {
+                KadenaClientError::TypeConversionError(
+                    "Failed to convert result to bool".to_string(),
+                )
+            })?)
     }
 }
 
@@ -565,10 +578,20 @@ impl ContractCall for NonceCall<'_> {
             .map_err(|e| e.into())
     }
 
-    async fn local_typed(&self) -> Result<Self::Output, KadenaClientError> {
-        Ok(self.local().await?.result()?.as_u64().ok_or_else(|| {
-            KadenaClientError::TypeConversionError("Failed to convert result to u32".to_string())
-        })? as u32)
+    async fn local_typed_impl(
+        &self,
+        rewind_depth: Option<u64>,
+    ) -> Result<Self::Output, KadenaClientError> {
+        Ok(self
+            .local(rewind_depth)
+            .await?
+            .result()?
+            .as_u64()
+            .ok_or_else(|| {
+                KadenaClientError::TypeConversionError(
+                    "Failed to convert result to u32".to_string(),
+                )
+            })? as u32)
     }
 }
 
@@ -692,8 +715,11 @@ impl ContractCall for ProcessCall<'_> {
             .map_err(|e| e.into())
     }
 
-    async fn local_typed(&self) -> Result<Self::Output, KadenaClientError> {
-        let res = self.local().await?.result()?;
+    async fn local_typed_impl(
+        &self,
+        rewind_depth: Option<u64>,
+    ) -> Result<Self::Output, KadenaClientError> {
+        let res = self.local(rewind_depth).await?.result()?;
         Ok(())
     }
 }
@@ -744,8 +770,11 @@ impl ContractCall for RecipientIsmCall<'_> {
             .map_err(|e| e.into())
     }
 
-    async fn local_typed(&self) -> Result<Self::Output, KadenaClientError> {
-        let ism_obj = self.local().await?.result()?;
+    async fn local_typed_impl(
+        &self,
+        rewind_depth: Option<u64>,
+    ) -> Result<Self::Output, KadenaClientError> {
+        let ism_obj = self.local(rewind_depth).await?.result()?;
 
         let ism_namespace = ism_obj["refName"]["namespace"].as_str().ok_or_else(|| {
             KadenaClientError::DeserializationError(serde_json::Error::custom(
@@ -796,7 +825,7 @@ impl IMailbox {
     ) -> Result<ProcessCall, KadenaClientError> {
         let mut pact_tm: Value = self
             .decode_token_message(message.body.clone())
-            .local()
+            .local(None)
             .await?
             .result()?;
 

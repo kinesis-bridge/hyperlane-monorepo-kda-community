@@ -68,8 +68,11 @@ impl ContractCall for AnnounceCall<'_> {
             .map_err(|e| e.into())
     }
 
-    async fn local_typed(&self) -> Result<Self::Output, KadenaClientError> {
-        let res = self.local().await?.result()?;
+    async fn local_typed_impl(
+        &self,
+        rewind_depth: Option<u64>,
+    ) -> Result<Self::Output, KadenaClientError> {
+        let res = self.local(rewind_depth).await?.result()?;
         Ok(())
     }
 }
@@ -130,9 +133,14 @@ impl ContractCall for GetAnnouncedStorageLocationsCall<'_> {
             .map_err(|e| e.into())
     }
 
-    async fn local_typed(&self) -> Result<Self::Output, KadenaClientError> {
-        Ok(serde_json::from_value(self.local().await?.result()?)
-            .map_err(KadenaClientError::from)?)
+    async fn local_typed_impl(
+        &self,
+        rewind_depth: Option<u64>,
+    ) -> Result<Self::Output, KadenaClientError> {
+        Ok(
+            serde_json::from_value(self.local(rewind_depth).await?.result()?)
+                .map_err(KadenaClientError::from)?,
+        )
     }
 }
 

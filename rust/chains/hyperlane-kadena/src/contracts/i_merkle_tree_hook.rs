@@ -129,10 +129,18 @@ impl ContractCall for CountCall<'_> {
             .map_err(|e| e.into())
     }
 
-    async fn local_typed(&self) -> Result<Self::Output, KadenaClientError> {
-        Ok(self.local().await?.result()?.as_u64().ok_or_else(|| {
-            KadenaClientError::TypeConversionError("Count is not a u64".to_string())
-        })? as u32)
+    async fn local_typed_impl(
+        &self,
+        rewind_depth: Option<u64>,
+    ) -> Result<Self::Output, KadenaClientError> {
+        Ok(self
+            .local(rewind_depth)
+            .await?
+            .result()?
+            .as_u64()
+            .ok_or_else(|| {
+                KadenaClientError::TypeConversionError("Count is not a u64".to_string())
+            })? as u32)
     }
 }
 
@@ -182,7 +190,10 @@ impl ContractCall for LatestCheckpointCall<'_> {
             .map_err(|e| e.into())
     }
 
-    async fn local_typed(&self) -> Result<Self::Output, KadenaClientError> {
+    async fn local_typed_impl(
+        &self,
+        rewind_depth: Option<u64>,
+    ) -> Result<Self::Output, KadenaClientError> {
         #[derive(Debug, Deserialize)]
         pub struct LatestCheckpointResponse {
             count: IntObject,
@@ -190,7 +201,7 @@ impl ContractCall for LatestCheckpointCall<'_> {
         }
 
         let latest_checkpoint_response: LatestCheckpointResponse =
-            serde_json::from_value(self.local().await?.result()?)
+            serde_json::from_value(self.local(rewind_depth).await?.result()?)
                 .map_err(KadenaClientError::from)?;
 
         let root_bytes = BASE64_URL_SAFE_NO_PAD
@@ -252,15 +263,19 @@ impl ContractCall for TreeCall<'_> {
             .map_err(|e| e.into())
     }
 
-    async fn local_typed(&self) -> Result<Self::Output, KadenaClientError> {
+    async fn local_typed_impl(
+        &self,
+        rewind_depth: Option<u64>,
+    ) -> Result<Self::Output, KadenaClientError> {
         #[derive(Deserialize, Debug)]
         struct TreeResponse {
             branch: Vec<String>,
             count: IntObject,
         }
 
-        let tree_response: TreeResponse = serde_json::from_value(self.local().await?.result()?)
-            .map_err(KadenaClientError::from)?;
+        let tree_response: TreeResponse =
+            serde_json::from_value(self.local(rewind_depth).await?.result()?)
+                .map_err(KadenaClientError::from)?;
 
         let count = tree_response.count.int as usize;
 

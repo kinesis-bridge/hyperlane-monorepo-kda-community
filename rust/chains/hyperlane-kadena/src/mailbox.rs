@@ -23,7 +23,7 @@ use crate::contracts::i_mailbox::{IMailbox, ProcessCall};
 use crate::KadenaProvider;
 use kadena_client::contract::{self, Contract, KadenaProxyProvider};
 use kadena_client::contract_call::ContractCall;
-use kadena_client::tx::{call_with_lag, fill_tx_gas_params, report_tx};
+use kadena_client::tx::{fill_tx_gas_params, report_tx};
 
 #[derive(Debug, Clone)]
 /// Struct that retrieves event data for an Kadena mailbox
@@ -98,12 +98,16 @@ impl SequenceIndexer<HyperlaneMessage> for KadenaMailboxIndexer {
     async fn sequence_and_tip(&self) -> ChainResult<(Option<u32>, u32)> {
         let tip = Indexer::<HyperlaneMessage>::get_finalized_block_number(self).await?;
 
-        // TODO: block call is not supported yet
-        //let sequence = self.contract.nonce().block(u64::from(tip)).call().await?;
+        let rewind_depth = if self.reorg_period > 0 {
+            Some(self.reorg_period.into())
+        } else {
+            None
+        };
+
         let sequence = self
             .contract
             .nonce()
-            .local_typed()
+            .local_typed_with_rewind_depth(rewind_depth)
             .await
             .map_err(ChainCommunicationError::from_other)?;
 
@@ -226,12 +230,12 @@ impl HyperlaneContract for KadenaMailbox {
 impl Mailbox for KadenaMailbox {
     #[instrument(skip(self))]
     async fn count(&self, maybe_lag: Option<NonZeroU64>) -> ChainResult<u32> {
-        let call = call_with_lag(self.contract.nonce(), maybe_lag)
-            .await
-            .map_err(ChainCommunicationError::from_other)?;
+        let rewind_depth = maybe_lag.map(|lag| lag.get());
 
-        let nonce = call
-            .local_typed()
+        let nonce = self
+            .contract
+            .nonce()
+            .local_typed_with_rewind_depth(rewind_depth)
             .await
             .map_err(ChainCommunicationError::from_other)?;
 

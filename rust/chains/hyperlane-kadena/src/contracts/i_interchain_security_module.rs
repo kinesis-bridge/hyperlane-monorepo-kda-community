@@ -55,11 +55,14 @@ impl ContractCall for ModuleTypeCall<'_> {
             .map_err(|e| e.into())
     }
 
-    async fn local_typed(&self) -> Result<Self::Output, KadenaClientError> {
+    async fn local_typed_impl(
+        &self,
+        rewind_depth: Option<u64>,
+    ) -> Result<Self::Output, KadenaClientError> {
         Ok(self
             .contract
             .module_type()
-            .local()
+            .local(rewind_depth)
             .await?
             .result()?
             .as_u64()
@@ -125,11 +128,14 @@ impl ContractCall for VerifyCall<'_> {
             .map_err(|e| e.into())
     }
 
-    async fn local_typed(&self) -> Result<Self::Output, KadenaClientError> {
+    async fn local_typed_impl(
+        &self,
+        rewind_depth: Option<u64>,
+    ) -> Result<Self::Output, KadenaClientError> {
         Ok(self
             .contract
             .verify(self.metadata.clone(), self.message.clone())
-            .local()
+            .local(rewind_depth)
             .await?
             .result()?
             .as_bool()

@@ -95,12 +95,16 @@ impl SequenceIndexer<MerkleTreeInsertion> for KadenaMerkleTreeHookIndexer {
     async fn sequence_and_tip(&self) -> ChainResult<(Option<u32>, u32)> {
         let tip = Indexer::<MerkleTreeInsertion>::get_finalized_block_number(self).await?;
 
-        // TODO: block call is not supported yet
-        //let sequence = self.contract.nonce().block(u64::from(tip)).call().await?;
+        let rewind_depth = if self.reorg_period > 0 {
+            Some(self.reorg_period.into())
+        } else {
+            None
+        };
+
         let sequence = self
             .contract
             .count()
-            .local_typed()
+            .local_typed_with_rewind_depth(rewind_depth)
             .await
             .map_err(ChainCommunicationError::from_other)?;
 
@@ -160,11 +164,13 @@ impl HyperlaneContract for KadenaMerkleTreeHook {
 #[async_trait]
 impl MerkleTreeHook for KadenaMerkleTreeHook {
     #[instrument(skip(self))]
-    async fn latest_checkpoint(&self, _maybe_lag: Option<NonZeroU64>) -> ChainResult<Checkpoint> {
+    async fn latest_checkpoint(&self, maybe_lag: Option<NonZeroU64>) -> ChainResult<Checkpoint> {
+        let rewind_depth = maybe_lag.map(|lag| lag.get());
+
         let latest_checkpoint = self
             .contract
             .latest_checkpoint()
-            .local_typed()
+            .local_typed_with_rewind_depth(rewind_depth)
             .await
             .map_err(ChainCommunicationError::from_other)?;
 
@@ -173,11 +179,13 @@ impl MerkleTreeHook for KadenaMerkleTreeHook {
 
     #[instrument(skip(self))]
     #[allow(clippy::needless_range_loop)]
-    async fn tree(&self, _maybe_lag: Option<NonZeroU64>) -> ChainResult<IncrementalMerkle> {
+    async fn tree(&self, maybe_lag: Option<NonZeroU64>) -> ChainResult<IncrementalMerkle> {
+        let rewind_depth = maybe_lag.map(|lag| lag.get());
+
         let tree = self
             .contract
             .tree()
-            .local_typed()
+            .local_typed_with_rewind_depth(rewind_depth)
             .await
             .map_err(ChainCommunicationError::from_other)?;
 
@@ -185,11 +193,13 @@ impl MerkleTreeHook for KadenaMerkleTreeHook {
     }
 
     #[instrument(skip(self))]
-    async fn count(&self, _maybe_lag: Option<NonZeroU64>) -> ChainResult<u32> {
+    async fn count(&self, maybe_lag: Option<NonZeroU64>) -> ChainResult<u32> {
+        let rewind_depth = maybe_lag.map(|lag| lag.get());
+
         let count = self
             .contract
             .count()
-            .local_typed()
+            .local_typed_with_rewind_depth(rewind_depth)
             .await
             .map_err(ChainCommunicationError::from_other)?;
 

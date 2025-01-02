@@ -69,14 +69,17 @@ impl ContractCall for ValidatorsAndThresholdCall<'_> {
             .map_err(|e| e.into())
     }
 
-    async fn local_typed(&self) -> Result<Self::Output, KadenaClientError> {
+    async fn local_typed_impl(
+        &self,
+        rewind_depth: Option<u64>,
+    ) -> Result<Self::Output, KadenaClientError> {
         #[derive(Debug, serde::Deserialize)]
         struct ValidatorsAndThresholdJson {
             validators: Vec<String>,
             threshold: HashMap<String, u8>,
         }
 
-        let validators_and_threshold_value = self.local().await?.result()?;
+        let validators_and_threshold_value = self.local(rewind_depth).await?.result()?;
 
         let validators_and_threshold: ValidatorsAndThresholdJson =
             serde_json::from_value(validators_and_threshold_value)

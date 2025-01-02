@@ -54,8 +54,11 @@ impl ContractCall for GetBalanceCall<'_> {
             .map_err(|e| e.into())
     }
 
-    async fn local_typed(&self) -> Result<Self::Output, KadenaClientError> {
-        let rep_res = self.local().await?.result()?;
+    async fn local_typed_impl(
+        &self,
+        rewind_depth: Option<u64>,
+    ) -> Result<Self::Output, KadenaClientError> {
+        let rep_res = self.local(rewind_depth).await?.result()?;
         serde_json::from_value(rep_res).map_err(|e| e.into())
     }
 }
@@ -73,7 +76,7 @@ impl CoinContract {
 
     pub async fn get_balance(&self, account: String) -> Result<PicoKda, KadenaClientError> {
         let get_balanace_call = GetBalanceCall::new(self, account).await;
-        let rep_res = get_balanace_call.local().await?.result()?;
+        let rep_res = get_balanace_call.local(None).await?.result()?;
         serde_json::from_value(rep_res).map_err(|e| e.into())
     }
 }

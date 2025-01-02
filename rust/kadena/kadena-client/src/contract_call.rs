@@ -47,14 +47,40 @@ pub trait ContractCall: Send + Sync {
     }
 
     /// Performs a local call to the blockchain via the proxy.
-    async fn local(&self) -> Result<CommandResultDto, KadenaClientError> {
+    async fn local(
+        &self,
+        rewind_depth: Option<u64>,
+    ) -> Result<CommandResultDto, KadenaClientError> {
         let client = self.proxy_client();
-        let local_body =
-            LocalRequestBodyDto::new(self.cmd().await?, client.hostapi(), false, false);
+        let local_body = LocalRequestBodyDto::new(
+            self.cmd().await?,
+            client.hostapi(),
+            false,
+            false,
+            rewind_depth,
+        );
         client.local(local_body).await
     }
 
-    async fn local_typed(&self) -> Result<Self::Output, KadenaClientError>;
+    /// Implements the local call to the blockchain via the proxy with optional rewind depth
+    /// and returns the typed output.
+    async fn local_typed_impl(
+        &self,
+        rewind_depth: Option<u64>,
+    ) -> Result<Self::Output, KadenaClientError>;
+
+    /// Performs a local call to the blockchain via the proxy and returns the typed output.
+    async fn local_typed(&self) -> Result<Self::Output, KadenaClientError> {
+        self.local_typed_impl(None).await
+    }
+
+    /// Performs a local call to the blockchain via the proxy with rewind depth and returns the typed output.
+    async fn local_typed_with_rewind_depth(
+        &self,
+        rewind_depth: Option<u64>,
+    ) -> Result<Self::Output, KadenaClientError> {
+        self.local_typed_impl(rewind_depth).await
+    }
 
     /// Polls the blockchain via the proxy.
     async fn poll(
@@ -69,7 +95,7 @@ pub trait ContractCall: Send + Sync {
     /// Estimates the gas for this call using local endpoint.
     async fn estimate_gas(&self) -> Result<u64, KadenaClientError> {
         let client = self.proxy_client();
-        let cmd = LocalRequestBodyDto::new(self.cmd().await?, client.hostapi(), true, false);
+        let cmd = LocalRequestBodyDto::new(self.cmd().await?, client.hostapi(), true, false, None);
         let local_rsp = client.local(cmd).await?;
         Ok(local_rsp.gas)
     }
