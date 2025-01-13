@@ -14,6 +14,7 @@ tmp.env
 
 typescript/*/.env
 typescript/*/node_modules
+typescript/agents
 typescript/**/tsconfig.tsbuildinfo
 **/**/tsconfig.tsbuildinfo
 

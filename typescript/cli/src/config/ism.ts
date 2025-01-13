@@ -58,11 +58,18 @@ const TestIsmConfigSchema = z.object({
   type: z.literal(IsmType.TEST_ISM),
 });
 
+const PausableIsmConfigSchema = z.object({
+  type: z.literal(IsmType.PAUSABLE),
+  owner: ZHash,
+  paused: z.boolean(),
+});
+
 const IsmConfigSchema = z.union([
   MultisigIsmConfigSchema,
   RoutingIsmConfigSchema,
   AggregationIsmConfigSchema,
   TestIsmConfigSchema,
+  PausableIsmConfigSchema,
 ]);
 const IsmConfigMapSchema = z.record(IsmConfigSchema).refine(
   (ismConfigMap) => {
