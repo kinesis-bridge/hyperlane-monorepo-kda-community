@@ -310,7 +310,7 @@ export abstract class HyperlaneDeployer<
     contractName: string,
     constructorArgs: Parameters<F['deploy']>,
     initializeArgs?: Parameters<Awaited<ReturnType<F['deploy']>>['initialize']>,
-    shouldRecover = false,
+    shouldRecover = true,
   ): Promise<ReturnType<F['deploy']>> {
     this.logger(`Deploy ${contractName} on ${chain} Cached: ${shouldRecover}`);
     if (shouldRecover) {
@@ -361,7 +361,7 @@ export abstract class HyperlaneDeployer<
     initializeArgs?: Parameters<
       Awaited<ReturnType<Factories[K]['deploy']>>['initialize']
     >,
-    shouldRecover = false,
+    shouldRecover = true,
   ): Promise<HyperlaneContracts<Factories>[K]> {
     const contract = await this.deployContractFromFactory(
       chain,

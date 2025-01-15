@@ -10,7 +10,6 @@ import {
   chainMetadata,
   hyperlaneEnvironments,
 } from '@hyperlane-xyz/sdk';
-import { objFilter, objMap, objMerge } from '@hyperlane-xyz/utils';
 
 import { runDeploymentArtifactStep } from './config/artifacts.js';
 import { readChainConfigsIfExists } from './config/chain.js';
@@ -25,24 +24,7 @@ export function getMergedContractAddresses(
   artifacts?: HyperlaneContractsMap<any>,
   chains?: ChainName[],
 ) {
-  // if chains include non sdkContractAddressesMap chains, don't recover interchainGasPaymaster
-  let sdkContractsAddressesToRecover = sdkContractAddressesMap;
-  if (
-    chains?.some(
-      (chain) => !Object.keys(sdkContractAddressesMap).includes(chain),
-    )
-  ) {
-    sdkContractsAddressesToRecover = objMap(sdkContractAddressesMap, (_, v) =>
-      objFilter(
-        v as ChainMap<any>,
-        (key, v): v is any => key !== 'interchainGasPaymaster',
-      ),
-    );
-  }
-  return objMerge(
-    sdkContractsAddressesToRecover,
-    artifacts || {},
-  ) as HyperlaneContractsMap<any>;
+  return (artifacts || {}) as HyperlaneContractsMap<any>;
 }
 
 interface ContextSettings {

@@ -275,6 +275,8 @@ async function executeDeploy({
   multisigConfigs = {},
   hooksConfig = {},
 }: DeployParams) {
+  logBlue(`Deploying artifacts ${JSON.stringify(artifacts, null, 2)}`);
+
   logBlue('All systems ready, captain! Beginning deployment...');
 
   const [contractsFilePath, agentFilePath] = prepNewArtifactsFiles(outPath, [
