@@ -24,7 +24,7 @@ thiserror.workspace = true
 tokio = { workspace = true, features = ["full"] }
 tracing.workspace = true
 url.workspace = true
-vaultrs = "0.7"
+vaultrs.workspace = true
 
 [dev-dependencies]
 more-asserts = "0.3"

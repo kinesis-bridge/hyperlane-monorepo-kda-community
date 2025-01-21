@@ -39,6 +39,19 @@ pub enum SignerConf {
         /// Prefix for cosmos address
         prefix: String,
     },
+    /// Vault signer
+    Vault {
+        /// Vault address
+        address: url::Url,
+        /// Token to use for authentication
+        token: String,
+        /// Key ID to use for signing
+        key_id: String,
+        /// Namespace
+        namespace: Option<String>,
+        /// Mount point for the transit engine
+        mount: Option<String>,
+    },
     /// Assume node will sign on RPC calls
     #[default]
     Node,
@@ -93,6 +106,7 @@ impl BuildableWithSignerConf for hyperlane_ethereum::Signers {
             SignerConf::CosmosKey { .. } => {
                 bail!("cosmosKey signer is not supported by Ethereum")
             }
+            SignerConf::Vault { .. } => bail!("Vault signer is not supported by Ethereum"),
             SignerConf::Node => bail!("Node signer"),
         })
     }
@@ -174,6 +188,27 @@ impl BuildableWithSignerConf for KadenaSigners {
             SignerConf::HexKey { key } => KadenaSigners::Local(KadenaLocalWallet::new(
                 ed25519_dalek_v2::SigningKey::from_bytes(key.as_bytes().try_into()?),
             )),
+            SignerConf::Vault {
+                address,
+                token,
+                key_id,
+                namespace,
+                mount,
+            } => {
+                let client = vaultrs::client::VaultClient::new(
+                    vaultrs::client::VaultClientSettingsBuilder::default()
+                        .address(address.clone())
+                        .token(token.clone())
+                        .namespace(namespace.clone())
+                        .build()?,
+                )?;
+
+                let mount = mount.clone();
+
+                KadenaSigners::Vault(
+                    hyperlane_kadena::VaultSigner::new(client, key_id, mount).await?,
+                )
+            }
             SignerConf::Aws { .. } => bail!("Aws signer is not supported by kadena"),
             SignerConf::Node => bail!("Node signer is not supported by kadena"),
             SignerConf::CosmosKey { .. } => bail!("Cosmos signer is not supported by kadena"),

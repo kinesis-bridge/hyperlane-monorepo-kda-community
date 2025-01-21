@@ -48,4 +48,10 @@ pub enum KadenaClientError {
 
     #[error("Overflow error")]
     OverflowError,
+
+    #[error("Vault client error: {0}")]
+    VaultError(#[from] vaultrs::error::ClientError),
+
+    #[error("Vault custom error: {0}")]
+    VaultCustomError(String),
 }

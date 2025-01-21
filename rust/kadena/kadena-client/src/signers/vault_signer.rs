@@ -2,13 +2,12 @@ use crate::{error::KadenaClientError, models::CommandDto};
 use async_trait::async_trait;
 use base64::prelude::{Engine as _, BASE64_STANDARD, BASE64_URL_SAFE_NO_PAD};
 use ed25519_dalek::{Signature, VerifyingKey};
-use tracing::instrument;
+use tracing::{info, instrument};
 use vaultrs::{client::VaultClient, transit::data};
 
 pub struct VaultSigner {
     client: VaultClient,
     key_id: String,
-    key_version: Option<u64>,
     mount: String,
     pubkey: VerifyingKey,
 }
@@ -16,26 +15,53 @@ pub struct VaultSigner {
 impl VaultSigner {
     const DEFAULT_TRANSIT_MOUNT: &str = "transit";
 
-    #[instrument(err, skip(client, key_id, key_version, mount), fields(key_id = %key_id.as_ref()))]
-    pub async fn new<K, M, V>(
+    #[instrument(err, skip(client, key_id, mount), fields(key_id = %key_id.as_ref()))]
+    pub async fn new<K, M>(
         client: VaultClient,
         key_id: K,
-        key_version: Option<V>,
         mount: Option<M>,
     ) -> Result<Self, KadenaClientError>
     where
         K: AsRef<str>,
         M: AsRef<str>,
-        V: Into<u64>,
     {
-        let pubkey = VerifyingKey::default();
+        let mount = mount
+            .map(|m| m.as_ref().to_owned())
+            .unwrap_or(Self::DEFAULT_TRANSIT_MOUNT.to_owned());
+        let key_id = key_id.as_ref().to_owned();
+
+        // Get the public key from the vault
+        let read_key_rsp = vaultrs::transit::key::read(&client, &mount, &key_id)
+            .await
+            .map_err(KadenaClientError::from)?;
+
+        let key_data = read_key_rsp.keys;
+
+        let pubkey = match key_data {
+            vaultrs::api::transit::responses::ReadKeyData::Asymmetric(keys) => {
+                let (_, key_entry) = keys.iter().next().ok_or_else(|| {
+                    KadenaClientError::VaultCustomError("No key found".to_string())
+                })?;
+
+                VerifyingKey::from_bytes(
+                    BASE64_STANDARD
+                        .decode(&key_entry.public_key)?
+                        .as_slice()
+                        .try_into()
+                        .unwrap(),
+                )?
+            }
+            _ => {
+                return Err(KadenaClientError::VaultCustomError(
+                    "Key is not an asymmetric key".to_string(),
+                ))
+            }
+        };
+
         Ok(Self {
             client,
-            key_id: key_id.as_ref().to_owned(),
-            key_version: key_version.map(|v| v.into()),
-            mount: mount
-                .map(|m| m.as_ref().to_owned())
-                .unwrap_or(Self::DEFAULT_TRANSIT_MOUNT.to_owned()),
+            key_id,
+            mount,
             pubkey,
         })
     }
@@ -46,7 +72,6 @@ impl std::fmt::Debug for VaultSigner {
         f.debug_struct("VaultSigner")
             .field("address", &self.client.settings.address)
             .field("key_id", &self.key_id)
-            .field("key_version", &self.key_version)
             .field("mount", &self.mount)
             .field("pubkey", &hex::encode(self.pubkey.to_bytes()))
             .finish()

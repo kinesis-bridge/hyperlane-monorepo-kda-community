@@ -183,6 +183,7 @@ tracing-subscriber = { version = "0.3", default-features = false }
 uint = "0.9.5"
 ureq = { version = "2.4", default-features = false }
 url = "2.3"
+vaultrs = "0.7"
 walkdir = "2"
 warp = "0.3"
 which = "4.3"

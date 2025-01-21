@@ -310,12 +310,56 @@ fn parse_signer(signer: ValueParser) -> ConfigResult<SignerConf> {
                 prefix: prefix.to_string(),
             })
         }};
+        (vault) => {{
+            let address = signer
+                .chain(&mut err)
+                .get_key("address")
+                .parse_from_str("Invalid vault address")
+                .end();
+            let token = signer
+                .chain(&mut err)
+                .get_key("token")
+                .parse_string()
+                .unwrap_or_default()
+                .to_owned();
+            let key_id = signer
+                .chain(&mut err)
+                .get_key("keyId")
+                .parse_string()
+                .unwrap_or_default()
+                .to_owned();
+            let namespace = signer
+                .chain(&mut err)
+                .get_opt_key("namespace")
+                .parse_string()
+                .end()
+                .map(|m| m.to_owned());
+            let mount = signer
+                .chain(&mut err)
+                .get_opt_key("mount")
+                .parse_string()
+                .end()
+                .map(|m| m.to_owned());
+
+            if !err.is_ok() {
+                return Err(err);
+            }
+
+            err.into_result(SignerConf::Vault {
+                address: address.unwrap(),
+                token,
+                key_id,
+                namespace,
+                mount,
+            })
+        }};
     }
 
     match signer_type {
         Some("hexKey") => parse_signer!(hexKey),
         Some("aws") => parse_signer!(aws),
         Some("cosmosKey") => parse_signer!(cosmosKey),
+        Some("vault") => parse_signer!(vault),
         Some(t) => {
             Err(eyre!("Unknown signer type `{t}`")).into_config_result(|| &signer.cwp + "type")
         }
