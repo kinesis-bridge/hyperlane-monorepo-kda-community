@@ -148,15 +148,60 @@ pub fn build_kadena_connection_conf(
         });
 
     rpcs.into_iter().next().and_then(|url| {
-        // Validate the URL
+        let url_str = url.as_str();
+
+        // Split URL at "chainweb" and get host part
+        let host_with_scheme = url_str
+            .rsplit("/chainweb/")
+            .next()
+            .map(|_| url_str[..url_str.rfind("/chainweb/").unwrap()].trim_end_matches('/'));
+
+        if host_with_scheme.is_none() {
+            local_err.push(
+                &chain.cwp + "rpc_urls",
+                eyre!("Kadena URL is not valid: chainweb segment not found"),
+            );
+            err.merge(local_err);
+            return None;
+        };
+
+        // Get path segments for validation
         let path_segments: Vec<&str> = url.path_segments().unwrap().collect();
-        if path_segments.len() < 6
-            || path_segments[0] != "chainweb"
-            || path_segments[3] != "chain"
-            || path_segments[4].parse::<u8>().is_err()
-        {
-            local_err.push(&chain.cwp + "rpc_urls", eyre!("Kadena URL is not valid"));
+        let chainweb_pos = path_segments.iter().rposition(|&s| s == "chainweb");
+
+        if chainweb_pos.is_none() {
+            local_err.push(
+                &chain.cwp + "rpc_urls",
+                eyre!("Kadena URL is not valid: chainweb segment not found"),
+            );
+            err.merge(local_err);
+            return None;
         }
+        let chainweb_pos = chainweb_pos.unwrap();
+
+        // Validate remaining segments
+        if path_segments.len() < chainweb_pos + 6 {
+            local_err.push(
+                &chain.cwp + "rpc_urls",
+                eyre!("Invalid Kadena URL: insufficient segments after 'chainweb'"),
+            );
+            err.merge(local_err);
+            return None;
+        }
+
+        if path_segments[chainweb_pos + 3] != "chain"
+            || path_segments[chainweb_pos + 4].parse::<u8>().is_err()
+        {
+            local_err.push(
+                &chain.cwp + "rpc_urls",
+                eyre!("Invalid Kadena URL: invalid chain segments"),
+            );
+            err.merge(local_err);
+            return None;
+        }
+
+        let network_id = path_segments[chainweb_pos + 2];
+        let chain_id: u16 = path_segments[chainweb_pos + 4].parse().unwrap();
 
         if !local_err.is_ok() {
             err.merge(local_err);
@@ -164,9 +209,7 @@ pub fn build_kadena_connection_conf(
         }
 
         // Extract the host, network_id, and chain_id
-        let host_with_scheme = url.as_str().trim_end_matches(url.path());
-        let network_id = path_segments[2];
-        let chain_id: u16 = path_segments[4].parse().unwrap();
+        let host_with_scheme = host_with_scheme.unwrap();
         let kadena_proxy_url = kadena_proxy_url.unwrap();
         let kadena_namespace = kadena_namespace.unwrap().to_owned();
         let account_name = account_name.map(str::to_owned);

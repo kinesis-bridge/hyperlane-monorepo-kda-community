@@ -18,7 +18,12 @@ import { RequestKeysDto } from './dto/out/request-keys.dto';
 import { TransactionElementDto } from './dto/out/transaction-element.dto';
 import { ChainId, ICommandResult, IUnsignedCommand } from '@kadena/client';
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
-import { ApiExtraModels, ApiResponse, getSchemaPath } from '@nestjs/swagger';
+import {
+  ApiExtraModels,
+  ApiResponse,
+  ApiTags,
+  getSchemaPath,
+} from '@nestjs/swagger';
 
 @Controller()
 export class AppController {
@@ -295,5 +300,25 @@ export class AppController {
       body.signatureVerification,
       body.rewindDepth,
     );
+  }
+
+  @Get('health')
+  @ApiTags('health')
+  @ApiResponse({
+    status: 200,
+    description: 'Application health status',
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string' },
+        timestamp: { type: 'string' },
+      },
+    },
+  })
+  async health() {
+    return {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+    };
   }
 }
