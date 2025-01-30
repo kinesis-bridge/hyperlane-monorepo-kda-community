@@ -14,6 +14,7 @@ async fn test_build_tx_success() {
     let client = KadenaProxyClient::new(
         ProxyConf::new_with_url(Url::parse(&server.url()).unwrap()),
         DEFAULT_CONTEXT.chainweb_conf.clone(),
+        DEFAULT_CONTEXT.contracts_conf.clone(),
     );
 
     let build_tx_result = client.build_tx(BuildPactTxDto::default()).await;
@@ -44,6 +45,7 @@ async fn test_build_tx_error() {
     let client = KadenaProxyClient::new(
         ProxyConf::new_with_url(Url::parse(&server.url()).unwrap()),
         DEFAULT_CONTEXT.chainweb_conf.clone(),
+        DEFAULT_CONTEXT.contracts_conf.clone(),
     );
 
     let build_tx_result = client.build_tx(BuildPactTxDto::default()).await;
@@ -75,6 +77,7 @@ async fn test_poll_success() {
     let client = KadenaProxyClient::new(
         ProxyConf::new_with_url(Url::parse(&server.url()).unwrap()),
         DEFAULT_CONTEXT.chainweb_conf.clone(),
+        DEFAULT_CONTEXT.contracts_conf.clone(),
     );
 
     let poll_result = client.poll(PollRequestBodyDto::default()).await;
@@ -107,6 +110,7 @@ async fn test_poll_error() {
     let client = KadenaProxyClient::new(
         ProxyConf::new_with_url(Url::parse(&server.url()).unwrap()),
         DEFAULT_CONTEXT.chainweb_conf.clone(),
+        DEFAULT_CONTEXT.contracts_conf.clone(),
     );
 
     let poll_result = client.poll(PollRequestBodyDto::default()).await;
@@ -251,6 +255,7 @@ async fn test_local_with_continuation_success() {
     let client = KadenaProxyClient::new(
         ProxyConf::new_with_url(Url::parse(&server.url()).unwrap()),
         DEFAULT_CONTEXT.chainweb_conf.clone(),
+        DEFAULT_CONTEXT.contracts_conf.clone(),
     );
 
     let local_result = client.local(LocalRequestBodyDto::default()).await;
@@ -285,6 +290,7 @@ async fn test_local_success() {
     let client = KadenaProxyClient::new(
         ProxyConf::new_with_url(Url::parse(&server.url()).unwrap()),
         DEFAULT_CONTEXT.chainweb_conf.clone(),
+        DEFAULT_CONTEXT.contracts_conf.clone(),
     );
 
     let local_result = client.local(LocalRequestBodyDto::default()).await;
@@ -315,6 +321,7 @@ async fn test_local_error() {
     let client = KadenaProxyClient::new(
         ProxyConf::new_with_url(Url::parse(&server.url()).unwrap()),
         DEFAULT_CONTEXT.chainweb_conf.clone(),
+        DEFAULT_CONTEXT.contracts_conf.clone(),
     );
 
     let local_result = client.local(LocalRequestBodyDto::default()).await;
@@ -339,6 +346,7 @@ async fn test_send_success() {
     let client = KadenaProxyClient::new(
         ProxyConf::new_with_url(Url::parse(&server.url()).unwrap()),
         DEFAULT_CONTEXT.chainweb_conf.clone(),
+        DEFAULT_CONTEXT.contracts_conf.clone(),
     );
     let send_result = client.send(SendRequestBodyDto::default()).await;
     assert!(
@@ -368,6 +376,7 @@ async fn test_send_error() {
     let client = KadenaProxyClient::new(
         ProxyConf::new_with_url(Url::parse(&server.url()).unwrap()),
         DEFAULT_CONTEXT.chainweb_conf.clone(),
+        DEFAULT_CONTEXT.contracts_conf.clone(),
     );
     let send_result = client.send(SendRequestBodyDto::default()).await;
     assert!(
@@ -401,6 +410,7 @@ async fn test_height_success() {
     let client = KadenaProxyClient::new(
         ProxyConf::new_with_url(Url::parse(&server.url()).unwrap()),
         DEFAULT_CONTEXT.chainweb_conf.clone(),
+        DEFAULT_CONTEXT.contracts_conf.clone(),
     );
 
     let height_result = client.height(None).await;
@@ -440,6 +450,7 @@ async fn test_height_error() {
     let client = KadenaProxyClient::new(
         ProxyConf::new_with_url(Url::parse(&server.url()).unwrap()),
         DEFAULT_CONTEXT.chainweb_conf.clone(),
+        DEFAULT_CONTEXT.contracts_conf.clone(),
     );
 
     let height_result = client.height(None).await;

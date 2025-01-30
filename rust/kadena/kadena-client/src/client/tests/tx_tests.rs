@@ -29,6 +29,7 @@ async fn test_tx_by_hash() {
     let client = KadenaProxyClient::new(
         ProxyConf::new_with_url(Url::parse(&server.url()).unwrap()),
         DEFAULT_CONTEXT.chainweb_conf.clone(),
+        DEFAULT_CONTEXT.contracts_conf.clone(),
     );
     let tx_by_hash_result = client.tx_by_hash("123".to_string()).await;
 
@@ -75,6 +76,7 @@ async fn test_tx_by_height() {
     let client = KadenaProxyClient::new(
         ProxyConf::new_with_url(Url::parse(&server.url()).unwrap()),
         DEFAULT_CONTEXT.chainweb_conf.clone(),
+        DEFAULT_CONTEXT.contracts_conf.clone(),
     );
     let tx_by_height_result = client.tx_by_height(123).await;
 
@@ -122,6 +124,7 @@ async fn test_txs() {
     let client = KadenaProxyClient::new(
         ProxyConf::new_with_url(Url::parse(&server.url()).unwrap()),
         DEFAULT_CONTEXT.chainweb_conf.clone(),
+        DEFAULT_CONTEXT.contracts_conf.clone(),
     );
     let txs_result = client.txs(123, 123).await;
 

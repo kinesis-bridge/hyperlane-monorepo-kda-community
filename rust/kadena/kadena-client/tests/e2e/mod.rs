@@ -1,24 +1,17 @@
 pub mod common;
 
-use std::{fmt::format, str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc};
 
 use common::prelude::*;
-use hyperlane_kadena::contracts::{
-    i_mailbox::{DispatchEventData, PactHyperlaneMessage},
-    i_merkle_tree_hook::IMerlkeTreeHook,
-};
+use hyperlane_core::H256;
+use hyperlane_core::{HyperlaneMessage, RawHyperlaneMessage};
 use kadena_client::{
     contract_call::ContractCall,
     contracts::CoinContract,
-    models::{
-        CommandResultDtoResult, DecimalObject, EventDataDto, EventParam, IntObject, ModuleDto,
-    },
+    models::CommandResultDtoResult,
     signers::{LocalWallet, VaultSigner},
-    tx::{self, report_tx},
+    tx::{self},
 };
-use primitive_types::H160;
-use primitive_types::U256;
-use serde::{Deserialize, Serialize};
 
 #[tokio::test]
 pub async fn test_add_two_numbers_local_tx() {
@@ -116,4 +109,52 @@ pub async fn test_get_balance_local_tx() {
         .await
         .unwrap();
     println!("res: {:?}", balance);
+}
+
+// HyperlaneMessage {
+//     id: 0xe82467a0443b516dbec6b206398a20f8febc42817a749753ad347fd1726df3be,
+//     version: 3, nonce: 1, origin: 626,
+//     sender: 0x717a746f683731353275464c75686a4747796a374e6c3166383878525764422d,
+//     destination: ethereum,
+//     recipient: 0x9412e035f571d1a44058112e47ffe2ca6e36bbb7,
+//     body: 0x0000000000000000000000000000000000000000000000000000000ba43b740000000000000000000000000000006dd5c9def68e8c48802210930d8fe3b7fef93f78
+// }
+
+// /// 1   Hyperlane version number
+// pub version: u8,
+// /// 4   Message nonce
+// pub nonce: u32,
+// /// 4   Origin domain ID
+// pub origin: u32,
+// /// 32  Address in origin convention
+// pub sender: H256,
+// /// 4   Destination domain ID
+// pub destination: u32,
+// /// 32  Address in destination convention
+// pub recipient: H256,
+// /// 0+  Message contents
+// pub body: Vec<u8>,
+
+#[tokio::test]
+pub async fn test_validators_and_threshold() {
+    let body_str = "0000000000000000000000000000000000000000000000000000000ba43b740000000000000000000000000000006dd5c9def68e8c48802210930d8fe3b7fef93f78";
+    let body = hex::decode(body_str).unwrap();
+
+    let h_message = HyperlaneMessage {
+        version: 3,
+        nonce: 1,
+        origin: 626,
+        sender: H256::from_str("717a746f683731353275464c75686a4747796a374e6c3166383878525764422d")
+            .unwrap(),
+        destination: 1,
+        recipient: H256::from_str(
+            "0000000000000000000000009412e035f571d1a44058112e47ffe2ca6e36bbb7",
+        )
+        .unwrap(),
+        body,
+    };
+
+    let raw_h_message = RawHyperlaneMessage::from(&h_message);
+
+    println!("raw_h_message: {:?}", hex::encode(raw_h_message.to_vec()));
 }

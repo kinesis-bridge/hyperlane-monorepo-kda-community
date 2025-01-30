@@ -9,6 +9,7 @@ use once_cell::sync::Lazy;
 
 struct DefaultContext {
     chainweb_conf: ChainwebConf,
+    contracts_conf: ContractsConf,
 }
 
 static DEFAULT_CONTEXT: Lazy<DefaultContext> = Lazy::new(|| {
@@ -17,5 +18,9 @@ static DEFAULT_CONTEXT: Lazy<DefaultContext> = Lazy::new(|| {
         network_id: "development".to_owned(),
         chain_id: 0,
     };
-    DefaultContext { chainweb_conf }
+    let contracts_conf = ContractsConf::new("foo".to_string(), None);
+    DefaultContext {
+        chainweb_conf,
+        contracts_conf,
+    }
 });

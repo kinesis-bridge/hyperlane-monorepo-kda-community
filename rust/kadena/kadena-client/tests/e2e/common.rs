@@ -2,11 +2,12 @@ pub mod prelude {
     use async_trait::async_trait;
     use ed25519_dalek::SigningKey;
     use kadena_client::{
-        client::{ChainwebConf, KadenaProxyClient, ProxyConf},
+        client::{ChainwebConf, ContractsConf, KadenaProxyClient, ProxyConf},
         contract::{Contract, KadenaProxyProvider},
         contract_call::ContractCall,
         error::KadenaClientError,
         models::CommandDto,
+        models::CommandResultDto,
         signers::Signer,
     };
     pub use more_asserts::*;
@@ -51,6 +52,7 @@ pub mod prelude {
 
     #[async_trait]
     impl ContractCall for AddTwoNumbersCall<'_> {
+        type Output = CommandResultDto;
         fn contract(&self) -> &dyn Contract {
             self.contract
         }
@@ -68,6 +70,14 @@ pub mod prelude {
                 .build_pact_tx_with_expr(&format!("(+ {} {})", self.a, self.b), self.gas_limit)
                 .await
                 .map_err(|e| e.into())
+        }
+
+        async fn local_typed_impl(
+            &self,
+            rewind_depth: Option<u64>,
+        ) -> Result<Self::Output, KadenaClientError> {
+            let res = self.local(rewind_depth).await?;
+            Ok(res)
         }
     }
 
@@ -126,9 +136,13 @@ pub mod prelude {
         let chain_id = dotenvy::var("CHAIN_ID").unwrap().parse().unwrap();
         let rpc_url = dotenvy::var("RPC_URL").unwrap().parse().unwrap();
 
+        let namespace = dotenvy::var("NAMESPACE").unwrap_or_default();
+        let account_name = dotenvy::var("ACCOUNT_NAME").ok();
+
         let proxy_client = KadenaProxyClient::new(
             ProxyConf::new_with_url(kadena_proxy_url),
             ChainwebConf::new(rpc_url, network_id, chain_id),
+            ContractsConf::new(namespace, account_name),
         );
 
         Context {
