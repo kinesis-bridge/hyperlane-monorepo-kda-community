@@ -85,6 +85,7 @@ pub struct GetAnnouncedStorageLocationsCall<'a> {
 
 impl GetAnnouncedStorageLocationsCall<'_> {
     const METHOD_NAME: &'static str = "get-announced-storage-locations";
+    const GAS_LIMIT: u64 = 300_000;
     pub fn new(
         contract: &IValidatorAnnounce,
         validators: Vec<[u8; 20]>,
@@ -92,7 +93,7 @@ impl GetAnnouncedStorageLocationsCall<'_> {
         GetAnnouncedStorageLocationsCall {
             contract,
             validators,
-            gas_limit: None,
+            gas_limit: Some(Self::GAS_LIMIT),
         }
     }
 }
