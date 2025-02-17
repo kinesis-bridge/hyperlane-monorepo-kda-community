@@ -11,7 +11,7 @@ use kadena_client::{
     error::KadenaClientError,
     event::{Event, EventData},
     models::{CommandDto, EventDataDto, EventParamMonoType, EventParamType, VerifierDto},
-    pact::IntObject,
+    pact::{IntObject, PactValue},
 };
 
 use base64::prelude::{Engine as _, BASE64_URL_SAFE_NO_PAD};
@@ -582,16 +582,8 @@ impl ContractCall for NonceCall<'_> {
         &self,
         rewind_depth: Option<u64>,
     ) -> Result<Self::Output, KadenaClientError> {
-        Ok(self
-            .local(rewind_depth)
-            .await?
-            .result()?
-            .as_u64()
-            .ok_or_else(|| {
-                KadenaClientError::TypeConversionError(
-                    "Failed to convert result to u32".to_string(),
-                )
-            })? as u32)
+        let res_value = &PactValue::deserialize(self.local(rewind_depth).await?.result()?)?;
+        res_value.try_into()
     }
 }
 

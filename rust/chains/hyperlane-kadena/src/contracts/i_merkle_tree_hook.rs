@@ -12,7 +12,7 @@ use kadena_client::{
     error::KadenaClientError,
     event::{Event, EventData},
     models::{CommandDto, EventDataDto, EventParamMonoType, EventParamType},
-    pact::IntObject,
+    pact::{IntObject, PactValue},
 };
 use serde::Deserialize;
 
@@ -133,14 +133,8 @@ impl ContractCall for CountCall<'_> {
         &self,
         rewind_depth: Option<u64>,
     ) -> Result<Self::Output, KadenaClientError> {
-        Ok(self
-            .local(rewind_depth)
-            .await?
-            .result()?
-            .as_u64()
-            .ok_or_else(|| {
-                KadenaClientError::TypeConversionError("Count is not a u64".to_string())
-            })? as u32)
+        let res_value = &PactValue::deserialize(self.local(rewind_depth).await?.result()?)?;
+        res_value.try_into()
     }
 }
 

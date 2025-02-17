@@ -10,6 +10,7 @@ use kadena_client::{
     contract_call::ContractCall,
     error::KadenaClientError,
     models::CommandDto,
+    pact::IntObject,
 };
 
 use super::PactHyperlaneMessage;
@@ -76,7 +77,7 @@ impl ContractCall for ValidatorsAndThresholdCall<'_> {
         #[derive(Debug, serde::Deserialize)]
         struct ValidatorsAndThresholdJson {
             validators: Vec<String>,
-            threshold: HashMap<String, u8>,
+            threshold: IntObject,
         }
 
         let validators_and_threshold_value = self.local(rewind_depth).await?.result()?;
@@ -101,16 +102,9 @@ impl ContractCall for ValidatorsAndThresholdCall<'_> {
             })
             .collect::<Result<Vec<H256>, KadenaClientError>>()?;
 
-        let threshhold = validators_and_threshold
-            .threshold
-            .iter()
-            .next()
-            .ok_or(KadenaClientError::TypeConversionError(
-                "Threshold not found".to_string(),
-            ))?
-            .1;
+        let threshhold = validators_and_threshold.threshold.int as u8;
 
-        Ok((decoded_validators, *threshhold))
+        Ok((decoded_validators, threshhold))
     }
 }
 

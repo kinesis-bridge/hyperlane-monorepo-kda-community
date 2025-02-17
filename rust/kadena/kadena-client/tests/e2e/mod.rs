@@ -2,15 +2,22 @@
 
 pub mod common;
 
+use std::num::NonZeroU64;
 use std::{str::FromStr, sync::Arc};
 
+use base64::prelude::{Engine as _, BASE64_URL_SAFE_NO_PAD};
 use common::prelude::*;
 use hyperlane_core::{
-    HyperlaneDomain, HyperlaneDomainProtocol, HyperlaneDomainType, ValidatorAnnounce, H160, H256,
+    HyperlaneDomain, HyperlaneDomainProtocol, HyperlaneDomainType, MerkleTreeHook, MultisigIsm,
+    ValidatorAnnounce, H160, H256,
 };
 use hyperlane_core::{HyperlaneMessage, RawHyperlaneMessage};
+use hyperlane_kadena::contracts::i_mailbox::IMailbox;
 use hyperlane_kadena::contracts::i_multisig_ism::{IMultisigIsm, ValidatorsAndThresholdCall};
-use hyperlane_kadena::{ConnectionConf, KadenaProvider, KadenaValidatorAnnounce};
+use hyperlane_kadena::{
+    ConnectionConf, KadenaMerkleTreeHook, KadenaMultisigIsm, KadenaProvider,
+    KadenaValidatorAnnounce,
+};
 use kadena_client::client::{ChainwebConf, ContractsConf, KadenaProxyClient, ProxyConf};
 use kadena_client::{
     contract_call::ContractCall,
@@ -20,6 +27,7 @@ use kadena_client::{
     tx::{self},
 };
 use vaultrs::database::connection;
+use vaultrs::sys::wrapping::unwrap;
 
 #[tokio::test]
 pub async fn test_add_two_numbers_local_tx() {
@@ -168,7 +176,69 @@ pub async fn test_validators_and_threshold() {
 }
 
 #[tokio::test]
-pub async fn test_checkpoints_syncer() {
+pub async fn test_decode_tm() {
+    let body_str = "0000000000000000000000000000000000000000000000000000000ba43b740000000000000000000000000000006dd5c9def68e8c48802210930d8fe3b7fef93f78";
+    let body = hex::decode(body_str).unwrap();
+
+    let h_message = HyperlaneMessage {
+        version: 3,
+        nonce: 1,
+        origin: 626,
+        sender: H256::from_str("717a746f683731353275464c75686a4747796a374e6c3166383878525764422d")
+            .unwrap(),
+        destination: 1,
+        recipient: H256::from_str(
+            "0000000000000000000000009412e035f571d1a44058112e47ffe2ca6e36bbb7",
+        )
+        .unwrap(),
+        body: body.clone(),
+    };
+
+    let kadena_domain = HyperlaneDomain::Unknown {
+        domain_id: 626,
+        domain_name: "kadena".to_string(),
+        domain_type: HyperlaneDomainType::Unknown,
+        domain_protocol: HyperlaneDomainProtocol::Kadena,
+    };
+
+    let kadena_proxy_url = "http://localhost:3000".parse().unwrap();
+    let rpc_url = "http://127.0.0.1:8080".parse().unwrap();
+    let network_id = "development".to_string();
+    let chain_id = 2;
+    let namespace = "n_9b079bebc8a0d688e4b2f4279a114148d6760edf".to_string();
+
+    let connection_conf = &ConnectionConf {
+        url: rpc_url,
+        network_id,
+        chain_id,
+        kadena_proxy_url: kadena_proxy_url,
+        kadena_namespace: namespace,
+        account_name: None,
+    };
+
+    let kadena_provider = Arc::new(KadenaProvider::new(
+        kadena_domain,
+        Arc::new(connection_conf.into()),
+        Arc::new(LocalWallet::new(CONTEXT.default_privkey.clone())),
+    ));
+
+    let mailbox_contract = IMailbox::new(kadena_provider.clone());
+
+    println!("body is {}", BASE64_URL_SAFE_NO_PAD.encode(&body));
+
+    let res = mailbox_contract
+        .decode_token_message(body.clone())
+        .local(None)
+        .await
+        .unwrap()
+        .result()
+        .unwrap();
+
+    println!("res: {:?}", res);
+}
+
+#[tokio::test]
+pub async fn test_count() {
     let body_str = "0000000000000000000000000000000000000000000000000000000ba43b740000000000000000000000000000006dd5c9def68e8c48802210930d8fe3b7fef93f78";
     let body = hex::decode(body_str).unwrap();
 
@@ -194,10 +264,10 @@ pub async fn test_checkpoints_syncer() {
     };
 
     let kadena_proxy_url = "http://localhost:3000".parse().unwrap();
-    let rpc_url = "https://api.chainweb.com".parse().unwrap();
-    let network_id = "mainnet01".to_string();
+    let rpc_url = "http://127.0.0.1:8080".parse().unwrap();
+    let network_id = "development".to_string();
     let chain_id = 2;
-    let namespace = "n_e595727b657fbbb3b8e362a05a7bb8d12865c1ff".to_string();
+    let namespace = "n_9b079bebc8a0d688e4b2f4279a114148d6760edf".to_string();
 
     let connection_conf = ConnectionConf {
         url: rpc_url,
@@ -208,20 +278,14 @@ pub async fn test_checkpoints_syncer() {
         account_name: None,
     };
 
-    let validator_announce = KadenaValidatorAnnounce::new(
+    let vals_and_t = KadenaMultisigIsm::new(
         &connection_conf,
         &kadena_domain,
         Arc::new(LocalWallet::new(CONTEXT.default_privkey.clone())),
     );
 
-    let validators = [
-        H256::from(H160::from_str("0x19F8D12896cc59Fe8b8A22EaEE30DD41eeD29B65").unwrap()),
-        H256::from(H160::from_str("0x31d0Aa53E7ed9F22B4ADFDAA35d2EE0f87f525Bf").unwrap()),
-        H256::from(H160::from_str("0xd0580422B83e07ab502F79736bD2E62a8E9f5b06").unwrap()),
-    ];
-
-    let res = validator_announce
-        .get_announced_storage_locations(validators.as_ref())
+    let res = vals_and_t
+        .validators_and_threshold(&h_message)
         .await
         .unwrap();
 

@@ -7,7 +7,10 @@ use kadena_client::{
     contract_call::ContractCall,
     error::KadenaClientError,
     models::CommandDto,
+    pact::PactValue,
 };
+
+use serde::Deserialize;
 
 pub struct ModuleTypeCall<'a> {
     contract: &'a IInterchainSecurityModule,
@@ -59,16 +62,8 @@ impl ContractCall for ModuleTypeCall<'_> {
         &self,
         rewind_depth: Option<u64>,
     ) -> Result<Self::Output, KadenaClientError> {
-        Ok(self
-            .contract
-            .module_type()
-            .local(rewind_depth)
-            .await?
-            .result()?
-            .as_u64()
-            .ok_or(KadenaClientError::TypeConversionError(
-                "Module type is not a u64".to_string(),
-            ))? as u8)
+        let res_value = &PactValue::deserialize(self.local(rewind_depth).await?.result()?)?;
+        res_value.try_into()
     }
 }
 
