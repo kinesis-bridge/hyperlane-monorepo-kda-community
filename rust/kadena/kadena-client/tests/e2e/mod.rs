@@ -177,7 +177,8 @@ pub async fn test_validators_and_threshold() {
 
 #[tokio::test]
 pub async fn test_decode_tm() {
-    let body_str = "0000000000000000000000000000000000000000000000000000000ba43b740000000000000000000000000000006dd5c9def68e8c48802210930d8fe3b7fef93f78";
+    let body_str = "00000000000000000000000000000000000000000000000007b5bad595e238e300027b2270726564223a226b6579732d616c6c222c226b657973223a5b2265356462333539373366353434363432636238623135333963623862646630333963666531316535663765313132376131343662643261366431336432386334225d7d";
+    //let body_str = "00000000000000000000000000000000000000000000000006f05b59d3b2000000027b2270726564223a226b6579732d616c6c222c226b657973223a5b2265356462333539373366353434363432636238623135333963623862646630333963666531316535663765313132376131343662643261366431336432386334225d7d";
     let body = hex::decode(body_str).unwrap();
 
     let h_message = HyperlaneMessage {
@@ -226,7 +227,7 @@ pub async fn test_decode_tm() {
 
     println!("body is {}", BASE64_URL_SAFE_NO_PAD.encode(&body));
 
-    let res = mailbox_contract
+    let mut pact_tm = mailbox_contract
         .decode_token_message(body.clone())
         .local(None)
         .await
@@ -234,7 +235,18 @@ pub async fn test_decode_tm() {
         .result()
         .unwrap();
 
-    println!("res: {:?}", res);
+    println!("pact tm before : {:?}", pact_tm);
+
+    if let serde_json::Value::Number(ref num) = pact_tm["amount"] {
+        if num.is_u64() {
+            let amount = num.as_u64().unwrap();
+            pact_tm["amount"] = serde_json::json!(amount as f64);
+        } else if num.is_i64() {
+            panic!("Amount is negative");
+        }
+    };
+
+    println!("pact tm: {:?}", pact_tm);
 }
 
 #[tokio::test]

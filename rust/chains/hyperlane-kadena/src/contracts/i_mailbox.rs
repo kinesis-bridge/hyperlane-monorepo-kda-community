@@ -822,25 +822,18 @@ impl IMailbox {
             .result()?;
 
         // TODO: remove this when the smart contract side returns correct type formats
-
         // Convert amount from u64 to f64 as it's expected in the smart contract
-        match pact_tm["amount"] {
-            Value::Number(ref num) => {
-                if num.is_u64() {
-                    let amount = num.as_u64().unwrap();
-                    pact_tm["amount"] = json!(amount as f64);
-                } else if num.is_i64() {
-                    return Err(KadenaClientError::DeserializationError(
-                        serde_json::Error::custom("Amount is negative"),
-                    ));
-                }
-            }
-            _ => {
+        // Passthough other types
+        if let Value::Number(ref num) = pact_tm["amount"] {
+            if num.is_u64() {
+                let amount = num.as_u64().unwrap();
+                pact_tm["amount"] = json!(amount as f64);
+            } else if num.is_i64() {
                 return Err(KadenaClientError::DeserializationError(
-                    serde_json::Error::custom("Failed to parse amount as u64"),
+                    serde_json::Error::custom("Amount is negative"),
                 ));
             }
-        };
+        }
 
         info!("Process Pact TM: {:?}", pact_tm);
 
