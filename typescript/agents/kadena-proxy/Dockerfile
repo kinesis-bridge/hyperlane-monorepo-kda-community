@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:23-slim AS builder
 
 ENV NODE_ENV=build
 
@@ -6,7 +6,8 @@ USER node
 WORKDIR /home/node
 
 # Copy package.json with correct ownership
-COPY --chown=node:node package.json ./
+COPY --chown=node:node package.json yarn.lock ./
+
 # Install all dependencies, including development dependencies
 RUN yarn install
 
@@ -15,15 +16,20 @@ COPY --chown=node:node . .
 # Build the application
 RUN yarn build
 
-FROM node:20-alpine
-RUN apk add --no-cache jq
+FROM node:23-slim
+
+# Use apt-get instead of apk to install jq
+USER root
+RUN apt-get update && apt-get install -y jq && apt-get clean
+
 ENV NODE_ENV=production
 
 USER node
 WORKDIR /home/node
 
 # Copy package.json with correct ownership
-COPY --chown=node:node package.json ./
+COPY --chown=node:node package.json yarn.lock ./
+
 # Install only production dependencies
 RUN yarn install --production
 
