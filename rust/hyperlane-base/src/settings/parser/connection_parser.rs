@@ -152,9 +152,8 @@ pub fn build_kadena_connection_conf(
 
         // Split URL at "chainweb" and get host part
         let host_with_scheme = url_str
-            .rsplit("/chainweb/")
-            .next()
-            .map(|_| url_str[..url_str.rfind("/chainweb/").unwrap()].trim_end_matches('/'));
+            .rfind("/chainweb/")
+            .map(|pos| url_str[..pos].trim_end_matches('/'));
 
         if host_with_scheme.is_none() {
             local_err.push(
