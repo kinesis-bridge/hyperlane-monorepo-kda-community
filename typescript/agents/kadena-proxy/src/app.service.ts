@@ -292,6 +292,16 @@ export class AppService {
     requestBody: ISendRequestBody,
     apiHost: string,
   ): Promise<IRequestKeys> {
+    if (Logger.isLevelEnabled('debug')) {
+      this.logger.debug(
+        `Local request with command: ${JSON.stringify(
+          requestBody.cmds,
+          null,
+          2,
+        )}`,
+      );
+    }
+
     return send(requestBody, apiHost);
   }
 
