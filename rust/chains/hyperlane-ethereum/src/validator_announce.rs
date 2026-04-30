@@ -10,7 +10,7 @@ use hyperlane_core::{
     Announcement, ChainResult, ContractLocator, HyperlaneAbi, HyperlaneChain, HyperlaneContract,
     HyperlaneDomain, HyperlaneProvider, SignedType, TxOutcome, ValidatorAnnounce, H160, H256, U256,
 };
-use tracing::{instrument, log::trace};
+use tracing::{instrument, log::trace, info};
 
 use crate::{
     contracts::i_validator_announce::{
@@ -136,15 +136,15 @@ where
 
     #[instrument(ret, skip(self))]
     async fn announce_tokens_needed(&self, announcement: SignedType<Announcement>) -> Option<U256> {
-        let validator = announcement.value.validator;
-        let eth_h160: ethers::types::H160 = validator.into();
+        let sender = self.provider.default_sender()?;
+        info!("Sender: {:?}", sender);
 
         let Ok(contract_call) = self.announce_contract_call(announcement, None).await else {
             trace!("Unable to get announce contract call");
             return None;
         };
 
-        let Ok(balance) = self.provider.get_balance(eth_h160, None).await else {
+        let Ok(balance) = self.provider.get_balance(sender, None).await else {
             trace!("Unable to query balance");
             return None;
         };
