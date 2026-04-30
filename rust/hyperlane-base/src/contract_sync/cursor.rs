@@ -260,7 +260,7 @@ impl<T: Sequenced> ContractSyncCursor<T> for ForwardSequenceSyncCursor<T> {
             Ok((CursorAction::Query(range), eta))
         } else {
             // TODO: Define the sleep time from interval flag
-            Ok((CursorAction::Sleep(Duration::from_secs(5)), eta))
+            Ok((CursorAction::Sleep(Duration::from_secs(60)), eta))
         }
     }
 
@@ -440,7 +440,7 @@ impl<T: Sequenced> ContractSyncCursor<T> for ForwardBackwardSequenceSyncCursor<T
             return Ok((CursorAction::Query(backward_range), eta));
         }
         // TODO: Define the sleep time from interval flag
-        return Ok((CursorAction::Sleep(Duration::from_secs(5)), eta));
+        return Ok((CursorAction::Sleep(Duration::from_secs(60)), eta));
     }
 
     fn latest_block(&self) -> u32 {
@@ -582,7 +582,7 @@ where
         }
 
         // TODO: Define the sleep time from interval flag
-        Ok((CursorAction::Sleep(Duration::from_secs(5)), eta))
+        Ok((CursorAction::Sleep(Duration::from_secs(60)), eta))
     }
 
     fn latest_block(&self) -> u32 {
