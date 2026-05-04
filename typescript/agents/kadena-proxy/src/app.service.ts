@@ -241,7 +241,7 @@ export class AppService {
         chainId: chainId.toString() as ChainId,
         senderAccount: senderAccount,
         gasLimit: gasLimit,
-        creationTime: creationTime() - 28800,
+        creationTime: creationTime() - 180,
         ttl: 30000,
       })
       .setNetworkId(network);
