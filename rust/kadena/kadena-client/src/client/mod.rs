@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-
+use std::time::Duration;
 use url::Url;
 
 use crate::{
@@ -41,7 +41,12 @@ impl KadenaProxyClient {
         contracts_conf: ContractsConf,
     ) -> Self {
         KadenaProxyClient {
-            reqwest_client: reqwest::Client::new(),
+            reqwest_client: reqwest::Client::builder()
+                                             .timeout(Duration::from_secs(60))
+                                             .tcp_keepalive(Some(Duration::from_secs(10)))
+                                             .pool_max_idle_per_host(2)
+                                             .pool_idle_timeout(Duration::from_secs(90))
+                                             .build().unwrap(),
             proxy_conf,
             chainweb_conf,
             contracts_conf,
