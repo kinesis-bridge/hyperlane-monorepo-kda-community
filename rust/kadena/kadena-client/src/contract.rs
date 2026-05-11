@@ -10,7 +10,7 @@ use async_trait::async_trait;
 use std::sync::Arc;
 
 const CONFIRMATION_DEPTH: u64 = 0;
-pub const DEFAULT_GAS_LIMIT: u64 = 100_000;
+pub const DEFAULT_GAS_LIMIT: u64 = 150_000;
 
 #[async_trait]
 pub trait KadenaProxyProvider {

@@ -4,7 +4,7 @@ use crate::{contract_call::ContractCall, error::KadenaClientError, models::Comma
 use tracing::{error, info};
 
 /// Buffer to add to gas estimate
-const GAS_ESTIMATE_BUFFER: u64 = 50000;
+const GAS_ESTIMATE_BUFFER: u64 = 1000;
 
 /// Number of times to retry polling
 const POLL_RETRY_COUNT: u8 = 10;
