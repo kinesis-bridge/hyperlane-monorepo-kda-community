@@ -9,7 +9,11 @@ use crate::{
 use async_trait::async_trait;
 use std::sync::Arc;
 
-const CONFIRMATION_DEPTH: u64 = 0;
+/* Since the proxy returns the height of chain 0, and not the considered chain, it's safe
+   a couple of confirmation here to be sure the indexer doesn't miss blocks. Moreover, height can jump
+   in case of a reorg.. So take a little bit of headroom */
+const HEIGHT_CONFIRMATION_DEPTH: u64 = 3;
+
 pub const DEFAULT_GAS_LIMIT: u64 = 150_000;
 
 #[async_trait]
@@ -29,7 +33,7 @@ pub trait KadenaProxyProvider {
 
     /// Returns the block number for this provider with confirmation depth.
     async fn get_block_number(&self) -> Result<u64, KadenaClientError> {
-        self.proxy_client().height(Some(CONFIRMATION_DEPTH)).await
+        self.proxy_client().height(Some(HEIGHT_CONFIRMATION_DEPTH)).await
     }
 }
 
